@@ -7,6 +7,21 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { toon, outline } from './toon.js';
 
 const loader = new GLTFLoader();
+
+// count in-flight GLB loads so boot can wait for them (and their shader compiles) before enabling Start
+let pending = 0;
+const idleWaiters = [];
+const rawLoad = loader.load.bind(loader);
+loader.load = (url, onLoad, onProgress, onError) => {
+  pending++;
+  let done = false;
+  const finish = () => { if (done) return; done = true; if (--pending === 0) idleWaiters.splice(0).forEach((r) => r()); };
+  rawLoad(url, (g) => { try { onLoad(g); } finally { finish(); } }, onProgress, (e) => { try { onError?.(e); } finally { finish(); } });
+};
+/** number of model files still loading */
+export const pendingModels = () => pending;
+/** resolves once no model file is loading */
+export const modelsIdle = () => (pending === 0 ? Promise.resolve() : new Promise((r) => idleWaiters.push(r)));
 const cache = new Map();
 const BASE = import.meta.env.BASE_URL + 'assets/models/';
 

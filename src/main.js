@@ -1,6 +1,6 @@
 // Euphoria Adventure — open-world action RPG prototype (web first, mobile later).
 import * as THREE from 'three';
-import { applyKit } from './assets.js';
+import { applyKit, pendingModels, modelsIdle } from './assets.js';
 import { World, LOC } from './world.js';
 import { Player } from './player.js';
 import { PurrBot, makeMora, makeFidelia } from './characters.js';
@@ -122,6 +122,7 @@ class Game {
     this.chestTotal = this.state.chestTotal;
 
     addEventListener('resize', () => {
+      this._redrawFrozen = true; // canvas is cleared on resize: redraw the frozen frame once
       this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
       this.graphics.resize();
       this.map?.resize();
@@ -887,6 +888,7 @@ class Game {
   // ======================================================================
   applyGfx(level, user = false) {
     this.gfx = level;
+    this._redrawFrozen = true;
     const P = PRESETS[level];
     this.graphics.apply(level);
     const sun = this.world.sun;
@@ -985,16 +987,28 @@ class Game {
   /** test hook: advance the simulation without rendering (fixed 30 Hz steps) */
   debugStep(seconds) { const n = Math.round(seconds * 30); for (let i = 0; i < n; i++) this._tick(1 / 30); }
 
+  /** a full-screen UI panel covers the world (menu, wish/artifact/spire/bounty modals, world map, kitchen) */
+  _overlayOpen() {
+    if (!this._overlays) this._overlays = [$('menu'), ...document.querySelectorAll('.custom-modal')];
+    return this._overlays.some((m) => !m.classList.contains('hidden')) || !!this.map?.active || !!this.cooking?.active;
+  }
+
   _loop() {
     requestAnimationFrame(this._loop);
+    // phones on the title screen: draw at ~30 FPS so taps on the start button get through quickly
+    if (!this.playing && this.input.touch) { this._titleSkip = !this._titleSkip; if (this._titleSkip) return; }
     const raw = this.clock.getDelta();
     const dt = Math.min(raw, 0.05);
-    if (!this.paused) this._autoGfx(raw);
-    if (this.paused) {
-      if (this.photo?.active) this.photo.updateCamera();
-      this.graphics.render();
+    if (this.photo?.active) { this.photo.updateCamera(); this.graphics.render(); return; }
+    // behind a menu/modal: freeze the world and keep the last frame on screen instead of re-rendering
+    // the whole scene + bloom every frame (that is what made menus lag on phones)
+    if (this.paused || (this.playing && this._overlayOpen())) {
+      // the canvas keeps showing the last frame; only redraw if it was cleared (resize / graphics change)
+      if (this._redrawFrozen) { this._redrawFrozen = false; this.graphics.render(); }
       return;
     }
+    this._redrawFrozen = false;
+    this._autoGfx(raw);
     this._tick(dt);
     this.graphics.render();
   }
@@ -1092,18 +1106,41 @@ try {
 }
 if (game) {
   window.__booted = true;
-  $('loading').textContent = '';
   const startBtn = $('btn-start');
-  startBtn.disabled = false;
-  startBtn.textContent = game.hasSave() ? 'LANJUTKAN' : 'MULAI PETUALANGAN';
-  if (game.hasSave()) $('btn-new').classList.remove('hidden');
+  // Start stays disabled until the Blender models are in and their shaders are compiled: those
+  // first seconds freeze the page on phones, and a tap during a freeze feels like a dead button
+  const loadEl = $('loading');
+  const tickLoad = setInterval(() => { const n = pendingModels(); loadEl.textContent = n ? `Memuat model… (${n} tersisa)` : 'Menyiapkan shader…'; }, 250);
+  const ready = () => {
+    clearInterval(tickLoad);
+    loadEl.textContent = '';
+    startBtn.disabled = false;
+    startBtn.textContent = game.hasSave() ? 'LANJUTKAN' : 'MULAI PETUALANGAN';
+    if (game.hasSave()) $('btn-new').classList.remove('hidden');
+  };
+  const warm = (async () => {
+    await modelsIdle();
+    await new Promise((r) => setTimeout(r, 60)); // let upgrade() attach the freshly loaded models
+    // compile for the target the scene is really drawn into (post-processing buffer: linear, no tone
+    // mapping) — compiling for the screen would build a different, unused set of programs
+    const R = game.renderer, prevRT = R.getRenderTarget();
+    R.setRenderTarget(game.graphics.composer?.renderTarget1 ?? null);
+    try { await R.compileAsync(game.scene, game.camera); } finally { R.setRenderTarget(prevRT); }
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); // first frames (post-processing)
+  })();
+  Promise.race([warm, new Promise((r) => setTimeout(r, 30000))]).catch((e) => console.warn('[boot] warm-up', e)).finally(ready);
   // one tap = one start, even if the browser fires both touch and click
   let starting = false;
   const go = (fresh) => (e) => {
     e?.preventDefault?.();
-    if (starting) return;
+    if (starting || startBtn.disabled) return; // touch events still reach a disabled button
     starting = true;
-    game.start(fresh).catch((err) => { console.error(err); game.ui?.toast?.('Error: ' + (err?.message || err)); });
+    // show the press right away, let the browser paint it, then do the heavy start work
+    const b = e?.currentTarget || startBtn;
+    b.textContent = 'MEMULAI…'; b.classList.add('pressed');
+    requestAnimationFrame(() => setTimeout(() => {
+      game.start(fresh).catch((err) => { console.error(err); game.ui?.toast?.('Error: ' + (err?.message || err)); });
+    }, 0));
   };
   for (const [id, fresh] of [['btn-start', false], ['btn-new', true]]) {
     $(id).addEventListener('click', go(fresh));

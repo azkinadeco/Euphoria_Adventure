@@ -190,8 +190,11 @@ export function toon(color, opts = {}) {
     );
   };
 
-  const origKey = mat.customProgramCacheKey ? mat.customProgramCacheKey.bind(mat) : () => '';
-  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel:' + (opts.flatShading ? 'flat:' : 'smooth:') + specStrength + ':' + (isFace ? 'face' : 'body');
+  // three's default key is the *current* onBeforeCompile source, which applyRim() later wraps — that
+  // would split identical shaders into separate programs, so only keep a key someone set explicitly
+  const origKey = Object.prototype.hasOwnProperty.call(mat, 'customProgramCacheKey') ? mat.customProgramCacheKey.bind(mat) : () => '';
+  // spec/face/rim are uniforms (flatShading is already part of three's own key): one program per variant
+  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel';
 
   return mat;
 }
@@ -293,7 +296,8 @@ export function outlineMaterial(thickness = 0.01, color = 0x221a2d) {
     );
   };
 
-  m.customProgramCacheKey = () => 'animeOutlineV2:' + key;
+  // thickness is a uniform and colour is the material colour: every outline can share one program
+  m.customProgramCacheKey = () => 'animeOutlineV3';
   _outlineCache.set(key, m);
   return m;
 }

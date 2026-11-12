@@ -153,7 +153,13 @@ body.touch #inventory { bottom: calc(6px + var(--safe-b)); }
 #title button.ghost, .menu-card button.ghost { background: transparent; color: #dfe; box-shadow: none; font-size: 13px; padding: 8px 20px; min-width: 0; }
 #title button:disabled { opacity: .4; }
 #loading { font-size: 12px; opacity: .7; margin-top: 8px; }
-#title button { touch-action: manipulation; position: relative; z-index: 1; }
+/* touch-action none on the buttons: a slightly moving finger must not turn the tap into a scroll (that cancels it) */
+#title button { touch-action: none; position: relative; z-index: 1; transition: transform .08s; }
+#title button:active, #title button.pressed { transform: scale(.96); filter: brightness(1.15); }
+/* phones: backdrop blur over a live WebGL canvas is re-computed every frame and stalls the GPU */
+body.touch *, body.touch *::before, body.touch *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+body.touch .custom-modal { background: rgba(8, 6, 16, 0.95); }
+body.touch .photo-controls { background: rgba(14, 10, 24, 0.95); }
 @media (max-height: 500px) { .title-tag { margin-bottom: 10px; } .controls-help { margin-top: 12px; } #title h1 { font-size: clamp(36px, 7vw, 60px); } }
 .controls-help { margin-top: 28px; font-size: 12px; line-height: 1.7; opacity: .75; }
 
