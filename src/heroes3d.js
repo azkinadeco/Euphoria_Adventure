@@ -40,6 +40,11 @@ function softFace({ iris = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], lash = '#2a2238', 
   });
 }
 
+/** Blender weapon kit (batch 22) built in the holder's own space; the primitive parts in `old` are replaced */
+const weapon = (name, holder, roles, old = [...holder.children], ol = 0.004) => applyKit(name, holder, roles, old, { ol });
+/** a holder group that takes over a primitive's place (for kits that replace a single mesh) */
+const holderFor = (o) => { const g = new THREE.Group(); g.position.copy(o.position); g.rotation.copy(o.rotation); o.parent.add(g); return g; };
+
 /** Standard anime-proportioned body on the shared joint layout. Returns helpers for adding accessories. */
 function buildBody(rig, S) {
   const j = rig.j;
@@ -196,6 +201,7 @@ export class FideliaRig extends Rig {
     void blade;
     add(sword, new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.08, 4), toon(0x9ee0ff)), 0, 0.875, 0);
     this.sword = sword;
+    weapon('kit_w_fidsword', sword, { fsGrip: sword.children[0].material, fsGuard: pearl, fsBlade: blade.material });
     // scallop shield on left forearm
     const shield = part(Sp(0.24, 16, 8, 0, Math.PI * 2, 0, 1.0), shell, { ol: 0.01 });
     shield.scale.set(1, 0.42, 1.1);
@@ -205,6 +211,7 @@ export class FideliaRig extends Rig {
       const rib = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.42), pearl);
       rib.rotation.y = (i - 2) * 0.32; rib.position.y = 0.2; shield.add(rib);
     }
+    weapon('kit_w_fidshield', holderFor(shield), { shShell: shell, shRib: pearl }, [shield], 0.006);
   }
 }
 
@@ -285,6 +292,7 @@ export class ScyllaRig extends Rig {
     const blade = part(new THREE.ExtrudeGeometry(bladeShape, { depth: 0.03, bevelEnabled: false }), toon(0x9a5cff, { emissive: 0x4a1a9a, emissiveIntensity: 0.8 }), { ol: 0.008 });
     blade.position.set(0, 1.18, -0.015); sc.add(blade);
     for (let k = 0; k < 3; k++) { const sp = add(sc, part(new THREE.ConeGeometry(0.03, 0.18, 4), toon(0x9a5cff), { ol: 0.004 }), -0.05, 1.05 - k * 0.12, 0); sp.rotation.z = 1.2; }
+    weapon('kit_w_scythe', sc, { scShaft: sc.children[0].material, scBlade: blade.material, scSpike: sc.children[2].material }, undefined, 0.005);
   }
 }
 
@@ -327,6 +335,7 @@ export class EropatraRig extends Rig {
     void jack;
     for (const s of [-1, 1]) add(st, part(new THREE.ConeGeometry(0.025, 0.12, 4), black, { ol: 0.003 }), s * 0.04, 1.13, 0);
     add(st, part(new THREE.ConeGeometry(0.035, 0.12, 6), black, { ol: 0.003 }), 0, 0.98, 0.17).rotation.x = Math.PI / 2;
+    weapon('kit_w_anubis', st, { anShaft: gold, anHead: black });
   }
 }
 
@@ -355,7 +364,8 @@ export class RumiRig extends Rig {
     st.position.set(0, -0.04, 0); st.rotation.x = Math.PI / 2 - 0.15;
     add(st, part(Cy(0.018, 0.018, 1.8, 6), black, { ol: 0.004 }), 0, 0.1, 0);
     for (const [dx, dy] of [[0, 1.12], [0.14, 1.0], [-0.14, 1.0], [0, 0.88]]) add(st, part(new THREE.ConeGeometry(0.03, 0.18, 4), black, { ol: 0.003 }), dx, dy, 0).rotation.z = Math.atan2(-dx, dy - 1.0) || 0;
-    add(st, new THREE.Mesh(new THREE.OctahedronGeometry(0.05), new THREE.MeshBasicMaterial({ color: 0xff3a4a })), 0, 1.0, 0);
+    const core = add(st, new THREE.Mesh(new THREE.OctahedronGeometry(0.05), new THREE.MeshBasicMaterial({ color: 0xff3a4a })), 0, 1.0, 0);
+    weapon('kit_w_rumistaff', st, { rsShaft: black, rsSpike: black, rsGem: core.material });
   }
 }
 
@@ -385,11 +395,15 @@ export class ValeriaRig extends Rig {
     add(sw, part(new THREE.BoxGeometry(0.05, 0.22, 0.05), dark, { ol: 0.004 }), 0, 0.02, 0);
     add(sw, part(new THREE.BoxGeometry(0.28, 0.05, 0.07), gold, { ol: 0.004 }), 0, 0.14, 0);
     add(sw, part(new THREE.BoxGeometry(0.13, 1.0, 0.03), gold, { ol: 0.005 }), 0, 0.68, 0);
-    add(sw, new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.95, 0.012), toon(0x9ee8ff, { emissive: 0x2a6a9a, emissiveIntensity: 0.8 })), 0, 0.68, 0);
+    const ice = add(sw, new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.95, 0.012), toon(0x9ee8ff, { emissive: 0x2a6a9a, emissiveIntensity: 0.8 })), 0, 0.68, 0);
+    weapon('kit_w_valsword', sw, { vsGrip: dark, vsGuard: gold, vsCore: gold, vsEdge: ice.material });
     // tower shield on the back
     const sh = part(new THREE.BoxGeometry(0.5, 0.85, 0.06), gold, { ol: 0.008 });
     sh.position.set(0, -0.05, -0.17); chest.add(sh);
-    add(sh, new THREE.Mesh(new THREE.CircleGeometry(0.1, 12), new THREE.MeshBasicMaterial({ color: 0x9ee8ff })), 0, 0.15, -0.035).rotation.y = Math.PI;
+    const emblem = new THREE.Mesh(new THREE.CircleGeometry(0.1, 12), new THREE.MeshBasicMaterial({ color: 0x9ee8ff }));
+    add(sh, emblem, 0, 0.15, -0.035).rotation.y = Math.PI;
+    const shG = holderFor(sh);
+    weapon('kit_w_tower', shG, { tsBody: gold, tsRim: dark }, [sh], 0.007).then((m) => { if (m) add(shG, emblem, 0, 0.15, -0.086); });
   }
 }
 
@@ -417,6 +431,7 @@ export class GlyttaRig extends Rig {
       b.geometry.translate(0, 0.47, 0);
       b.position.set(sx * 0.03, -0.08, 0.05); b.rotation.x = Math.PI / 2 + 0.3;
       this.j['hand' + k].add(b);
+      weapon('kit_w_crystal', holderFor(b), { crBlade: teal }, [b], 0.005);
       const guard = part(new THREE.BoxGeometry(0.12, 0.14, 0.12), dark, { ol: 0.004 }); guard.position.y = -0.04; this.j['hand' + k].add(guard);
     }
   }
@@ -444,7 +459,8 @@ export class GemoraRig extends Rig {
     add(gun, part(new THREE.BoxGeometry(0.08, 0.42, 0.12), black, { ol: 0.005 }), 0, 0.12, 0);
     add(gun, part(Cy(0.03, 0.03, 0.4, 8), toon(0x3a3248), { ol: 0.004 }), 0, 0.5, 0.02);
     add(gun, new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.2, 0.02), purple), 0, 0.15, 0.065);
-    add(gun, new THREE.Mesh(Sp(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xc07aff })), 0, 0.7, 0.02);
+    const muzzle = add(gun, new THREE.Mesh(Sp(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0xc07aff })), 0, 0.7, 0.02);
+    weapon('kit_w_rifle', gun, { rfBody: black, rfBarrel: gun.children[1].material, rfGlow: purple }, gun.children.slice(0, 3)).then((m) => { if (m) muzzle.position.y = 0.76; });
   }
 }
 
@@ -471,6 +487,7 @@ export class MiccaRig extends Rig {
     add(hm, part(Cy(0.022, 0.022, 1.3, 8), toon(0x2a1a14), { ol: 0.004 }), 0, 0.3, 0);
     add(hm, part(new THREE.BoxGeometry(0.34, 0.22, 0.22), toon(0x2a2a30, { flatShading: true }), { ol: 0.008 }), 0, 0.95, 0);
     add(hm, new THREE.Mesh(new THREE.OctahedronGeometry(0.05), new THREE.MeshBasicMaterial({ color: 0xff3a5a })), 0, 0.95, 0.12);
+    weapon('kit_w_hammer', hm, { hmHandle: hm.children[0].material, hmHead: hm.children[1].material }, hm.children.slice(0, 2), 0.005);
     // Pandora's box floating behind her
     const box = new THREE.Group();
     box.add(part(new THREE.BoxGeometry(0.42, 0.3, 0.3), toon(0x6a2a1a), { ol: 0.008 }));
@@ -531,6 +548,7 @@ export class CommanderRig extends Rig {
       bld.scale.set(0.4, 1, 1.4);
       const edge = add(sword, new THREE.Mesh(new THREE.ConeGeometry(0.035, 1.15, 4), new THREE.MeshBasicMaterial({ color: glowCol })), 0, 0.9, 0);
       edge.scale.set(0.3, 1, 1.5);
+      weapon('kit_w_celestial', sword, { csHilt: coat, csGuard: gold, csBlade: bld.material, csEdge: edge.material });
       return sword;
     };
     this.bladeR = makeBlade(this.j.handR, 0xffaa00, 0xffd700);
@@ -573,6 +591,7 @@ export class KaliRig extends Rig {
       add(g, part(new THREE.BoxGeometry(0.04, 0.2, 0.04), black, { ol: 0.003 }), 0, 0.02, 0);
       add(g, part(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 10), toon(0xc8a050), { ol: 0.003 }), 0, 0.13, 0);
       add(g, part(new THREE.BoxGeometry(0.035, 0.9, 0.012), mat, { ol: 0.003 }), 0, 0.59, 0);
+      weapon('kit_w_katana', g, { ktGrip: black, ktGuard: g.children[1].material, ktBlade: mat }, undefined, 0.003);
       return g;
     };
     const steel = toon(c ? 0x6a4a9a : 0xdfe6f0, { emissive: c ? 0x4a0a6a : 0x2a3a4a, emissiveIntensity: c ? 1.2 : 0.35 });

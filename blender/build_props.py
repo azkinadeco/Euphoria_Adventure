@@ -4533,6 +4533,174 @@ def build_hero_armor():
     kit('kit_a_head', Hd)
 
 
+# ------------------------------------------------------------------ batch 22: hero weapon kits
+# Every weapon is built in its holder group's space: grip at the origin, the weapon pointing up +Y.
+def build_hero_weapons():
+    M = lambda seed=0: grey(0.72, 1.0, seed, 3.0, 0.85)
+
+    def blade(y0, y1, wfn, tfn, nv=14, bend=None, zwide=False, edge=0.45):
+        def f(u, v):
+            t = v
+            w, th = max(wfn(t), 0.0006), max(tfn(t), 0.0004)
+            k = int(round(u * 6)) % 6
+            cx, cz = [(w, 0), (edge * w, th), (-edge * w, th), (-w, 0), (-edge * w, -th), (edge * w, -th)][k]
+            if zwide:
+                cx, cz = cz, cx
+            return (cx + (bend(t) if bend else 0), y0 + (y1 - y0) * t, cz)
+        ob = sheet('blade', 6, nv, f, closed=True, caps=(True, False))
+        fix_normals(ob)
+        return ob
+
+    tip = lambda t, start=0.86: min(1.0, (1 - t) / (1 - start)) ** 0.85
+    def hoop(y, r, rt=0.004, n=12, z=0.0):
+        return ring([(math.sin(k / n * TAU) * r, y, math.cos(k / n * TAU) * r + z) for k in range(n)], rt, 5)
+
+    def ring(pts, r, sides=6):
+        pts = list(pts)
+        return limb(pts + [pts[0], pts[1]], [r] * (len(pts) + 2), sides, cap=False)
+
+    def P(ob, seed=0):
+        return paint(ob, M(seed))
+
+    # ---- Fidelia: pearl-guard sword + scallop shield
+    kit('kit_w_fidsword', {
+        'fsGrip': [P(limb([(0, -0.065, 0), (0, 0.065, 0)], [0.016, 0.016], 8)), *[P(hoop(y, 0.017, 0.0035)) for y in (-0.04, -0.013, 0.013, 0.04)]],
+        'fsGuard': [P(ell(0.024, (0, -0.082, 0), (1, 0.85, 1))),
+                    P(limb([(-0.105, 0.105, 0), (-0.06, 0.077, 0), (0, 0.07, 0), (0.06, 0.077, 0), (0.105, 0.105, 0)], [0.007, 0.013, 0.017, 0.013, 0.007], 8)),
+                    P(ell(0.014, (-0.108, 0.11, 0))), P(ell(0.014, (0.108, 0.11, 0))), P(ell(0.03, (0, 0.088, 0), (1.1, 0.8, 0.6)))],
+        'fsBlade': [P(blade(0.08, 0.93, lambda t: 0.027 * (1 - 0.12 * t) * tip(t), lambda t: 0.008 * max(0.4, tip(t))), 3)],
+    })
+    shell = []
+    rib = lambda az, ph: 1 + 0.045 * math.cos(az * 3.5) ** 2 * min(1.0, ph * 2)
+    a = (0, 1, 0)
+    def capp(r, az, ph):
+        d = Vector((math.sin(ph) * math.cos(az), math.cos(ph), math.sin(ph) * math.sin(az)))
+        rr = r * rib(az, ph)
+        return (d.x * rr, d.y * rr * 0.42, d.z * rr * 1.1)
+    sh = sheet('shell', 70, 10, lambda u, v: capp(0.24, u * TAU, 0.03 + (1.0 + 0.07 * abs(math.cos(u * TAU * 3.5)) - 0.03) * v), closed=True)
+    modify(sh, 'SOLIDIFY', thickness=0.012, offset=-1)
+    fix_normals(sh)
+    shell.append(P(sh, 4))
+    ribs = [paint(ring([capp(0.246, k / 56 * TAU, 1.0 + 0.07 * abs(math.cos(k / 56 * TAU * 3.5))) for k in range(56)], 0.007), WHITE)]
+    for k in range(7):
+        az = (k + 0.5) / 7 * TAU
+        ribs.append(paint(limb([capp(0.247, az, p) for p in (0.08, 0.4, 0.75, 1.02)], [0.004, 0.006, 0.006, 0.004], 5), WHITE))
+    ribs.append(paint(ell(0.035, capp(0.24, 0, 0.0), (1, 0.6, 1)), WHITE))
+    kit('kit_w_fidshield', {'shShell': shell, 'shRib': ribs})
+
+    # ---- Valeria: winged greatsword with an ice edge + tower shield
+    kit('kit_w_valsword', {
+        'vsGrip': [P(limb([(0, -0.09, 0), (0, 0.12, 0)], [0.022, 0.021], 8)), *[P(hoop(-0.06 + 0.04 * k, 0.023, 0.004)) for k in range(5)]],
+        'vsGuard': [P(ell(0.032, (0, -0.11, 0), (1, 0.9, 1)), 5),
+                    P(limb([(-0.17, 0.19, 0), (-0.09, 0.145, 0), (0, 0.135, 0), (0.09, 0.145, 0), (0.17, 0.19, 0)], [0.006, 0.02, 0.028, 0.02, 0.006], 8, 1.0, 1.5), 6),
+                    P(blade(0.13, 0.3, lambda t: 0.05 * (1 - t), lambda t: 0.024 * (1 - t * 0.5)), 7)],
+        'vsCore': [P(blade(0.16, 1.22, lambda t: 0.046 * tip(t, 0.84), lambda t: 0.016 * max(0.3, tip(t, 0.84))), 8)],
+        'vsEdge': [paint(blade(0.17, 1.235, lambda t: 0.075 * tip(t, 0.82), lambda t: 0.006, edge=0.7), WHITE)],
+    })
+    def hw(y):
+        if y > 0.28:
+            return 0.25 * math.sqrt(max(0.0, 1 - ((y - 0.28) / 0.145) ** 2)) ** 0.5
+        if y < -0.15:
+            return 0.25 * ((y + 0.425) / 0.275) ** 0.8
+        return 0.25
+    ts = lambda u, v, dz=0.0: ((u * 2 - 1) * max(hw(-0.425 + 0.85 * v), 0.002), -0.425 + 0.85 * v, -0.045 * math.cos((u * 2 - 1) * math.pi / 2) - dz)
+    body = sheet('tower', 14, 20, ts, closed=False)
+    modify(body, 'SOLIDIFY', thickness=0.045, offset=1)
+    fix_normals(body)
+    rim = [ts(0, j / 20, 0.004) for j in range(21)] + [ts(1, 1 - j / 20, 0.004) for j in range(21)]
+    rim = [(x * 1.03, y, z) for x, y, z in rim]
+    kit('kit_w_tower', {
+        'tsBody': [P(body, 9), P(ell(0.07, (0, 0.15, -0.05), (1, 1, 0.4)), 10)],
+        'tsRim': [P(ring(rim[::1], 0.012, 6), 11), P(limb([(0, 0.36, -0.05), (0, -0.38, -0.05)], [0.012, 0.012], 6), 12)],
+    })
+
+    # ---- Scylla: abyss scythe
+    def crescent(u, v):
+        t = u
+        ox = 2 * (1 - t) * t * 0.55 + t * t * 0.95
+        oy = 2 * (1 - t) * t * 0.15 + t * t * -0.55
+        ix = 2 * (1 - t) * t * 0.45 + t * t * 0.95
+        iy = (1 - t) ** 2 * -0.18 + 2 * (1 - t) * t * -0.05 + t * t * -0.55
+        return (ox + (ix - ox) * v, 1.18 + oy + (iy - oy) * v, 0)
+    cb = sheet('cres', 24, 4, crescent, closed=False)
+    modify(cb, 'SOLIDIFY', thickness=0.03, offset=0)
+    fix_normals(cb)
+    kit('kit_w_scythe', {
+        'scShaft': [P(limb([(0, -0.8, 0), (0, 0.4, 0.01), (0, 1.22, 0)], [0.024, 0.025, 0.024], 8), 13),
+                    P(limb([(0, -0.8, 0), (0, -0.98, 0)], [0.026, 0.002], 6)),
+                    *[P(hoop(y, 0.027, 0.006, 10)) for y in (-0.05, 0.05, 0.15, 1.1, 1.17, -0.75)]],
+        'scBlade': [paint(cb, WHITE)],
+        'scSpike': [P(limb([(-0.01, y, 0), (-0.09, y - 0.02, 0), (-0.17, y - 0.06, 0)], [0.022, 0.012, 0.001], 5), 14) for y in (1.06, 0.94, 0.82)],
+    })
+
+    # ---- Eropatra: Anubis staff
+    kit('kit_w_anubis', {
+        'anShaft': [P(limb([(0, -0.75, 0), (0, 0.95, 0)], [0.02, 0.022], 8), 15), *[P(hoop(y, 0.024, 0.006, 10)) for y in (-0.7, -0.3, 0.1, 0.5, 0.9)],
+                    P(ring([(math.sin(k / 14 * TAU) * 0.045, 0.94, math.cos(k / 14 * TAU) * 0.05 + 0.02) for k in range(14)], 0.012), 16)],
+        'anHead': [P(ell(0.058, (0, 1.0, 0.01), (1, 1.05, 1.15)), 17),
+                   P(limb([(0, 1.0, 0.04), (0, 0.985, 0.12), (0, 0.97, 0.18)], [0.036, 0.024, 0.012], 8, 0.85, 1.0), 18),
+                   *[P(limb([(sx * 0.028, 1.04, -0.005), (sx * 0.04, 1.12, -0.02), (sx * 0.048, 1.19, -0.03)], [0.022, 0.016, 0.002], 6, 0.5, 1.0), 19) for sx in (-1, 1)]],
+    })
+
+    # ---- Rumi: cross-spike staff with a ruby core
+    sp = [P(limb([(0, 1.0, 0), (dx * 0.6, 1.0 + dy * 0.6, 0), (dx, 1.0 + dy, 0)], [0.03, 0.016, 0.001], 5), 20) for dx, dy in ((0, 0.2), (0.17, 0), (-0.17, 0), (0, -0.13))]
+    sp.append(P(ring([(math.sin(k / 20 * TAU) * 0.1, 1.0 + math.cos(k / 20 * TAU) * 0.1, 0) for k in range(20)], 0.008), 21))
+    gm = mesh('gem', [B(0, 1.07, 0), B(0, 0.93, 0), B(0.045, 1.0, 0), B(-0.045, 1.0, 0), B(0, 1.0, 0.045), B(0, 1.0, -0.045)],
+              [(0, 2, 4), (0, 4, 3), (0, 3, 5), (0, 5, 2), (1, 4, 2), (1, 3, 4), (1, 5, 3), (1, 2, 5)])
+    fix_normals(gm)
+    kit('kit_w_rumistaff', {
+        'rsShaft': [P(limb([(0, -0.8, 0), (0, 0.92, 0)], [0.018, 0.02], 8), 22), *[P(hoop(y, 0.021, 0.005, 10)) for y in (-0.75, 0.0, 0.85)]],
+        'rsSpike': sp,
+        'rsGem': [paint(gm, WHITE)],
+    })
+
+    # ---- Glytta: crystal arm blade (base at the origin, +Y)
+    cr = [P(blade(0.0, 0.95, lambda t: 0.055 * (1 - 0.2 * t) * tip(t, 0.7), lambda t: 0.03 * max(0.2, tip(t, 0.7)), nv=8, edge=0.55), 23)]
+    for sx, y, L in ((1, 0.2, 0.2), (-1, 0.42, 0.16), (1, 0.6, 0.12)):
+        cr.append(P(limb([(sx * 0.03, y, 0), (sx * 0.06 + sx * L * 0.4, y + L * 0.7, 0)], [0.02, 0.001], 4), 24))
+    kit('kit_w_crystal', {'crBlade': cr})
+
+    # ---- Gemora: void rifle
+    kit('kit_w_rifle', {
+        'rfBody': [P(box((0.08, 0.12, 0.4), B(0, 0.12, 0), bevel=0.012), 25), P(box((0.06, 0.09, 0.2), B(0, -0.15, -0.015), rot=(math.radians(-12), 0, 0), bevel=0.01), 26),
+                   P(limb([(0, 0.03, 0.075), (0, 0.25, 0.075)], [0.017, 0.017], 8), 27), P(box((0.03, 0.05, 0.08), B(0, 0.02, -0.075), bevel=0.006))],
+        'rfBarrel': [P(limb([(0, 0.3, 0.02), (0, 0.72, 0.02)], [0.03, 0.026], 10), 28), *[P(hoop(y, 0.034, 0.008, 12, 0.02)) for y in (0.36, 0.62, 0.7)],
+                     *[P(box((0.005, 0.05, 0.22), B(sx * 0.03, 0.48, 0.0), bevel=0.002)) for sx in (-1, 1)]],
+        'rfGlow': [paint(box((0.084, 0.022, 0.24), B(0, 0.14, 0.05), bevel=0.004), WHITE), paint(box((0.084, 0.012, 0.3), B(0, 0.12, -0.04)), WHITE)],
+    })
+
+    # ---- Micca: war hammer
+    kit('kit_w_hammer', {
+        'hmHandle': [P(limb([(0, -0.36, 0), (0, 0.85, 0)], [0.022, 0.024], 8), 29), *[P(hoop(y, 0.025, 0.006, 10)) for y in (-0.3, -0.2, -0.1, 0.0, 0.5, 0.82)],
+                     P(ell(0.032, (0, -0.38, 0)), 30)],
+        'hmHead': [P(box((0.3, 0.2, 0.2), B(0, 0.95, 0), bevel=0.03), 31),
+                   *[P(limb([(sx * 0.15, 0.95, 0), (sx * 0.2, 0.95, 0)], [0.115, 0.1], 8), 32) for sx in (-1, 1)],
+                   P(limb([(0, 1.05, 0), (0, 1.17, 0)], [0.04, 0.002], 6), 33),
+                   *[P(limb([(sx * 0.19, 0.95, 0), (sx * 0.27, 0.95, 0)], [0.05, 0.002], 6), 34) for sx in (-1,)]],
+    })
+
+    # ---- Commander: celestial blade (wide across Z, like the original)
+    kit('kit_w_celestial', {
+        'csHilt': [P(limb([(0, -0.14, 0), (0, 0.3, 0)], [0.018, 0.017], 8), 35), *[P(hoop(y, 0.019, 0.004)) for y in (-0.08, -0.02, 0.04, 0.1, 0.16)]],
+        'csGuard': [P(ell(0.026, (0, -0.15, 0)), 36),
+                    P(limb([(0, 0.36, -0.12), (0, 0.32, -0.07), (0, 0.3, 0), (0, 0.32, 0.07), (0, 0.36, 0.12)], [0.006, 0.016, 0.022, 0.016, 0.006], 8, 1.4, 1.0), 37),
+                    P(ell(0.03, (0, 0.31, 0), (1.3, 1, 1)), 38)],
+        'csBlade': [P(blade(0.3, 1.55, lambda t: 0.052 * tip(t, 0.8), lambda t: 0.012 * max(0.3, tip(t, 0.8)), zwide=True), 39)],
+        'csEdge': [paint(blade(0.32, 1.53, lambda t: 0.072 * tip(t, 0.78), lambda t: 0.004, zwide=True, edge=0.75), WHITE)],
+    })
+
+    # ---- Kali: katana (curved, single-edged)
+    tsuba = sheet('tsuba', 24, 1, lambda u, v: (math.sin(u * TAU) * 0.058 * (1 + 0.06 * math.cos(u * TAU * 4)), 0.13 + 0.012 * v, math.cos(u * TAU) * 0.05), closed=True, caps=(True, True))
+    fix_normals(tsuba)
+    kit('kit_w_katana', {
+        'ktGrip': [P(limb([(0, -0.08, 0), (0, 0.12, 0)], [0.018, 0.017], 8), 40),
+                   *[P(limb([(-0.019, -0.07 + 0.035 * k, 0), (0.019, -0.05 + 0.035 * k, 0)], [0.004, 0.004], 4)) for k in range(5)]],
+        'ktGuard': [P(tsuba, 41), P(ell(0.018, (0, -0.088, 0), (1, 0.6, 1)), 42), P(box((0.03, 0.016, 0.03), B(0, 0.15, 0), bevel=0.003))],
+        'ktBlade': [P(blade(0.14, 1.05, lambda t: 0.017 * (1 - 0.15 * t) * tip(t, 0.9), lambda t: 0.006 * max(0.4, tip(t, 0.9)),
+                            bend=lambda t: -0.05 * t * t, nv=16, edge=0.2), 43)],
+    })
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -4571,6 +4739,7 @@ ASSETS = {
     'hero_skinned': build_hero_skinned,
     'hero_outfits': build_hero_outfits,
     'hero_armor': build_hero_armor,
+    'hero_weapons': build_hero_weapons,
 }
 
 for name, fn in ASSETS.items():
