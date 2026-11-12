@@ -6,6 +6,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#0d1a10" />
   <title>Euphoria Adventure</title>
+  <meta name="apple-mobile-web-app-title" content="Euphoria" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -113,7 +120,7 @@
       <div class="title-sub">EUPHORIA ONLINE · STORY</div>
       <h1>Euphoria<br/><span>Adventure</span></h1>
       <div class="title-tag">Prolog — <i>Whispering Woods</i></div>
-      <button id="btn-start">MULAI PETUALANGAN</button>
+      <button id="btn-start" disabled>MEMUAT…</button>
       <button id="btn-new" class="ghost hidden">Mulai dari awal</button>
       <div id="loading">Membangun dunia…</div>
       <div class="controls-help">
@@ -201,6 +208,15 @@
     </div>
   </div>
 
+  <script>
+    // shows boot errors on screen (phones have no console)
+    (function () {
+      function show(msg) { var el = document.getElementById('loading'); if (el) { el.textContent = '⚠ Gagal memuat: ' + msg; el.style.color = '#ff8a8a'; el.style.opacity = '1'; } }
+      window.__bootErr = show;
+      window.addEventListener('error', function (e) { if (!window.__booted) show((e.message || 'error') + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '')); });
+      window.addEventListener('unhandledrejection', function (e) { if (!window.__booted) show(String(e.reason && e.reason.message || e.reason)); });
+    })();
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

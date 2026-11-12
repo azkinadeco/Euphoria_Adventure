@@ -1,11 +1,17 @@
 // Lightweight VFX: claw slashes, shockwaves, particles, ground telegraphs.
 import * as THREE from 'three';
 import { boostGlow } from './graphics.js';
+import { loadGeometry } from './assets.js';
+
+// Blender-made effect meshes (blender/build_props.py build_vfx); primitives are the fallback until they load
+const FX = ['slash', 'shock', 'pillar', 'flash', 'ice_shard', 'blade', 'tentacle', 'rune_ring'];
 
 export class VFX {
   constructor(scene) {
     this.scene = scene;
     this.items = [];
+    this.geo = {};
+    for (const n of FX) loadGeometry('vfx_' + n).then((g) => { if (g) { g.userData.shared = true; this.geo[n] = g; } });
     const push = this.items.push.bind(this.items);
     this.items.push = (it) => { boostGlow(it.obj, 2.2); return push(it); };
     // particle pool (single Points draw call)
@@ -46,14 +52,16 @@ export class VFX {
 
   /** crescent claw slash in front of the attacker */
   slash(pos, yaw, { color = 0xc8ff6a, size = 1.6, tilt = 0.5, mirror = false, life = 0.22 } = {}) {
-    const geo = new THREE.RingGeometry(size * 0.45, size, 28, 1, -1.2, 2.4);
+    const fx = this.geo.slash;
+    const geo = fx || new THREE.RingGeometry(size * 0.45, size, 28, 1, -1.2, 2.4);
     const mats = [];
     const grp = new THREE.Group();
     for (let k = 0; k < 3; k++) { // three claw marks
-      const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false });
+      const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, vertexColors: !!fx });
+      if (fx) m.color.multiplyScalar(k === 1 ? 1.6 : 1.1);
       const mesh = new THREE.Mesh(geo, m);
       mesh.position.z = (k - 1) * 0.12;
-      mesh.scale.setScalar(1 - Math.abs(k - 1) * 0.12);
+      mesh.scale.setScalar((fx ? size : 1) * (1 - Math.abs(k - 1) * 0.12));
       grp.add(mesh); mats.push(m);
     }
     const holder = new THREE.Group();
@@ -66,34 +74,41 @@ export class VFX {
   }
 
   shockwave(pos, radius = 3, color = 0xb8ff4a, life = 0.45) {
-    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false });
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 40), m);
+    const fx = this.geo.shock;
+    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false, vertexColors: !!fx });
+    if (fx) m.color.multiplyScalar(1.5);
+    const ring = new THREE.Mesh(fx || new THREE.RingGeometry(0.85, 1, 40), m);
+    ring.rotation.z = Math.random() * 6.28;
     ring.rotation.x = -Math.PI / 2; ring.position.copy(pos); ring.position.y += 0.15;
     this.scene.add(ring);
     this.items.push({ obj: ring, t: 0, life, update: (it, k) => { ring.scale.setScalar(0.3 + radius * Math.sqrt(k)); m.opacity = 0.9 * (1 - k); } });
   }
 
   pillar(pos, color = 0xb8ff4a, h = 6, life = 0.6) {
-    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.2, h, 16, 1, true), m);
-    c.position.copy(pos); c.position.y += h / 2;
+    const fx = this.geo.pillar;
+    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fx ? 0.9 : 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, vertexColors: !!fx });
+    const c = new THREE.Mesh(fx || new THREE.CylinderGeometry(0.6, 1.2, h, 16, 1, true), m);
+    c.position.copy(pos);
+    if (fx) c.scale.y = h; else c.position.y += h / 2;
+    const o0 = m.opacity;
     this.scene.add(c);
-    this.items.push({ obj: c, t: 0, life, update: (it, k) => { m.opacity = 0.6 * (1 - k); c.scale.set(1 + k, 1, 1 + k); } });
+    this.items.push({ obj: c, t: 0, life, update: (it, k) => { m.opacity = o0 * (1 - k); c.scale.set(1 + k, fx ? h * (0.7 + 0.3 * Math.min(1, k * 5)) : 1, 1 + k); if (fx) c.rotation.y = k * 2.5; } });
   }
 
   /** ground warning circle (enemy attacks). returns handle with .done */
   telegraph(pos, radius, dur, color = 0xff3355) {
     const grp = new THREE.Group();
     const fillM = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide });
-    const edgeM = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide });
+    const rune = this.geo.rune_ring;
+    const edgeM = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide, vertexColors: !!rune });
     const fill = new THREE.Mesh(new THREE.CircleGeometry(1, 40), fillM);
-    const edge = new THREE.Mesh(new THREE.RingGeometry(0.95, 1, 48), edgeM);
+    const edge = new THREE.Mesh(rune || new THREE.RingGeometry(0.95, 1, 48), edgeM);
     fill.rotation.x = edge.rotation.x = -Math.PI / 2;
     grp.add(fill, edge);
     grp.position.copy(pos); grp.position.y += 0.12;
     edge.scale.setScalar(radius);
     this.scene.add(grp);
-    const h = { obj: grp, t: 0, life: dur, update: (it, k) => { fill.scale.setScalar(radius * k); fillM.opacity = 0.18 + 0.25 * k; } };
+    const h = { obj: grp, t: 0, life: dur, update: (it, k) => { fill.scale.setScalar(radius * k); fillM.opacity = 0.18 + 0.25 * k; if (rune) edge.rotation.z = it.t * 0.8; } };
     this.items.push(h);
     return h;
   }
@@ -165,10 +180,13 @@ export class VFX {
   /** heavy hit feedback: flash burst + flying sparks + thin ring */
   impact(pos, color = '#ffffff', big = false) {
     const c = new THREE.Color(color);
-    const flash = new THREE.Mesh(new THREE.SphereGeometry(big ? 0.55 : 0.35, 10, 8), new THREE.MeshBasicMaterial({ color: c.clone().lerp(new THREE.Color(1, 1, 1), 0.6).multiplyScalar(3), transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const star = this.geo.flash;
+    const flash = new THREE.Mesh(star || new THREE.SphereGeometry(big ? 0.55 : 0.35, 10, 8), new THREE.MeshBasicMaterial({ color: c.clone().lerp(new THREE.Color(1, 1, 1), 0.6).multiplyScalar(3), transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, vertexColors: !!star }));
     flash.position.copy(pos);
+    const s0 = star ? (big ? 1.1 : 0.7) : 1;
+    if (star) flash.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
     this.scene.add(flash);
-    this.items.push({ obj: flash, t: 0, life: 0.14, update: (it, k) => { flash.scale.setScalar(1 + k * 2.2); flash.material.opacity = 1 - k; } });
+    this.items.push({ obj: flash, t: 0, life: star ? 0.18 : 0.14, update: (it, k) => { flash.scale.setScalar(s0 * (star ? 0.6 + Math.sin(Math.min(1, k * 1.6) * Math.PI) * 0.9 : 1 + k * 2.2)); flash.material.opacity = 1 - k; } });
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 24), new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(2.5), transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
     ring.position.copy(pos); ring.lookAt(pos.clone().add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5)));
     this.scene.add(ring);
@@ -179,13 +197,19 @@ export class VFX {
   /** ice spike erupting from the ground */
   iceSpike(pos, scale = 1) {
     const grp = new THREE.Group();
-    const mat = new THREE.MeshToonMaterial({ color: 0xbff0ff, emissive: 0x2a6a9a, transparent: true, opacity: 0.95 });
+    const mat = new THREE.MeshToonMaterial({ color: 0xbff0ff, emissive: 0x2a6a9a, transparent: true, opacity: 0.95, vertexColors: !!this.geo.ice_shard, flatShading: !!this.geo.ice_shard });
     for (let k = 0; k < 5; k++) {
-      const c = new THREE.Mesh(new THREE.ConeGeometry(0.35 * scale, (2.4 - k * 0.3) * scale, 5), mat);
-      c.geometry.translate(0, 1.2 * scale, 0);
+      let c;
+      if (this.geo.ice_shard) {
+        c = new THREE.Mesh(this.geo.ice_shard, mat);
+        c.scale.set(0.35 * scale, (2.4 - k * 0.3) * scale, 0.35 * scale);
+      } else {
+        c = new THREE.Mesh(new THREE.ConeGeometry(0.35 * scale, (2.4 - k * 0.3) * scale, 5), mat);
+        c.geometry.translate(0, 1.2 * scale, 0);
+      }
       const a = k * 1.3;
       c.position.set(k ? Math.cos(a) * 0.6 * scale : 0, 0, k ? Math.sin(a) * 0.6 * scale : 0);
-      c.rotation.set(k ? Math.sin(a) * 0.4 : 0, 0, k ? -Math.cos(a) * 0.4 : 0);
+      c.rotation.set(k ? Math.sin(a) * 0.4 : 0, k * 0.9, k ? -Math.cos(a) * 0.4 : 0);
       grp.add(c);
     }
     grp.position.copy(pos);
@@ -218,10 +242,12 @@ export class VFX {
 
   /** Scylla's abyss tentacle bursting out of the ground */
   tentacle(pos) {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(0.35, 3.2, 8, 4), new THREE.MeshToonMaterial({ color: 0x3a1a5a, emissive: 0x2a0a4a }));
-    m.geometry.translate(0, 1.6, 0);
+    const fx = this.geo.tentacle;
+    const m = new THREE.Mesh(fx || new THREE.ConeGeometry(0.35, 3.2, 8, 4), new THREE.MeshToonMaterial({ color: fx ? 0x5a2a86 : 0x3a1a5a, emissive: 0x2a0a4a, vertexColors: !!fx }));
+    if (!fx) m.geometry.translate(0, 1.6, 0);
     const tip = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), new THREE.MeshBasicMaterial({ color: 0xb07aff }));
-    tip.position.y = 3.0; m.add(tip);
+    if (fx) tip.position.set(0.136, 3.05, -0.115); else tip.position.y = 3.0;
+    m.add(tip);
     m.position.copy(pos); m.rotation.set((Math.random() - 0.5) * 0.6, Math.random() * 6, (Math.random() - 0.5) * 0.6);
     this.scene.add(m);
     this.shockwave(pos, 1.4, 0x9a5cff, 0.3);
@@ -247,7 +273,12 @@ export class VFX {
     guard.position.y = 1.5 * size;
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07 * size, 0.38 * size, 0.07 * size), m);
     grip.position.y = 1.72 * size;
-    g.add(bl, guard, grip);
+    if (this.geo.blade) {
+      m.vertexColors = true;
+      const sw = new THREE.Mesh(this.geo.blade, m);
+      sw.scale.setScalar(size);
+      g.add(sw);
+    } else g.add(bl, guard, grip);
     g.rotation.set((Math.random() - 0.5) * 0.35, Math.random() * Math.PI, (Math.random() - 0.5) * 0.35);
     g.visible = false;
     this.scene.add(g);
@@ -275,7 +306,7 @@ export class VFX {
       it.update(it, k);
       if (k >= 1 || it.done) {
         this.scene.remove(it.obj);
-        it.obj.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+        it.obj.traverse((o) => { if (o.geometry && !o.geometry.userData.shared) o.geometry.dispose(); if (o.material) o.material.dispose(); });
         this.items.splice(i, 1);
       }
     }

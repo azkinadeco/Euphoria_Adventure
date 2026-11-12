@@ -152,10 +152,8 @@ export class FishingManager {
       e?.preventDefault();
       this.isReeling = true;
     };
-    const endReel = (e) => {
-      e?.preventDefault();
-      this.isReeling = false;
-    };
+    // global release: must NOT preventDefault — on phones that cancels every tap's click (title, dialog, menus)
+    const endReel = () => { this.isReeling = false; };
 
     const btn = $('fish-reel-btn');
     btn?.addEventListener('mousedown', startReel);

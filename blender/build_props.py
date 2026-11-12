@@ -3198,6 +3198,187 @@ def build_luby_kits():
     kit('kit_luby_hood', {'lime': shell, 'limeDeep': deep, 'white': wh})
 
 
+def build_vfx():
+    """effect meshes: brightness lives in vertex colours, so with additive blending black = transparent"""
+    def flat_mesh(name, rows):
+        """rows: list of equal-length lists of three.js points -> quad strip"""
+        n = len(rows[0])
+        verts = [B(*q) for r in rows for q in r]
+        faces = [(i * n + k, i * n + k + 1, (i + 1) * n + k + 1, (i + 1) * n + k) for i in range(len(rows) - 1) for k in range(n - 1)]
+        return mesh(name, verts, faces)
+
+    def lin(fn):
+        return lambda ob: paint(ob, fn, linear=True)
+
+    # ---- crescent claw slash (XY plane, arc around +X like RingGeometry(-1.2, 2.4), outer radius 1)
+    NA, NV = 44, 6
+    wfn = lambda u: 0.06 + 0.5 * math.sin(math.pi * u) ** 0.9 * (0.55 + 0.45 * u)
+    rows = []
+    for j in range(NV + 1):
+        v = j / NV
+        row = []
+        for i in range(NA + 1):
+            u = i / NA
+            a = -1.2 + 2.4 * u
+            r = 1.0 - wfn(u) * v
+            row.append((math.cos(a) * r, math.sin(a) * r, 0))
+        rows.append(row)
+    sl = flat_mesh('slash', rows)
+
+    def slash_col(p, n, pc):
+        x, y = p.x, p.z
+        r, a = math.hypot(x, y), math.atan2(y, x)
+        u = min(1, max(0, (a + 1.2) / 2.4))
+        v = min(1, max(0, (1 - r) / wfn(u)))
+        k = (1 - v) ** 1.6 * (0.3 + 0.7 * u) * min(1, math.sin(math.pi * u) * 2.2)
+        k = k + (0.6 if v < 0.08 else 0) * min(1, math.sin(math.pi * u) * 3)
+        return (min(1, k), min(1, k), min(1, k))
+    lin(slash_col)(sl)
+    export('vfx_slash', [join([sl], 'fx', 80)]); reset()
+
+    # ---- shockwave ring (XY plane, outer radius 1)
+    NS = 72
+    prof = [(1.0, 0.0), (0.97, 1.0), (0.9, 0.75), (0.78, 0.3), (0.6, 0.08), (0.42, 0.0)]
+    rows = [[(math.cos(i / NS * TAU) * r, math.sin(i / NS * TAU) * r, 0) for i in range(NS + 1)] for r, _ in prof]
+    sw = flat_mesh('shock', rows)
+
+    def shock_col(p, n, pc):
+        r, a = math.hypot(p.x, p.z), math.atan2(p.z, p.x)
+        for (r0, b0), (r1, b1) in zip(prof, prof[1:]):
+            if r <= r0 + 1e-4 and r >= r1 - 1e-4:
+                t = (r0 - r) / (r0 - r1)
+                k = b0 + (b1 - b0) * t
+                break
+        else:
+            k = 0
+        k *= 0.78 + 0.22 * math.sin(a * 9) * math.sin(a * 4 + 1)
+        return (k, k, k)
+    lin(shock_col)(sw)
+    export('vfx_shock', [join([sw], 'fx', 80)]); reset()
+
+    # ---- light pillar (open cone, base y 0, height 1, r 1.2 -> 0.6) + bright inner core
+    NP, NY = 28, 12
+    def shell(rb, rt, twist):
+        rows = []
+        for j in range(NY + 1):
+            y = j / NY
+            r = rb + (rt - rb) * y
+            rows.append([(math.cos(i / NP * TAU + y * twist) * r, y, math.sin(i / NP * TAU + y * twist) * r) for i in range(NP + 1)])
+        return flat_mesh('pil', rows)
+    outer, core = shell(1.2, 0.6, 1.4), shell(0.42, 0.22, -2.0)
+
+    def pillar_col(p, n, pc):
+        y = p.z
+        a = math.atan2(-p.y, p.x)
+        base = (1 - y) ** 1.3 * (0.35 + 0.65 * math.sin(3 * a + 9 * y) ** 2)
+        k = base + 0.5 * max(0, 1 - y * 8)
+        return (min(1, k),) * 3
+    def core_col(p, n, pc):
+        k = (1 - p.z) ** 0.8 * 0.9
+        return (k, k, k)
+    lin(pillar_col)(outer); lin(core_col)(core)
+    export('vfx_pillar', [join([outer, core], 'fx', 80)]); reset()
+
+    # ---- impact flash: three crossed 4-point stars + small 45deg star, radius 1
+    def star(plane, rot, R, rin, npts=4):
+        verts, faces = [], []
+        verts.append((0, 0, 0))
+        N = npts * 2
+        for i in range(N):
+            a = rot + i / N * TAU
+            r = R if i % 2 == 0 else rin
+            c, s_ = math.cos(a) * r, math.sin(a) * r
+            q = {'xy': (c, s_, 0), 'yz': (0, c, s_), 'xz': (c, 0, s_)}[plane]
+            verts.append(q)
+        for i in range(N):
+            faces.append((0, 1 + i, 1 + (i + 1) % N))
+        return mesh('star', [B(*v) for v in verts], faces)
+    stars = [star('xy', math.pi / 2, 1.0, 0.16), star('yz', math.pi / 2, 1.0, 0.16), star('xz', 0, 1.0, 0.16),
+             star('xy', math.pi / 4, 0.55, 0.12), star('xz', math.pi / 4, 0.55, 0.12)]
+    for st in stars:
+        lin(lambda p, n, pc: (max(0, 1 - Vector(p).length) ** 1.4,) * 3)(st)
+        # centre vertex is pure white
+    export('vfx_flash', [join(stars, 'fx', 80)]); reset()
+
+    # ---- ice shard: faceted hexagonal crystal, base y 0, radius 1, height 1
+    prof = [(0.0, 0.72), (0.12, 0.9), (0.62, 1.0), (1.0, 0.0)]
+    rings = []
+    for y, r in prof:
+        rings.append([Vector(B(math.cos(k / 6 * TAU) * r + (0.08 if y == 1.0 else 0), y, math.sin(k / 6 * TAU) * r)) for k in range(6)])
+    sh = loft('shard', rings, cap_bot=True, cap_top=False)
+    bpy.ops.object.select_all(action='DESELECT')
+    sel([sh]); bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=1e-4); bpy.ops.object.mode_set(mode='OBJECT')
+    fix_normals(sh)
+    paint(sh, lambda p, n, pc: (0.62 + 0.38 * pc.z, 0.8 + 0.2 * pc.z, 1.0) if abs(n.z) < 0.9 else (0.7, 0.85, 1.0))
+    export('vfx_ice_shard', [join([sh], 'fx', 5)]); reset()
+
+    # ---- Kali's falling blade: tip at y 0, blade to 1.5, guard, grip, pommel (size 1)
+    parts = []
+    bl_rows = []
+    prof = [(0.0, 0.0), (0.12, 0.05), (0.3, 0.06), (1.35, 0.052), (1.5, 0.058)]
+    verts, faces = [], []
+    for y, w in prof:
+        t = w * 0.28
+        verts += [B(-w, y, 0), B(0, y, t), B(w, y, 0), B(0, y, -t)]
+    for i in range(len(prof) - 1):
+        for k in range(4):
+            a, b = i * 4 + k, i * 4 + (k + 1) % 4
+            faces.append((a, b, b + 4, a + 4))
+    faces.append(tuple(range(len(verts) - 4, len(verts))))
+    blade = mesh('blade', verts, faces)
+    fix_normals(blade)
+    paint(blade, lambda p, n, pc: (1, 1, 1) if abs(abs(p.x) - 0) > 0.03 else (0.78, 0.82, 0.9))
+    parts.append(blade)
+    guard = box((0.42, 0.08, 0.075), B(0, 1.53, 0), bevel=0.012)
+    for v in guard.data.vertices:
+        v.co.z += (abs(v.co.x) / 0.21) ** 2 * 0.035
+    guard.data.update()
+    parts.append(paint(guard, lambda p, n, pc: (0.95, 0.9, 0.7)))
+    gem = blob(0.035, B(0, 1.53, 0.045), sub=1, amp=0)
+    parts.append(paint(gem, lambda p, n, pc: (1, 1, 1)))
+    grip = cyl(0.03, 0.36, B(0, 1.75, 0), verts=8)
+    parts.append(paint(grip, lambda p, n, pc: (0.6 + 0.15 * math.sin(p.z * 70),) * 3))
+    pom = blob(0.045, B(0, 1.95, 0), sub=1, amp=0)
+    parts.append(paint(pom, lambda p, n, pc: (0.95, 0.9, 0.7)))
+    export('vfx_blade', [join(parts, 'fx', 30)]); reset()
+
+    # ---- abyss tentacle: curled tapered tube, base y 0 -> tip near (0.25, 3.0, 0), suckers on the inner side
+    N = 18
+    pts, radii = [], []
+    for i in range(N + 1):
+        t = i / N
+        x = 0.35 * math.sin(t * 2.4) * t - 0.1 * t
+        pts.append(B(x, t * 3.05, 0.12 * math.sin(t * 5)))
+        radii.append(0.36 * (1 - t) ** 0.85 + 0.035)
+    tb = tube_mesh('tent', pts, radii, sides=10, cap_top=True)
+    paint(tb, lambda p, n, pc: (0.7 + 0.3 * max(0, -n.x), 0.7 + 0.3 * max(0, -n.x), 0.75 + 0.25 * max(0, -n.x)))
+    tparts = [tb]
+    for i in range(2, N - 2, 2):
+        t = i / N
+        c = Vector(pts[i]); r = radii[i]
+        sk = blob(r * 0.32, c + Vector((-r * 0.9, 0, 0)), (0.5, 1, 1), sub=1, amp=0)
+        tparts.append(paint(sk, lambda p, n, pc: (1.0, 0.85, 1.0)))
+    export('vfx_tentacle', [join(tparts, 'fx', 50)]); reset()
+    print('[vfx] tentacle tip', tuple(round(c, 3) for c in pts[-1]))
+
+    # ---- telegraph rune ring (XY plane): edge band 0.95..1 + dashed inner ring + rune ticks
+    NR = 96
+    parts = [flat_mesh('edge', [[(math.cos(i / NR * TAU) * r, math.sin(i / NR * TAU) * r, 0) for i in range(NR + 1)] for r in (1.0, 0.95)])]
+    for k in range(24):
+        a0, a1 = k / 24 * TAU + 0.02, (k + 0.62) / 24 * TAU
+        seg = [[(math.cos(a0 + (a1 - a0) * i / 4) * r, math.sin(a0 + (a1 - a0) * i / 4) * r, 0) for i in range(5)] for r in (0.905, 0.88)]
+        parts.append(flat_mesh('dash', seg))
+    for k in range(8):
+        a = k / 8 * TAU + TAU / 16
+        ca, sa = math.cos(a), math.sin(a)
+        tri = [B(ca * 0.94, sa * 0.94, 0), B(ca * 0.82 - sa * 0.04, sa * 0.82 + ca * 0.04, 0), B(ca * 0.82 + sa * 0.04, sa * 0.82 - ca * 0.04, 0)]
+        parts.append(mesh('tick', tri, [(0, 1, 2)]))
+    for pt in parts:
+        paint(pt, WHITE)
+    export('vfx_rune_ring', [join(parts, 'fx', 80)]); reset()
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -3229,6 +3410,7 @@ ASSETS = {
     'companion_kits': build_companion_kits,
     'misc_kits': build_misc_kits,
     'luby_kits': build_luby_kits,
+    'vfx': build_vfx,
 }
 
 for name, fn in ASSETS.items():

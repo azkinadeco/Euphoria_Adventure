@@ -1082,9 +1082,31 @@ class Game {
 }
 
 // ---------------- boot ----------------
-const game = new Game();
-window.__game = game;
-$('loading').textContent = '';
-if (game.hasSave()) { $('btn-start').textContent = 'LANJUTKAN'; $('btn-new').classList.remove('hidden'); }
-$('btn-start').onclick = () => game.start(false);
-$('btn-new').onclick = () => game.start(true);
+let game = null;
+try {
+  game = new Game();
+  window.__game = game;
+} catch (err) {
+  console.error(err);
+  window.__bootErr?.(err?.message || String(err));
+}
+if (game) {
+  window.__booted = true;
+  $('loading').textContent = '';
+  const startBtn = $('btn-start');
+  startBtn.disabled = false;
+  startBtn.textContent = game.hasSave() ? 'LANJUTKAN' : 'MULAI PETUALANGAN';
+  if (game.hasSave()) $('btn-new').classList.remove('hidden');
+  // one tap = one start, even if the browser fires both touch and click
+  let starting = false;
+  const go = (fresh) => (e) => {
+    e?.preventDefault?.();
+    if (starting) return;
+    starting = true;
+    game.start(fresh).catch((err) => { console.error(err); game.ui?.toast?.('Error: ' + (err?.message || err)); });
+  };
+  for (const [id, fresh] of [['btn-start', false], ['btn-new', true]]) {
+    $(id).addEventListener('click', go(fresh));
+    $(id).addEventListener('touchend', go(fresh), { passive: false });
+  }
+}

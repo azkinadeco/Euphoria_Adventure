@@ -143,7 +143,7 @@ body.touch #inventory { bottom: calc(6px + var(--safe-b)); }
 #dlg-skip { position: absolute; top: calc(14px + var(--safe-t)); right: calc(14px + var(--safe-r)); padding: 6px 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.45); color: #fff; cursor: pointer; }
 
 /* ---------- title ---------- */
-#title { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 60%, rgba(10,30,10,.25), rgba(4,10,4,.85)); }
+#title { position: fixed; inset: 0; z-index: 30; display: flex; align-items: safe center; justify-content: center; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; background: radial-gradient(ellipse at 50% 60%, rgba(10,30,10,.25), rgba(4,10,4,.85)); }
 .title-inner { text-align: center; padding: 20px; max-width: 760px; }
 .title-sub { letter-spacing: 6px; font-size: 12px; color: var(--lime); }
 #title h1 { margin: 8px 0; font-size: clamp(44px, 9vw, 92px); line-height: .92; font-weight: 900; color: #fff; text-shadow: 0 0 30px rgba(143,230,58,.6), 0 4px 0 #2b4d10; }
@@ -153,6 +153,8 @@ body.touch #inventory { bottom: calc(6px + var(--safe-b)); }
 #title button.ghost, .menu-card button.ghost { background: transparent; color: #dfe; box-shadow: none; font-size: 13px; padding: 8px 20px; min-width: 0; }
 #title button:disabled { opacity: .4; }
 #loading { font-size: 12px; opacity: .7; margin-top: 8px; }
+#title button { touch-action: manipulation; position: relative; z-index: 1; }
+@media (max-height: 500px) { .title-tag { margin-bottom: 10px; } .controls-help { margin-top: 12px; } #title h1 { font-size: clamp(36px, 7vw, 60px); } }
 .controls-help { margin-top: 28px; font-size: 12px; line-height: 1.7; opacity: .75; }
 
 /* ---------- menu ---------- */
