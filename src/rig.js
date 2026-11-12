@@ -223,6 +223,14 @@ export class Rig {
       g.rotation.x = i === 0 ? -0.9 + (moving ? 0.5 : 0) : -0.12 + Math.sin(this.time * 1.7 - i * 0.5) * 0.06;
     }
 
+    // skinned capes: billow back with speed / in the air, slow ripple at rest
+    if (j.capeA) {
+      const sp = Math.min(spd, 9), air = st.grounded ? 0 : 0.35, w = this.time * (moving ? 9 : 2), r = moving ? 1 : 0.3;
+      j.capeA.rotation.x = damp(j.capeA.rotation.x, 0.05 + sp * 0.045 + air + Math.sin(w) * 0.06 * r, 8, dt);
+      j.capeB.rotation.x = damp(j.capeB.rotation.x, 0.03 + sp * 0.035 + air * 0.7 + Math.sin(w - 1.2) * 0.09 * r, 8, dt);
+      j.capeA.rotation.z = damp(j.capeA.rotation.z, Math.sin(w * 0.5) * 0.03 * r, 8, dt);
+    }
+
     // blink (squash the face decal's eyes by scaling the face vertically for a moment)
     this.blink -= dt;
     if (this.blink < -3 - Math.random() * 3) this.blink = 0.12;

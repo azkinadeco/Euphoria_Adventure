@@ -4135,7 +4135,7 @@ def build_hero_skinned():
     skinned_export('hero_body_skinned.glb', R, HERO_J, LUBY_PARENT)
 
 
-def skinned_export(fname, R, J, PARENT):
+def skinned_export(fname, R, J, PARENT, uv=False):
     ad = bpy.data.armatures.new('rig')
     rig = link(bpy.data.objects.new('rig', ad))
     sel([rig])
@@ -4159,10 +4159,154 @@ def skinned_export(fname, R, J, PARENT):
     sel(obs + [rig])
     path = os.path.join(OUT, fname)
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True, export_colors=True,
-                              export_normals=True, export_yup=True, export_materials='EXPORT', export_texcoords=False,
+                              export_normals=True, export_yup=True, export_materials='EXPORT', export_texcoords=uv,
                               export_skins=True, export_animations=False)
     tris = sum(len(p.vertices) - 2 for o in obs for p in o.data.polygons)
     print(f'[props] {fname}  {tris} tris  {os.path.getsize(path) // 1024} KB')
+
+
+# ------------------------------------------------------------------ batch 20: per-hero skinned outfits
+HERO_JC = dict(HERO_J, capeA=(0, 1.24, -0.1), capeB=(0, 0.75, -0.2))
+HERO_PC = dict(LUBY_PARENT, capeA='chest', capeB='capeA')
+
+
+def sheet_uv(ob, nu, nv, closed=False):
+    """uv per vertex from its grid index (u across, v=0 at the first row); v flipped for three.js canvas maps"""
+    cols = nu if closed else nu + 1
+    uvl = ob.data.uv_layers.new(name='UVMap')
+    for poly in ob.data.polygons:
+        for li in poly.loop_indices:
+            vi = ob.data.loops[li].vertex_index
+            uvl.data[li].uv = ((vi % cols) / nu, 1 - (vi // cols) / nv)
+    return ob
+
+
+def build_hero_outfits():
+    sst = lambda t: (lambda c: c * c * (3 - 2 * c))(min(1.0, max(0.0, t)))
+    R = {}
+    shade = lambda lo=0.8, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
+
+    def put(role, ob, wfn, pnt=None, thick=0.0):
+        if thick:
+            modify(ob, 'SOLIDIFY', thickness=thick, offset=-1)
+        paint(ob, pnt or shade())
+        weigh(ob, wfn)
+        R.setdefault(role, []).append(ob)
+        return ob
+
+    def w_skirt(ytop, ybot, k=0.75):
+        def f(x, y, z):
+            t = (ytop - y) / (ytop - ybot)
+            g = sst((t - 0.05) / 0.9) * k
+            a = max(-1.0, min(1.0, x / 0.09))
+            return {'hips': 1 - g, 'legL': g * (0.5 + 0.5 * a), 'legR': g * (0.5 - 0.5 * a)}
+        return f
+
+    def ring(r, th, zc=-0.01, zk=0.78):
+        return (r * math.sin(th), (r * zk) * math.cos(th) + zc)
+
+    def skirt(role, ytop, ybot, rtop, rbot, wave=lambda th, v: 0.0, hem=lambda th: 0.0, nu=64, nv=10, k=0.75, pnt=None, thick=0.006):
+        def fn(u, v):
+            th = u * TAU
+            y = ytop + (ybot + hem(th) - ytop) * v
+            r = rtop + (rbot - rtop) * v ** 0.85 + wave(th, v)
+            x, z = ring(r, th)
+            return (x, y, z)
+        ob = sheet(role, nu, nv, fn)
+        outward(ob, 0, -0.01)
+        return put(role, ob, w_skirt(ytop, ybot, k), pnt, thick)
+
+    def plates(role, n, ytop, ybot, rtop, rbot, a0=0.0, gapf=0.86, k=0.75, skip=(), curl=0.02):
+        """armoured skirt: n overlapping curved plates around the hips"""
+        for i in range(n):
+            if i in skip:
+                continue
+            c = a0 + i * TAU / n
+            half = TAU / n * 0.5 * (1 + (1 - gapf) * 3)
+            def fn(u, v, c=c, half=half, i=i):
+                th = c + (u - 0.5) * 2 * half
+                y = ytop + (ybot - ytop) * v
+                r = rtop + (rbot - rtop) * v + 0.004 * (i % 2) + curl * (1 - (2 * u - 1) ** 2) * v
+                x, z = ring(r, th)
+                return (x, y, z)
+            ob = sheet(role, 8, 4, fn, closed=False)
+            outward(ob, 0, -0.01)
+            put(role, ob, w_skirt(ytop, ybot, k), lambda p, n, pc: (lambda q: (q, q, q))(0.72 + 0.28 * (0.5 + 0.5 * n.z)), 0.008)
+            # raised rim along the lower edge
+            rim = limb([(lambda th: (lambda xz: (xz[0], ybot + 0.008, xz[1]))(ring(rbot + 0.006 + 0.004 * (i % 2), th)))(c + (t / 6 - 0.5) * 2 * half * 0.95) for t in range(7)],
+                       [0.006] * 7, 5, cap=False)
+            put(role, rim, w_skirt(ytop, ybot, k), shade(0.95, 1.0))
+
+    def cape(role, ytop, ybot, rtop, rbot, a_top, a_bot, zc=-0.02, folds=0.025, nu=28, nv=24, uv=False, collar=True):
+        def fn(u, v):
+            # v = 0 at the hem
+            t = 1 - v
+            y = ybot + (ytop - ybot) * v
+            half = a_top + (a_bot - a_top) * t ** 0.8
+            th = math.pi + (u - 0.5) * 2 * half
+            rx = rtop + (rbot - rtop) * t ** 0.9
+            rz = 0.11 + (rbot * 0.8 - 0.11) * t ** 0.9
+            f = folds * t * math.sin((u - 0.5) * 2 * half * 6.0) + 0.004 * math.sin(u * 40) * t
+            x = (rx + f) * math.sin(th)
+            z = (rz + f) * math.cos(th) + zc - 0.03 * t
+            return (x, y, z)
+        ob = sheet(role, nu, nv, fn, closed=False)
+        if uv:
+            sheet_uv(ob, nu, nv)
+        modify(ob, 'SOLIDIFY', thickness=0.008, offset=-1)
+        paint(ob, shade(0.82, 1.0))
+
+        def w(x, y, z):
+            t = (ytop - y) / (ytop - ybot)
+            ch = 1 - sst(t / 0.12)
+            b = sst((t - 0.3) / 0.5)
+            return {'chest': ch, 'capeA': (1 - ch) * (1 - b), 'capeB': (1 - ch) * b}
+        weigh(ob, w)
+        R.setdefault(role, []).append(ob)
+        if collar:
+            pts = [(lambda th: (rtop * math.sin(th) * 1.02, ytop + 0.005, 0.11 * math.cos(th) + zc))(math.pi + (k / 10 - 0.5) * 2 * a_top) for k in range(11)]
+            cl = limb(pts, [0.014] * 11, 6, cap=True)
+            paint(cl, shade(0.85, 1.0))
+            weigh(cl, w)
+            R[role].append(cl)
+
+    # ---- Fidelia: shell faulds (scalloped plates, open at the front)
+    plates('fidFauld', 9, 0.905, 0.775, 0.162, 0.205, a0=TAU / 9 * 0.5, skip=(), curl=0.016)
+    # ---- Valeria: long gold tassets (front pair + sides + back)
+    plates('valTasset', 7, 0.905, 0.72, 0.162, 0.215, a0=0.0, curl=0.022, k=0.85)
+    # ---- Scylla: two-tier ruffled skirt
+    ruff = lambda n, a: (lambda th, v: a * v * v * math.sin(th * n))
+    skirt('scySkirt', 0.905, 0.79, 0.161, 0.205, ruff(16, 0.012), lambda th: 0.006 * math.sin(th * 16))
+    skirt('scySkirt', 0.835, 0.745, 0.19, 0.24, ruff(20, 0.016), lambda th: 0.008 * math.sin(th * 20), k=0.8)
+    skirt('scyLace', 0.8, 0.735, 0.235, 0.25, ruff(20, 0.016), lambda th: 0.008 * math.sin(th * 20), nv=3, k=0.8,
+          pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.7 + 0.3 * (0.5 + 0.5 * math.sin(math.atan2(p.x, -p.y) * 60))))
+    # ---- Rumi: pleated mini skirt with a slit
+    pleat = lambda th, v: 0.016 * (0.3 + v) * (abs(math.sin(th * 9)) - 0.5)
+    skirt('rumSkirt', 0.91, 0.64, 0.158, 0.255, pleat, lambda th: 0.012 * math.cos(th), k=0.8,
+          pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.7 + 0.3 * (0.5 + 0.5 * math.cos(math.atan2(p.x, -p.y) * 18))))
+    # ---- Eropatra: long draped skirt, gold hem band + front panel
+    drape = lambda th, v: 0.02 * v * math.sin(th * 7 + 0.4) + 0.008 * v * math.sin(th * 13)
+    skirt('eroSkirt', 0.905, 0.27, 0.162, 0.3, drape, lambda th: -0.02 * math.cos(th), nu=72, nv=26, k=0.6)
+    hem = sheet('eroGold', 72, 2, lambda u, v: (lambda th: (lambda r: (lambda xz: (xz[0], 0.27 - 0.02 * math.cos(th) + 0.035 * v, xz[1]))(ring(r, th)))(0.3 + drape(th, 1.0) + 0.006))(u * TAU))
+    outward(hem, 0, -0.01)
+    put('eroGold', hem, w_skirt(0.905, 0.27, 0.6), shade(0.85, 1.0), 0.008)
+
+    def panel(u, v):
+        y = 0.86 + (0.31 - 0.86) * v
+        t = (0.905 - y) / (0.905 - 0.27)
+        r = 0.162 + (0.3 - 0.162) * t ** 0.85 + 0.009
+        th = (u - 0.5) * (0.42 - 0.12 * t)
+        x, z = ring(r, th)
+        return (x, y, z)
+    pn = sheet('eroGold', 6, 14, panel, closed=False)
+    put('eroGold', pn, w_skirt(0.905, 0.27, 0.6), lambda p, n, pc: (lambda q: (q, q, q))(0.8 + 0.2 * (0.5 + 0.5 * math.sin(p.z * 120))), 0.006)
+    # ---- capes (rig joints capeA / capeB flutter them)
+    cape('moraCape', 1.25, 0.2, 0.2, 0.44, 0.3 * math.pi, 0.42 * math.pi, uv=True)
+    cape('eroCape', 1.25, 0.05, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi)
+    cape('rumCape', 1.25, 0.24, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi, folds=0.03)
+    cape('cmdCape', 1.2, 0.2, 0.19, 0.3, 0.26 * math.pi, 0.3 * math.pi, folds=0.02)
+
+    skinned_export('hero_outfits.glb', R, HERO_JC, HERO_PC, uv=True)
 
 
 ASSETS = {
@@ -4201,6 +4345,7 @@ ASSETS = {
     'hair_styles': build_hair_styles,
     'luby_skinned': build_luby_skinned,
     'hero_skinned': build_hero_skinned,
+    'hero_outfits': build_hero_outfits,
 }
 
 for name, fn in ASSETS.items():

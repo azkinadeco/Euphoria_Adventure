@@ -57,6 +57,9 @@ function buildBody(rig, S) {
   const ch = add(chest, part(Sp(0.125), S.chest ?? S.skin, { ol: 0.007 }), 0, 0.04, 0); ch.scale.set(1.06, 0.95, 0.8);
   const neckM = add(chest, part(Cy(0.042, 0.05, 0.1), S.skin, { ol: 0.005 }), 0, 0.17, 0);
   const bodyOld = [pelvis, waistM, ch, neckM]; // primitive segments, replaced by the skinned Blender body
+  // cape joints (Blender capes are skinned to them; Rig.update makes them flutter)
+  const capeA = grp(chest, 'capeA', 0, 0.11, -0.1);
+  grp(capeA, 'capeB', 0, -0.49, -0.1);
   const head = grp(chest, 'head', 0, 0.2, 0.005);
   head.scale.setScalar(1.2);
   const skull = add(head, part(animeHead(Sp(0.12, 32, 24)), S.skin, { ol: 0.008 }), 0, 0.1, 0); skull.scale.set(1, 1.04, 0.98);
@@ -129,7 +132,9 @@ function buildBody(rig, S) {
     skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), upper: lay(S.upperArm ?? S.shoulder),
     forearm: lay(S.forearm), thigh: lay(S.thigh), knee: lay(S.knee ?? S.shin), shin: lay(S.shin),
   }, bodyOld, { ol: (r) => (r === 'skin' ? 0.007 : r === 'knee' ? 0.004 : 0) });
-  return { add, Sp, Cy, chest, head, hips, spine, backOld };
+  /** skinned Blender outfit pieces (hero_outfits.glb): roles -> materials, old primitives replaced */
+  const outfit = (roles, old) => applySkinned('hero_outfits', rig, roles, old, { ol: 0.006 });
+  return { add, Sp, Cy, chest, head, hips, spine, backOld, outfit };
 }
 
 export class FideliaRig extends Rig {
@@ -142,7 +147,7 @@ export class FideliaRig extends Rig {
       thigh: skin, knee: shell, shin: toon(0xe9eef4, { flatShading: true }), shoe: toon(0xdbe3ec, { flatShading: true }),
       forearm: toon(0xe9eef4, { flatShading: true }), hand: toon(0xe9eef4), face: softFace({ iris: ['#164a7a', '#3f9ee0', '#c6ecff'], brow: 'firm', mouth: 'smile' }),
     });
-    const { add, Sp, Cy, chest, head, hips } = H;
+    const { add, Sp, Cy, chest, head, hips, outfit } = H;
     // shell breastplate
     for (const s of [-1, 1]) {
       const b = add(chest, part(Sp(0.062, 12, 10), shell, { ol: 0.006 }), s * 0.056, 0.03, 0.075); b.scale.set(1, 0.9, 0.75);
@@ -156,8 +161,9 @@ export class FideliaRig extends Rig {
     const gem = add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.018), new THREE.MeshBasicMaterial({ color: 0x5ad0ff })), 0, 0.0, 0.11);
     void gem;
     // armored faulds
-    const skirt = add(hips, part(Cy(0.15, 0.2, 0.12, 12, true), toon(0xeef2f8, { side: THREE.DoubleSide, flatShading: true }), { ol: 0.006 }), 0, -0.04, 0);
-    void skirt;
+    const fauldM = toon(0xeef2f8, { side: THREE.DoubleSide, flatShading: true });
+    const skirt = add(hips, part(Cy(0.15, 0.2, 0.12, 12, true), fauldM, { ol: 0.006 }), 0, -0.04, 0);
+    outfit({ fidFauld: fauldM }, [skirt]);
     const belt = add(hips, part(new THREE.TorusGeometry(0.145, 0.015, 6, 20), blue, { ol: 0 }), 0, 0.03, 0); belt.rotation.x = Math.PI / 2;
     // shell helmet with fins
     const helm = add(head, part(Sp(0.142, 18, 10, 0, Math.PI * 2, 0, 1.15), shell, { ol: 0.008 }), 0, 0.115, -0.01);
@@ -205,14 +211,14 @@ export class MoraRig extends Rig {
       thigh: suit, knee: suit, shin: suit, shoe: gold, upperArm: suit, forearm: suit, hand: skin,
       face: softFace({ iris: ['#5a2a8a', '#b07ae0', '#ffd98a'], brow: 'soft', mouth: 'smile' }),
     });
-    const { add, Sp, Cy, chest, head } = H;
+    const { add, Sp, Cy, chest, head, outfit } = H;
     // hood (star cloak) + cape
     const hood = add(head, part(Sp(0.15, 20, 10, Math.PI / 2 + 0.8, Math.PI * 2 - 1.6, 0, 1.9), cloak, { ol: 0.008 }), 0, 0.11, -0.015);
     void hood;
     const hoodTop = add(head, part(Sp(0.152, 20, 8, 0, Math.PI * 2, 0, 0.95), cloak, { ol: 0.008 }), 0, 0.11, -0.015);
     void hoodTop;
     const cape = add(chest, part(Cy(0.17, 0.42, 1.05, 18, true, Math.PI * 0.6, Math.PI * 0.8), cloak, { ol: 0.008 }), 0, -0.42, -0.02);
-    this.cape = cape;
+    outfit({ moraCape: cloak }, [cape]);
     // gold collar + jewel
     const collar = add(chest, part(new THREE.TorusGeometry(0.07, 0.014, 6, 18), gold, { ol: 0 }), 0, 0.15, 0); collar.rotation.x = Math.PI / 2;
     add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.022), new THREE.MeshBasicMaterial({ color: 0xc28bff })), 0, 0.1, 0.1);
@@ -233,7 +239,6 @@ export class MoraRig extends Rig {
     if (casting) this.j.handR.getWorldPosition(this.orb.position), this.root.worldToLocal(this.orb.position), this.orb.position.z += 0.25;
     else this.orb.position.set(-0.45 + Math.sin(t * 0.8) * 0.05, 1.55 + Math.sin(t * 1.5) * 0.07, -0.1);
     this.orb.rotation.y += dt * 1.5;
-    if (this.cape) this.cape.rotation.x = Math.min(0.3, (st.speed || 0) * 0.035) + Math.sin(t * 2) * 0.015;
   }
 }
 
@@ -246,10 +251,12 @@ export class ScyllaRig extends Rig {
       thigh: net, knee: net, shin: net, shoe: black, upperArm: skin, forearm: black, hand: black,
       face: softFace({ iris: ['#3a0f2a', '#c0306a', '#ffb0d0'], brow: 'firm', mouth: 'flat' }),
     });
-    const { add, Sp, Cy, chest, hips } = H;
+    const { add, Sp, Cy, chest, hips, outfit } = H;
     // corset lines + skirt
     const belt = add(hips, part(new THREE.TorusGeometry(0.14, 0.016, 6, 20), purple, { ol: 0 }), 0, 0.03, 0); belt.rotation.x = Math.PI / 2;
-    add(hips, part(Cy(0.15, 0.22, 0.14, 14, true), toon(0xf0f0f6, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, -0.05, 0);
+    const skM = toon(0xf0f0f6, { side: THREE.DoubleSide });
+    const sk = add(hips, part(Cy(0.15, 0.22, 0.14, 14, true), skM, { ol: 0.006 }), 0, -0.05, 0);
+    outfit({ scySkirt: skM, scyLace: toon(0x2a2232, { side: THREE.DoubleSide }) }, [sk]);
     for (const sx of [-1, 1]) add(chest, new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.16, 0.01), purple), sx * 0.04, 0.0, 0.1);
     // hair ornament (shell)
     add(this.j.head, part(Sp(0.03, 8, 6), purple, { ol: 0.004 }), 0.1, 0.18, 0.04);
@@ -275,12 +282,13 @@ export class EropatraRig extends Rig {
       thigh: skin, knee: skin, shin: skin, shoe: gold, upperArm: skin, forearm: skin, hand: skin,
       face: softFace({ iris: ['#6a3a0a', '#e0a030', '#ffe8a0'], brow: 'firm', mouth: 'smile' }),
     });
-    const { add, Sp, Cy, chest, head, hips } = H;
+    const { add, Sp, Cy, chest, head, hips, outfit } = H;
     // long white skirt with gold hem + gold collar (usekh)
-    add(hips, part(Cy(0.16, 0.3, 0.62, 16, true), toon(0xf8f4ea, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, -0.3, 0);
+    const skM = toon(0xf8f4ea, { side: THREE.DoubleSide });
+    const sk = add(hips, part(Cy(0.16, 0.3, 0.62, 16, true), skM, { ol: 0.006 }), 0, -0.3, 0);
     const hem = add(hips, part(new THREE.TorusGeometry(0.3, 0.018, 6, 24), gold, { ol: 0 }), 0, -0.6, 0); hem.rotation.x = Math.PI / 2;
     const belt = add(hips, part(new THREE.TorusGeometry(0.15, 0.025, 6, 20), gold, { ol: 0 }), 0, 0.03, 0); belt.rotation.x = Math.PI / 2;
-    add(hips, part(new THREE.BoxGeometry(0.08, 0.32, 0.02), gold, { ol: 0.004 }), 0, -0.14, 0.15);
+    const panel = add(hips, part(new THREE.BoxGeometry(0.08, 0.32, 0.02), gold, { ol: 0.004 }), 0, -0.14, 0.15);
     const collar = add(chest, part(Cy(0.11, 0.2, 0.08, 18), gold, { ol: 0.005 }), 0, 0.14, 0);
     void collar;
     // golden halo crown + side braids with gold cuffs
@@ -291,8 +299,9 @@ export class EropatraRig extends Rig {
     for (const s of [-1, 1]) add(head, part(Cy(0.03, 0.03, 0.05, 8), gold, { ol: 0.003 }), s * 0.11, -0.06, 0.04);
     for (const s of [-1, 1]) { const arm = this.j['elbow' + (s > 0 ? 'L' : 'R')]; add(arm, part(Cy(0.046, 0.046, 0.06, 10), gold, { ol: 0.003 }), 0, -0.05, 0); }
     // cape
-    const cape = add(chest, part(Cy(0.2, 0.45, 1.2, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(0xf0e6c8, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, -0.5, -0.03);
-    void cape;
+    const capeM = toon(0xf0e6c8, { side: THREE.DoubleSide });
+    const cape = add(chest, part(Cy(0.2, 0.45, 1.2, 18, true, Math.PI * 0.55, Math.PI * 0.9), capeM, { ol: 0.006 }), 0, -0.5, -0.03);
+    outfit({ eroSkirt: skM, eroGold: gold, eroCape: capeM }, [sk, hem, panel, cape]);
     // Anubis staff
     const st = new THREE.Group(); this.j.handR.add(st);
     st.position.set(0, -0.04, 0); st.rotation.x = Math.PI / 2 - 0.15;
@@ -313,14 +322,16 @@ export class RumiRig extends Rig {
       thigh: black, knee: black, shin: black, shoe: red, upperArm: skin, forearm: black, hand: black,
       face: softFace({ iris: ['#5a0a14', '#d03040', '#ffb0a0'], brow: 'firm', mouth: 'smile' }),
     });
-    const { add, Sp, Cy, chest, head, hips } = H;
-    add(hips, part(Cy(0.15, 0.24, 0.26, 14, true), toon(0x1a1418, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, -0.1, 0);
+    const { add, Sp, Cy, chest, head, hips, outfit } = H;
+    const skM = toon(0x1a1418, { side: THREE.DoubleSide });
+    const sk = add(hips, part(Cy(0.15, 0.24, 0.26, 14, true), skM, { ol: 0.006 }), 0, -0.1, 0);
     for (const s of [-1, 1]) { // curled horns
       const h = add(head, part(new THREE.ConeGeometry(0.035, 0.2, 8), black, { ol: 0.004 }), s * 0.1, 0.22, 0.0);
       h.rotation.set(-0.5, 0, -s * 0.7);
     }
-    const cape = add(chest, part(Cy(0.2, 0.46, 1.0, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(0x9a1a24, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, -0.4, -0.03);
-    void cape;
+    const capeM = toon(0x9a1a24, { side: THREE.DoubleSide });
+    const cape = add(chest, part(Cy(0.2, 0.46, 1.0, 18, true, Math.PI * 0.55, Math.PI * 0.9), capeM, { ol: 0.006 }), 0, -0.4, -0.03);
+    outfit({ rumSkirt: skM, rumCape: capeM }, [sk, cape]);
     add(chest, new THREE.Mesh(Sp(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3a4a })), 0, 0.12, 0.1);
     // cross-spike staff
     const st = new THREE.Group(); this.j.handR.add(st);
@@ -340,8 +351,10 @@ export class ValeriaRig extends Rig {
       thigh: net, knee: gold, shin: net, shoe: gold, upperArm: skin, forearm: gold, hand: skin,
       face: softFace({ iris: ['#1a3a6a', '#74b9ff', '#e0f4ff'], brow: 'firm', mouth: 'flat' }),
     });
-    const { add, Sp, Cy, chest, head, hips } = H;
-    add(hips, part(Cy(0.15, 0.22, 0.16, 12, true), toon(0xd8a840, { side: THREE.DoubleSide, flatShading: true }), { ol: 0.006 }), 0, -0.06, 0);
+    const { add, Sp, Cy, chest, head, hips, outfit } = H;
+    const tasM = toon(0xd8a840, { side: THREE.DoubleSide, flatShading: true });
+    const tas = add(hips, part(Cy(0.15, 0.22, 0.16, 12, true), tasM, { ol: 0.006 }), 0, -0.06, 0);
+    outfit({ valTasset: tasM }, [tas]);
     for (const sx of [-1, 1]) { const pad = add(chest, part(Sp(0.08, 10, 8), gold, { ol: 0.006 }), sx * 0.19, 0.12, 0); pad.scale.y = 0.75; }
     const circ = add(head, part(new THREE.TorusGeometry(0.13, 0.014, 6, 20), gold, { ol: 0.003 }), 0, 0.17, 0.01); circ.rotation.x = Math.PI / 2 - 0.25;
     add(head, new THREE.Mesh(new THREE.OctahedronGeometry(0.025), new THREE.MeshBasicMaterial({ color: 0x9ee8ff })), 0, 0.19, 0.13);
@@ -468,7 +481,7 @@ export class CommanderRig extends Rig {
       thigh: coat, knee: gold, shin: coat, shoe: toon(0x101624), upperArm: coat, forearm: gold, hand: coat,
       face: softFace({ iris: ['#8a5800', '#f5b820', '#fff4b8'], brow: 'firm', mouth: 'smile' }),
     });
-    const { add, Sp, Cy, chest, spine } = H;
+    const { add, Sp, Cy, chest, spine, outfit } = H;
 
     // Golden Pauldrons
     for (const s of [-1, 1]) {
@@ -482,7 +495,7 @@ export class CommanderRig extends Rig {
     const capeMat = toon(0xfbfcfe, { side: THREE.DoubleSide });
     const cape = add(spine, part(capeGeo, capeMat, { ol: 0.006 }), 0, 0.2, -0.12);
     cape.rotation.x = 0.15;
-    this.cape = cape;
+    outfit({ cmdCape: capeMat }, [cape]);
 
     // Dual Celestial Blades: Solaris (handR) & Lunaris (handL)
     const makeBlade = (hand, color, glowCol) => {
