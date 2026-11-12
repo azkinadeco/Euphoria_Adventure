@@ -2884,7 +2884,6 @@ def build_hero_kits():
     sn = limb([(0, 0.0, 0), (0, -0.09, -0.008), (0, -0.2, -0.004), (0, -0.33, 0.0), (0, -0.36, 0.0)], [0.053, 0.055, 0.046, 0.036, 0.034], 12, 1.0, 1.0)
     kit('kit_b_shin', {'knee': [paint(kn, sh(0.82, 1.0, 10))], 'shin': [paint(sn, sh(0.82, 1.0, 11))]})
     # shoe (foot joint): sole at -0.075, toe forward
-    prof = [(-0.085, -0.075), (0.15, -0.075)]
     shoe = []
     body = ell(0.07, (0, -0.035, 0.04), (0.8, 0.62, 1.65), sub=3)
     for v in body.data.vertices:
@@ -2935,6 +2934,194 @@ def build_hero_kits():
     kit('kit_b_hairlong', {'side': lng})
 
 
+
+def build_companion_kits():
+    sh = lambda lo=0.8, hi=1.0, sd=0: grey(lo, hi, sd, 4.0, 0.7)
+    # ---- Purr-Bot body (body space): metal shell + lime stripe + bolts
+    torso = ell(0.26, (0, 0.42, 0), (1.0, 0.8, 1.38), sub=3)
+    for v in torso.data.vertices:
+        # flatten into panels a little
+        v.co.x = math.copysign(min(abs(v.co.x), 0.24), v.co.x)
+    torso.data.update()
+    metal = [paint(torso, lambda p, n, pc: (lambda k: (k, k, k))(0.8 + 0.2 * max(0.0, n.z) - (0.18 if abs(math.sin(-p.y * 14)) < 0.08 else 0)))]
+    band = ell(0.268, (0, 0.42, 0), (1.0, 0.8, 1.38), sub=3)
+    for v in band.data.vertices:
+        if abs(v.co.z - 0.42) > 0.07 or v.co.z < 0.42 - 0.03:
+            v.co *= 0.98
+    band.data.update()
+    lime = [paint(band, lambda p, n, pc: (1, 1, 1))]
+    for x, z in ((-0.2, 0.25), (0.2, 0.25), (-0.2, -0.25), (0.2, -0.25)):
+        b = cyl(0.025, 0.02, B(x * 1.15, 0.55, z), verts=6)
+        metal.append(paint(b, lambda p, n, pc: (0.6, 0.6, 0.6)))
+    vent = box((0.16, 0.12, 0.02), B(0, 0.62, -0.2), bevel=0.01)
+    dark = [paint(vent, WHITE)]
+    kit('kit_purr_body', {'metal': metal, 'lime': lime, 'dark': dark})
+    # head (head space)
+    sk = ell(0.21, (0, 0, -0.01), (1.15, 0.95, 1.0), sub=3)
+    for v in sk.data.vertices:
+        if -v.co.y > 0.15:   # flatter faceplate
+            v.co.y = -0.15 - (-v.co.y - 0.15) * 0.3
+    sk.data.update()
+    hm = [paint(sk, sh(0.8, 1.0, 1))]
+    cheek = [ell(0.06, (sx * 0.17, -0.05, 0.08), (1.0, 0.8, 0.9), sub=2) for sx in (-1, 1)]
+    hm += [paint(c, sh(0.8, 1.0, 2)) for c in cheek]
+    ears, inner = [], []
+    for sx in (-1, 1):
+        base, tip = Vector(B(sx * 0.13, 0.15, -0.02)), Vector(B(sx * 0.19, 0.33, -0.03))
+        d = (tip - base).normalized()
+        e = lathe('ear', [(0, 0.085), (0.19, 0.0)], 4, math.pi / 4, caps=(True, False))
+        e.rotation_euler = Vector((0, 0, 1)).rotation_difference(d).to_euler()
+        e.location = base
+        apply_tf(e)
+        ears.append(paint(e, sh(0.8, 1.0, 3)))
+        i_ = lathe('in', [(0.02, 0.05), (0.15, 0.0)], 4, math.pi / 4, caps=(True, False))
+        i_.rotation_euler = e.rotation_euler.copy()
+        i_.location = base + Vector(B(0, 0, 0.03))
+        apply_tf(i_)
+        inner.append(paint(i_, WHITE))
+    visor = box((0.32, 0.02, 0.13), B(0, 0.03, 0.2), bevel=0.02)
+    kit('kit_purr_head', {'metal': hm, 'lime': ears, 'dark': inner + [paint(visor, WHITE)]})
+    # leg (leg group space): piston + paw
+    up = limb([(0, 0.02, 0), (0, -0.14, 0.01)], [0.05, 0.045], 8)
+    lo = limb([(0, -0.14, 0.01), (0, -0.27, 0)], [0.035, 0.033], 8)
+    jt = ell(0.045, (0, -0.14, 0.01), sub=2)
+    paw = ell(0.065, (0, -0.3, 0.02), (1.0, 0.6, 1.25), sub=2)
+    toes = [ell(0.022, (x, -0.31, 0.08), (1, 0.8, 1), sub=1) for x in (-0.03, 0, 0.03)]
+    kit('kit_purr_leg', {'dark': [paint(o, sh(0.75, 1.0, 4)) for o in (up, lo, jt)], 'lime': [paint(o, sh(0.8, 1.0, 5)) for o in [paw] + toes]})
+    # tail (tail group space): segmented, glowing tip kept separately in game
+    segs = []
+    for k in range(5):
+        y0 = k * 0.08
+        sg = limb([(0, y0, 0), (0, y0 + 0.065, 0)], [0.036 - k * 0.003, 0.032 - k * 0.003], 8)
+        segs.append(paint(sg, sh(0.75, 1.0, k)))
+    kit('kit_purr_tail', {'metal': segs})
+
+    # ---- Luby sneaker (foot space): lime upper, white sole, dark laces, limeDark cuff
+    up = ell(0.1, (0, -0.012, 0.045), (0.62, 0.5, 1.28), sub=3)
+    for v in up.data.vertices:
+        if v.co.z < -0.052:
+            v.co.z = -0.052
+    up.data.update()
+    sole = []
+    sl = ell(0.105, (0, -0.06, 0.045), (0.64, 0.14, 1.3), sub=2)
+    sole.append(paint(sl, lambda p, n, pc: (lambda k: (k, k, k))(0.85 + 0.15 * max(0.0, n.z))))
+    toe = ell(0.06, (0, -0.035, 0.135), (1.0, 0.55, 0.7), sub=2)
+    sole.append(paint(toe, WHITE))
+    laces = []
+    for i in range(3):
+        l = box((0.07, 0.012, 0.01), B(0, 0.022 - i * 0.012, 0.085 + i * 0.02), rot=(0.6, 0, 0))
+        laces.append(paint(l, WHITE))
+    cuff = limb([(0, -0.012, 0.0), (0, 0.035, 0.0)], [0.062, 0.06], 12)
+    kit('kit_luby_shoe', {'lime': [paint(up, sh(0.82, 1.0, 6))], 'white': sole, 'dark': laces, 'limeDark': [paint(cuff, sh(0.8, 1.0, 7))]})
+
+
+
+def build_misc_kits():
+    sh = lambda lo=0.8, hi=1.0, sd=0: grey(lo, hi, sd, 3.0, 0.7)
+    # ---- chibi story NPC body (body space, feet at y 0)
+    outfit, accent = [], []
+    for sx in (-1, 1):
+        lg = limb([(sx * 0.08, 0.06, 0), (sx * 0.08, 0.4, 0.01), (sx * 0.082, 0.8, 0)], [0.045, 0.055, 0.068], 10)
+        outfit.append(paint(lg, sh(0.8, 1.0, sx)))
+        bt = ell(0.08, (sx * 0.08, 0.05, 0.03), (0.78, 0.72, 1.4), sub=2)
+        for v in bt.data.vertices:
+            if v.co.z < 0.0:
+                v.co.z = 0.0
+        bt.data.update()
+        accent.append(paint(bt, sh(0.8, 1.0, sx + 2)))
+        cuff = limb([(sx * 0.08, 0.08, 0), (sx * 0.08, 0.16, 0)], [0.058, 0.055], 10)
+        accent.append(paint(cuff, sh(0.8, 1.0, sx + 4)))
+    hips = ell(0.14, (0, 0.82, 0), (1.12, 0.8, 0.86), sub=3)
+    outfit.append(paint(hips, sh(0.8, 1.0, 5)))
+    rings = []
+    for y, r in ((0.8, 0.135), (0.92, 0.115), (1.02, 0.11), (1.12, 0.13), (1.2, 0.12), (1.25, 0.06)):
+        rings.append([Vector(B(math.sin(k / 16 * TAU) * r * 1.08, y, math.cos(k / 16 * TAU) * r * 0.82)) for k in range(16)])
+    tor = loft('torso', rings)
+    fix_normals(tor)
+    smooth(tor, 70)
+    outfit.append(paint(tor, sh(0.8, 1.0, 6)))
+    skirt = robe_skirt(0.9, 0.62, 0.13, 0.22, sides=16, waves=8, seed=3)
+    outfit.append(skirt)
+    belt = lathe('belt', [(0.86, 0.135), (0.91, 0.128)], 16)
+    accent.append(paint(belt, sh(0.8, 1.0, 7)))
+    collar = lathe('collar', [(1.2, 0.09), (1.25, 0.075), (1.27, 0.05)], 14)
+    accent.append(paint(collar, sh(0.8, 1.0, 8)))
+    kit('kit_npc_body', {'outfit': outfit, 'accent': accent})
+    # arm (arm-group space, shoulder at 0)
+    ua = limb([(0, 0.02, 0), (0, -0.15, 0.005), (0, -0.33, 0)], [0.05, 0.044, 0.04], 10)
+    gl = limb([(0, -0.3, 0), (0, -0.45, 0.004)], [0.05, 0.046], 10)
+    hd = ell(0.045, (0, -0.5, 0.005), (0.7, 1.1, 0.95), sub=2)
+    kit('kit_npc_arm', {'skin': [paint(ua, sh(0.82, 1.0, 1))], 'accent': [paint(gl, sh(0.8, 1.0, 2)), paint(hd, sh(0.8, 1.0, 3))]})
+
+    # ---- wind glider (glider-group space; bar along X at y 1.75, sail forward/above)
+    sail, frame = [], []
+    for sx in (-1, 1):
+        verts, faces = [], []
+        nu, nv = 6, 3
+        for j in range(nv + 1):
+            for i in range(nu + 1):
+                u, v = i / nu, j / nv
+                x = sx * (0.05 + u * 1.3)
+                zf = 0.5 - u * 0.25 - v * (0.55 - u * 0.28)      # leading edge forward (+z)
+                y = 1.95 + 0.12 * math.sin(math.pi * v) - u * 0.12 + 0.05 * math.sin(math.pi * u)
+                verts.append(B(x, y, zf))
+        for j in range(nv):
+            for i in range(nu):
+                a = j * (nu + 1) + i
+                faces.append((a, a + 1, a + nu + 2, a + nu + 1))
+        w = mesh('sail', verts, faces)
+        modify(w, 'SOLIDIFY', thickness=0.012, offset=0)
+        fix_normals(w)
+        sail.append(paint(w, lambda p, n, pc: (lambda k: (k, k, k))(0.75 if int(abs(p.x) * 4) % 2 else 1.0)))
+        le = limb([(sx * 0.05, 1.95, 0.5), (sx * 0.7, 1.92, 0.36), (sx * 1.35, 1.83, 0.25)], [0.022, 0.02, 0.015], 6)
+        frame.append(paint(le, WHITE))
+        for k in range(3):
+            u = (k + 1) / 4
+            x = sx * (0.05 + u * 1.3)
+            rb = limb([(x, 1.96 - u * 0.12 + 0.05 * math.sin(math.pi * u), 0.5 - u * 0.25), (x, 1.95 - u * 0.12, 0.5 - u * 0.25 - (0.55 - u * 0.28))], [0.01, 0.008], 5)
+            frame.append(paint(rb, WHITE))
+    keel = limb([(0, 1.97, 0.55), (0, 1.97, -0.1)], [0.022, 0.02], 6)
+    frame.append(paint(keel, WHITE))
+    for sx in (-1, 1):
+        st = limb([(sx * 0.02, 1.95, 0.2), (sx * 0.5, 1.75, 0.05)], [0.012, 0.012], 5)
+        frame.append(paint(st, WHITE))
+    bar = limb([(-0.55, 1.75, 0.05), (0.55, 1.75, 0.05)], [0.02, 0.02], 8)
+    grips = [limb([(sx * 0.42, 1.75, 0.05), (sx * 0.52, 1.75, 0.05)], [0.028, 0.028], 8) for sx in (-1, 1)]
+    kit('kit_glider', {'sail': sail, 'bar': [paint(bar, WHITE)] + [paint(g, lambda p, n, pc: (0.6, 0.6, 0.6)) for g in grips] + frame})
+
+    # ---- mecha part: cog facing +z (game), radius ~0.42
+    cg = gear(0.42, 0.34, 0.12, 10, 0.12, (0, 0, 0), rot=(math.pi / 2, 0, 0))
+    paint(cg, lambda p, n, pc: (lambda k: (k, k, k))(0.75 + 0.25 * abs(n.y)))
+    bolts = []
+    for k in range(5):
+        a = k / 5 * TAU
+        b = cyl(0.03, 0.15, (math.cos(a) * 0.23, 0, math.sin(a) * 0.23), rot=(math.pi / 2, 0, 0), verts=6)
+        bolts.append(paint(b, lambda p, n, pc: (0.55, 0.55, 0.55)))
+    kit('kit_mecha_part', {'metal': [cg] + bolts})
+
+    # ---- fire-pepper bush (leaves) + pepper pod (geometry swap)
+    lv = []
+    rnd = random.Random(6)
+    for k in range(7):
+        a = k / 7 * TAU + rnd.uniform(0, 0.4)
+        r = 0 if k == 0 else rnd.uniform(0.22, 0.32)
+        b = blob(0.26 if k == 0 else 0.2, (math.cos(a) * r, math.sin(a) * r, 0.35 + (0.12 if k == 0 else rnd.uniform(-0.05, 0.08))), (1.0, 1.0, 0.85), sub=1, amp=0.3, seed=k)
+        lv.append(paint(b, sh(0.7, 1.0, k)))
+    stem = limb([(0, 0.0, 0), (0, 0.3, 0)], [0.04, 0.03], 6)
+    lv.append(paint(stem, lambda p, n, pc: (0.5, 0.5, 0.5)))
+    kit('kit_pepper_bush', {'bush': lv})
+    pod = lathe('pod', [(-0.12, 0.0), (-0.09, 0.035), (0.0, 0.055), (0.08, 0.05), (0.12, 0.03)], 8,
+                rfn=lambda a, z, r: r * (1 + 0.1 * math.cos(a * 3)), caps=(False, True))
+    for v in pod.data.vertices:
+        v.co.x += 0.03 * ((v.co.z + 0.12) / 0.24) ** 2
+    pod.data.update()
+    cap = limb([(0.0, 0.12, 0), (0.0, 0.17, 0.01)], [0.03, 0.01], 6)
+    for o in (pod,):
+        paint(o, WHITE)
+    paint(cap, lambda p, n, pc: (0.4, 0.4, 0.4))
+    export('pepper', [join([pod, cap], 'pepper', 50)])
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -2963,6 +3150,8 @@ ASSETS = {
     'enemy_kits': build_enemy_kits,
     'boss_kits': build_boss_kits,
     'hero_kits': build_hero_kits,
+    'companion_kits': build_companion_kits,
+    'misc_kits': build_misc_kits,
 }
 
 for name, fn in ASSETS.items():

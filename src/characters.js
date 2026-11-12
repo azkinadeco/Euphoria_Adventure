@@ -1,6 +1,7 @@
 // Purr-Bot (Luby's scrap-built mecha cat) + simple story NPC builder.
 import * as THREE from 'three';
 import { toon, part, damp } from './toon.js';
+import { applyKit } from './assets.js';
 
 export class PurrBot {
   constructor(scene) {
@@ -22,13 +23,16 @@ export class PurrBot {
     const stripe = part(new THREE.SphereGeometry(0.265, 14, 10, 0, Math.PI * 2, 1.1, 0.5), lime, { ol: 0 }); stripe.scale.set(1, 0.8, 1.35); stripe.position.y = 0.42; body.add(stripe);
     const head = this.head = new THREE.Group(); head.position.set(0, 0.68, 0.3); body.add(head);
     const skull = part(new THREE.SphereGeometry(0.22, 14, 10), metal, { ol: 0.02 }); skull.scale.set(1.15, 0.95, 1); head.add(skull);
+    const headOld = [skull];
     for (const s of [-1, 1]) {
-      const ear = part(new THREE.ConeGeometry(0.08, 0.16, 4), lime, { ol: 0.015 }); ear.position.set(s * 0.13, 0.2, -0.02); ear.rotation.set(0, Math.PI / 4, -s * 0.3); head.add(ear);
+      const ear = part(new THREE.ConeGeometry(0.08, 0.16, 4), lime, { ol: 0.015 }); ear.position.set(s * 0.13, 0.2, -0.02); ear.rotation.set(0, Math.PI / 4, -s * 0.3); head.add(ear); headOld.push(ear);
       const eye = new THREE.Mesh(new THREE.CircleGeometry(0.055, 14), glow); eye.position.set(s * 0.085, 0.03, 0.212); head.add(eye);
       const pup = new THREE.Mesh(new THREE.PlaneGeometry(0.018, 0.07), new THREE.MeshBasicMaterial({ color: 0x111111 })); pup.position.set(s * 0.085, 0.03, 0.215); head.add(pup);
       const whisk = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.006, 0.006), dark); whisk.position.set(s * 0.2, -0.05, 0.16); whisk.rotation.z = s * 0.15; head.add(whisk);
     }
     const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.012, 0.01), dark); mouth.position.set(0, -0.07, 0.21); head.add(mouth);
+    applyKit('kit_purr_body', body, { metal, lime, dark }, [torso, stripe], { ol: 0.02 });
+    applyKit('kit_purr_head', head, { metal, lime, dark }, headOld, { ol: 0.018 });
     const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.16), dark); ant.position.set(0.05, 0.27, -0.05); ant.rotation.z = -0.3; head.add(ant);
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), glow); bulb.position.set(0.075, 0.35, -0.05); head.add(bulb);
     this.legs = [];
@@ -36,11 +40,13 @@ export class PurrBot {
       const lg = new THREE.Group(); lg.position.set(x, 0.32, z); body.add(lg);
       const l = part(new THREE.CylinderGeometry(0.045, 0.04, 0.3, 6), dark, { ol: 0.01 }); l.position.y = -0.15; lg.add(l);
       const f = part(new THREE.SphereGeometry(0.06, 8, 6), lime, { ol: 0.01 }); f.position.y = -0.3; lg.add(f);
+      applyKit('kit_purr_leg', lg, { dark, lime }, [l, f], { ol: 0.01 });
       this.legs.push(lg);
     }
     const tail = this.tail = new THREE.Group(); tail.position.set(0, 0.5, -0.33); body.add(tail);
     const tl = part(new THREE.CylinderGeometry(0.025, 0.035, 0.4, 6), metal, { ol: 0.01 }); tl.position.y = 0.2; tail.add(tl);
     const tt = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), glow); tt.position.y = 0.42; tail.add(tt);
+    applyKit('kit_purr_tail', tail, { metal }, [tl], { ol: 0.01 });
     tail.rotation.x = -0.6;
     body.traverse((o) => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
 
@@ -105,19 +111,23 @@ export function makeNPC({ skin = 0xffe2cf, hair, hair2, outfit, accent, cape, ex
   const S = (r) => new THREE.SphereGeometry(r, 18, 12);
   const M = { skin: toon(skin), hair: toon(hair), hair2: toon(hair2 ?? hair), outfit: toon(outfit), accent: toon(accent) };
   const body = new THREE.Group(); g.add(body);
+  const bodyOld = [];
   for (const s of [-1, 1]) {
     const leg = part(new THREE.CylinderGeometry(0.065, 0.045, 0.78, 8), M.outfit, { ol: 0.007 }); leg.position.set(s * 0.08, 0.39, 0); body.add(leg);
     const boot = part(new THREE.SphereGeometry(0.08, 10, 8), M.accent, { ol: 0.007 }); boot.scale.set(0.8, 0.7, 1.4); boot.position.set(s * 0.08, 0.04, 0.03); body.add(boot);
+    bodyOld.push(leg, boot);
   }
   const hips = part(S(0.14), M.outfit, { ol: 0.007 }); hips.scale.set(1.1, 0.8, 0.85); hips.position.y = 0.82; body.add(hips);
   const torso = part(new THREE.CylinderGeometry(0.13, 0.11, 0.36, 12), M.outfit, { ol: 0.007 }); torso.position.y = 1.0; body.add(torso);
   const chest = part(S(0.13), M.outfit, { ol: 0.007 }); chest.scale.set(1.05, 0.9, 0.8); chest.position.y = 1.13; body.add(chest);
   const belt = part(new THREE.TorusGeometry(0.125, 0.018, 6, 16), M.accent, { ol: 0 }); belt.rotation.x = Math.PI / 2; belt.position.y = 0.88; body.add(belt);
+  applyKit('kit_npc_body', body, { outfit: M.outfit, accent: M.accent }, [...bodyOld, hips, torso, chest, belt], { ol: 0.007 });
   const arms = [];
   for (const s of [-1, 1]) {
     const a = new THREE.Group(); a.position.set(s * 0.17, 1.2, 0); body.add(a);
     const u = part(new THREE.CylinderGeometry(0.045, 0.04, 0.5, 8), M.skin, { ol: 0.006 }); u.position.y = -0.25; a.add(u);
     const gl = part(new THREE.CylinderGeometry(0.048, 0.045, 0.2, 8), M.accent, { ol: 0.006 }); gl.position.y = -0.4; a.add(gl);
+    applyKit('kit_npc_arm', a, { skin: M.skin, accent: M.accent }, [u, gl], { ol: 0.006 });
     a.rotation.z = s * 0.15; arms.push(a);
   }
   const head = new THREE.Group(); head.position.y = 1.4; body.add(head);
@@ -130,6 +140,9 @@ export function makeNPC({ skin = 0xffe2cf, hair, hair2, outfit, accent, cape, ex
     const hl = new THREE.Mesh(new THREE.CircleGeometry(0.007, 6), new THREE.MeshBasicMaterial({ color: 0xffffff })); hl.position.set(s * 0.045 - 0.008, 0.065, 0.119); head.add(hl);
   }
   const bang = part(S(0.11), M.hair, { ol: 0.005 }); bang.scale.set(1.05, 0.45, 0.6); bang.position.set(0, 0.16, 0.06); head.add(bang);
+  // same skull size as the heroes -> reuse the hero hair kits (shifted to this skull)
+  applyKit('kit_b_hair', head, { hair: M.hair, side: longHair.material, hair2: M.hair2 }, [hr, bang], { ol: 0.006, place: (m) => { m.position.y = -0.04; } });
+  applyKit('kit_b_hairlong', head, { side: longHair.material }, [longHair], { ol: 0.006, place: (m) => { m.position.set(0, 0.125, 0); m.scale.set(1, 0.85, 1); } });
   if (cape) {
     const c = part(new THREE.CylinderGeometry(0.2, 0.42, 1.1, 14, 1, true, Math.PI * 0.55, Math.PI * 0.9), toon(cape, { side: THREE.DoubleSide }), { ol: 0.008 });
     c.position.set(0, 0.7, -0.02); body.add(c);

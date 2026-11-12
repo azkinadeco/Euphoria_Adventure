@@ -1,5 +1,6 @@
 // Euphoria Adventure — open-world action RPG prototype (web first, mobile later).
 import * as THREE from 'three';
+import { applyKit } from './assets.js';
 import { World, LOC } from './world.js';
 import { Player } from './player.js';
 import { PurrBot, makeMora, makeFidelia } from './characters.js';
@@ -156,6 +157,7 @@ class Game {
       const g = new THREE.Group();
       const gear = part(new THREE.TorusGeometry(0.32, 0.11, 6, 10), toon(0xc9d0d4, { flatShading: true }), { ol: 0.02 });
       g.add(gear);
+      applyKit('kit_mecha_part', g, { metal: gear.material }, [gear], { ol: 0.02 });
       const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: 0xb8ff4a }));
       g.add(core);
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 30, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xb8ff4a, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));

@@ -4,6 +4,7 @@
 // lime eyes, black thigh-highs with lime circuit lines, lime sneakers.
 // The model exposes named joints that the procedural animator drives.
 import * as THREE from 'three';
+import { applyKit } from './assets.js';
 import { toon, part, canvasTex, animeSkin, animeHair, animeCloth } from './toon.js';
 import { Rig } from './rig.js';
 
@@ -297,9 +298,9 @@ export class Luby extends Rig {
       const shoe = add(foot, part(S(0.1, 16, 12), M.lime, { ol: 0.008 }), 0, -0.02, 0.045);
       shoe.scale.set(0.62, 0.52, 1.28);
       const sole = add(foot, part(new THREE.BoxGeometry(0.12, 0.025, 0.24), M.white, { ol: 0.005 }), 0, -0.055, 0.045);
-      void sole;
-      add(foot, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 0.03), M.dark), 0, 0.0, 0.11).rotation.x = -0.6;
-      add(foot, part(Cy(0.058, 0.06, 0.05), M.limeDark, { ol: 0.005 }), 0, 0.01, 0);
+      const strap = add(foot, new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 0.03), M.dark), 0, 0.0, 0.11); strap.rotation.x = -0.6;
+      const cuff = add(foot, part(Cy(0.058, 0.06, 0.05), M.limeDark, { ol: 0.005 }), 0, 0.01, 0);
+      applyKit('kit_luby_shoe', foot, { lime: M.lime, white: M.white, dark: M.dark, limeDark: M.limeDark }, [shoe, sole, strap, cuff], { ol: 0.007 });
     }
 
     this.root.traverse((o) => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });

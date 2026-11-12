@@ -1,6 +1,7 @@
 // Chapter 3 — FROSTVALE EXPANSE: story objects, quests, cold, blizzard, Aurora Shrine.
 import { softDot } from './nature.js';
 import * as THREE from 'three';
+import { applyKit, loadGeometry } from './assets.js';
 import { FLOC, FROST, FLOES, coldAt } from './frost.js';
 import { VOLC } from './volcano.js';
 import { makeChest } from './reef.js';
@@ -43,6 +44,8 @@ export class Chapter3 {
       const peppers = new THREE.Group();
       for (let k = 0; k < 5; k++) { const p = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.24, 6), pepMat); const a = k * 1.25; p.position.set(Math.cos(a) * 0.4, 0.5 + (k % 2) * 0.2, Math.sin(a) * 0.4); p.rotation.x = Math.PI; peppers.add(p); }
       g.add(peppers); g.position.set(x, h, z); S.add(g);
+      applyKit('kit_pepper_bush', g, { bush: bushMat }, [b], { ol: 0.015 });
+      loadGeometry('pepper').then((pg) => { if (pg) peppers.children.forEach((p) => { p.geometry = pg; p.rotation.x = 0; }); });
       const it = { pos: g.position, radius: 2.2, label: 'Petik Cabai Api', kind: 'pepper', regrowAt: 0, peppers };
       it.enabled = () => peppers.visible;
       W.interactables.push(it);

@@ -1,6 +1,7 @@
 // Player controller: a party of up to 3 heroes sharing one body position (switching).
 // Movement, stamina and hunger are shared; HP, energy, cooldowns and shields are per hero.
 import * as THREE from 'three';
+import { applyKit } from './assets.js';
 import { sfx } from './sfx.js';
 import { angleDiff } from './enemies.js';
 import { HEROES, PARTY_ORDER, chaosEl } from './heroes.js';
@@ -98,6 +99,7 @@ export class Player {
     const sail = new THREE.Shape(); sail.moveTo(0, 0); sail.lineTo(1.3, -0.25); sail.lineTo(0.9, -0.55); sail.lineTo(0, -0.35); sail.lineTo(0, 0);
     for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.ShapeGeometry(sail), gm); w.scale.x = sx; w.rotation.x = -Math.PI / 2 + 0.25; w.position.set(0, 1.75, -0.1); this.glider.add(w); }
     const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.4, 6), new THREE.MeshToonMaterial({ color: 0x8a5a2a })); bar.rotation.z = Math.PI / 2; bar.position.y = 1.75; this.glider.add(bar);
+    applyKit('kit_glider', this.glider, { sail: gm, bar: bar.material }, [...this.glider.children], { ol: 0.01 });
     this.glider.visible = false;
     game.scene && this.root.add(this.glider);
     this.coolT = 0; this.heatTick = 0; this.lavaTick = 0;
