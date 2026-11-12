@@ -6,7 +6,7 @@ import { toon, part, outlineMaterial , terrainMat } from './toon.js';
 import { rockGeo, rockMat, softDot } from './nature.js';
 import { fbm, rng, smooth } from './noise.js';
 import { makeCampfire } from './reef.js';
-import { upgrade, swapInstanced } from './assets.js';
+import { upgrade, swapInstanced, loadGeometry, propMaterial } from './assets.js';
 import { VLight } from './lights.js';
 
 const V = (x, z) => new THREE.Vector3(x, 0, z);
@@ -205,6 +205,7 @@ export function buildVolcano(world) {
   const C = VLOC.citadel; C.y = H(C.x, C.z);
   const wallM = toon(0x4a3438, { flatShading: true }), trimM = toon(0x8a2a2a), roofM = toon(0x9a1a1a);
   world.citadelWallColliders = [];
+  const wallSegs = [];
   const SEGS = 36;
   for (let k = 0; k < SEGS; k++) {
     const a0 = (k / SEGS) * Math.PI * 2;
@@ -217,12 +218,18 @@ export function buildVolcano(world) {
     w.position.set(x, C.y + 3.3, z); w.rotation.y = am; s.add(w);
     const wallOld = [w];
     if (k % 2 === 0) { const cr = part(new THREE.BoxGeometry(1, 1, 1.7), trimM, { ol: 0.02 }); cr.position.set(x, C.y + 7.2, z); cr.rotation.y = w.rotation.y; s.add(cr); wallOld.push(cr); }
-    upgrade('citadel_wall', s, wallOld, (m) => { m.position.set(x, C.y, z); m.rotation.y = am; m.scale.x = len / 4.74; }, { outline: 0.035 });
+    wallSegs.push({ x, y: C.y, z, rot: am, s: len / 4.74, old: wallOld });
     for (let q = -1; q <= 1; q++) {
       const cx = C.x + Math.sin(am + q * 0.05) * CIT_R, cz = C.z + Math.cos(am + q * 0.05) * CIT_R;
       world.citadelWallColliders.push(world.addCollider(cx, cz, 1.2));
     }
   }
+  // all wall segments share one Blender geometry -> one instanced mesh (+ one instanced outline)
+  loadGeometry('citadel_wall').then((g) => {
+    if (!g) return;
+    addInst(g, propMaterial(), wallSegs, null, 0.035);
+    for (const t of wallSegs) for (const o of t.old) o.removeFromParent();
+  });
   for (let k = 0; k < 4; k++) {
     const a = Math.PI / 4 + k * Math.PI / 2;
     const x = C.x + Math.sin(a) * (CIT_R + 1), z = C.z + Math.cos(a) * (CIT_R + 1);
