@@ -1,5 +1,6 @@
 // Open world: "Whispering Woods" island — terrain, water, forests, landmarks, sky & day/night cycle.
 import * as THREE from 'three';
+import { zoneInstanced, setInstancedDensity } from './cull.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon, part, outlineMaterial , terrainMat } from './toon.js';
 import { upgrade, flameLayers, flickerFlames, loadGeometry, scatter } from './assets.js';
@@ -385,7 +386,9 @@ export class World {
         o.instanceMatrix = im.instanceMatrix;
         this.scene.add(o);
         this.outlineMeshes.push(o);
+        im.userData.ol = o;
       }
+      zoneInstanced(im); // only the current area's instances are drawn
       return im;
     };
     const leafA = new THREE.Color(0x4f8a3a), leafB = new THREE.Color(0x86a84c), leafC = new THREE.Color(0xb5a24e);
@@ -563,8 +566,8 @@ export class World {
   /** graphics preset: grass/flower density + foliage outlines */
   setDetail(level) {
     const g = { low: 0.25, med: 0.6, high: 1 }[level] ?? 1;
-    this.grassMesh.count = Math.floor(this.grassTotal * g);
-    this.flowerMesh.count = Math.floor(this.flowerTotal * Math.max(g, 0.4));
+    if (!setInstancedDensity(this.grassMesh, g)) this.grassMesh.count = Math.floor(this.grassTotal * g);
+    if (!setInstancedDensity(this.flowerMesh, Math.max(g, 0.4))) this.flowerMesh.count = Math.floor(this.flowerTotal * Math.max(g, 0.4));
     for (const o of this.outlineMeshes) o.visible = level !== 'low';
     this.forestNear = { low: 0, med: 100 }[level] ?? 140;
     const blades = level === 'low' ? this.grassGeoLow : this.grassGeo;
@@ -763,23 +766,48 @@ export class World {
     })();
 
     const r = rng(21);
-    this.cloudMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, color: 0xfffef4 });
-    this.cloudShade = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, color: 0xbecae0 });
-    this.clouds = new THREE.Group();
+    // every puff of every cloud is one instance of a camera-facing quad: 1 draw call instead of ~85 sprites
+    this.cloudMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, color: 0xfffef4 });
+    this.cloudMat.userData.noGlow = true;
+    this.cloudShade = { color: new THREE.Color(0xbecae0) }; // animated with the day & weather, read by the shader
+    const shadeU = { value: this.cloudShade.color };
+    this.cloudMat.onBeforeCompile = (sh) => {
+      sh.uniforms.uShadeCol = shadeU;
+      sh.vertexShader = 'attribute float aShade;\nvarying float vShade;\n' + sh.vertexShader.replace('#include <project_vertex>', `
+        vShade = aShade;
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        mvPosition.xy += position.xy * vec2(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz));
+        gl_Position = projectionMatrix * mvPosition;`);
+      sh.fragmentShader = 'uniform vec3 uShadeCol;\nvarying float vShade;\n' + sh.fragmentShader.replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec4 diffuseColor = vec4( mix( diffuse, uShadeCol, vShade ), opacity );');
+    };
+    this.cloudMat.customProgramCacheKey = () => 'cloudBillboard';
+    const puffs = [];
+    this.cloudX = [];
     for (let i = 0; i < 46; i++) {
-      const c = new THREE.Group();
       const n = 5 + Math.floor(r() * 6), w = 22 + r() * 32;
+      const list = [];
       for (let k = 0; k < n; k++) {
         const isShade = k % 3 === 0;
-        const sp = new THREE.Sprite(isShade ? this.cloudShade : this.cloudMat);
         const sz = 24 + r() * 34;
-        sp.scale.set(sz * 1.65, sz * 1.05, 1);
-        sp.position.set((r() - 0.5) * w * 2, (isShade ? -5 : 0) + r() * 6, (r() - 0.5) * w);
-        c.add(sp);
+        list.push({ cloud: i, sx: sz * 1.65, sy: sz * 1.05, x: (r() - 0.5) * w * 2, y: (isShade ? -5 : 0) + r() * 6, z: (r() - 0.5) * w, shade: isShade ? 1 : 0 });
       }
-      c.position.set((r() * 2 - 1) * 650, 115 + r() * 65, (r() * 2 - 1) * 650);
-      this.clouds.add(c);
+      const cx = (r() * 2 - 1) * 650, cy = 115 + r() * 65, cz = (r() * 2 - 1) * 650;
+      this.cloudX.push(cx);
+      // shaded puffs first so the lit ones blend over them (instances draw in order)
+      list.sort((a, b) => b.shade - a.shade);
+      for (const p of list) { p.cy = cy; p.cz = cz; puffs.push(p); }
     }
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.setAttribute('aShade', new THREE.InstancedBufferAttribute(new Float32Array(puffs.map((p) => p.shade)), 1));
+    const im = new THREE.InstancedMesh(geo, this.cloudMat, puffs.length);
+    const m4 = new THREE.Matrix4();
+    puffs.forEach((p, i) => { m4.makeScale(p.sx, p.sy, 1); m4.setPosition(this.cloudX[p.cloud] + p.x, p.cy + p.y, p.cz + p.z); im.setMatrixAt(i, m4); });
+    im.frustumCulled = false;
+    im.userData.noZone = true;
+    this.cloudPuffs = puffs;
+    this.cloudMesh = im;
+    this.clouds = new THREE.Group();
+    this.clouds.add(im);
     this.scene.add(this.clouds);
   }
 
@@ -869,7 +897,8 @@ export class World {
     this.stars.position.copy(focus);
     this.sunbeam.material.opacity = 0.08 * (1 - night);
 
-    this.clouds.children.forEach((c, i) => { c.position.x += dt * (1.5 + (i % 3)); if (c.position.x > 700) c.position.x = -700; });
+    for (let i = 0; i < this.cloudX.length; i++) { this.cloudX[i] += dt * (1.5 + (i % 3)); if (this.cloudX[i] > 700) this.cloudX[i] = -700; }
+    { const a = this.cloudMesh.instanceMatrix.array, P = this.cloudPuffs; for (let i = 0; i < P.length; i++) a[i * 16 + 12] = this.cloudX[P[i].cloud] + P[i].x; this.cloudMesh.instanceMatrix.needsUpdate = true; }
     const cloudSunlit = new THREE.Color(0xfffef4).lerp(new THREE.Color(0xffd2b4), golden * (1 - night)).lerp(new THREE.Color(0x788aa8), night);
     const cloudShadow = new THREE.Color(0xbecae0).lerp(new THREE.Color(0x7c5d76), golden * (1 - night)).lerp(new THREE.Color(0x1c2438), night);
     this.cloudMat.color.copy(cloudSunlit);

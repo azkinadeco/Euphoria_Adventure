@@ -1,7 +1,8 @@
 // Euphoria Adventure — open-world action RPG prototype (web first, mobile later).
 import * as THREE from 'three';
 import { applyKit, pendingModels, modelsIdle } from './assets.js';
-import { updateCull, setCullScale } from './cull.js';
+import { updateCull, setCullScale, zoneSweep, setActiveZone, getActiveZone } from './cull.js';
+import { zoneOf, ZONES } from './zones.js';
 import { World, LOC } from './world.js';
 import { Player } from './player.js';
 import { PurrBot, makeMora, makeFidelia } from './characters.js';
@@ -867,6 +868,7 @@ class Game {
     $('hud').classList.remove('hidden');
     this.ui.buildParty();
     if (this.input.touch) $('touch').classList.remove('hidden');
+    { const p = this.player.pos; const z = zoneOf(p.x, p.y, p.z); if (z) this._enterZone(z, true); }
     this.playing = true;
     this.input.enabled = true;
     this.cam.target.copy(this.player.pos);
@@ -989,6 +991,59 @@ class Game {
   /** test hook: advance the simulation without rendering (fixed 30 Hz steps) */
   debugStep(seconds) { const n = Math.round(seconds * 30); for (let i = 0; i < n; i++) this._tick(1 / 30); }
 
+  // ---------------- world zones (Ragnarok-style area streaming) ----------------
+  _zoneInit() {
+    const W = this.world;
+    const skip = new Set([W.terrain, W.water, W.sky, W.stars, W.clouds, this.player.root, this.purrbot?.root, this.beacon, this.vfx.points].filter(Boolean));
+    this._zoned = zoneSweep(this.scene, skip);
+    const p = this.player.pos;
+    setActiveZone(zoneOf(p.x, p.y, p.z) || 'glade');
+  }
+
+  /** active world zone id (debug / tests) */
+  zoneId() { return getActiveZone(); }
+  /** debug / tests: turn area streaming off (everything drawn) or back on */
+  setZonesEnabled(on) { this._zonesOff = !on; if (on) { const p = this.player.pos; setActiveZone(zoneOf(p.x, p.y, p.z) || 'glade'); } else setActiveZone(null); updateCull(this.camera.position, 0); }
+
+  _updateZone(dt) {
+    this._zoneT = (this._zoneT || 0) + dt;
+    if (this._zoneT < 0.2 || this._zoneBusy || this._zonesOff) return;
+    this._zoneT = 0;
+    const p = this.player.pos, z = zoneOf(p.x, p.y, p.z);
+    const jumped = this._zoneLast ? this._zoneLast.distanceTo(p) > 20 : false; // teleport / waypoint
+    (this._zoneLast ||= p.clone()).copy(p);
+    if (!z || z === getActiveZone()) { this._zoneCand = null; return; }
+    if (this._zoneCand !== z) { this._zoneCand = z; this._zoneN = 0; }
+    // walking: must stay in the new area for ~0.4 s so standing on the border line does not flicker
+    if (++this._zoneN >= 2 || jumped) this._enterZone(z);
+  }
+
+  /** swap the drawn area behind a short loading fade */
+  async _enterZone(z, instant = false) {
+    this._zoneBusy = true;
+    const el = $('zone-load'), Z = ZONES[z];
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const fade = !instant && this.playing;
+    if (fade) {
+      $('zone-name').textContent = Z.name; $('zone-sub').textContent = Z.sub;
+      el.classList.remove('hidden'); void el.offsetWidth; el.classList.add('show');
+      await wait(300);
+    }
+    setActiveZone(z);
+    updateCull(this.camera.position, 0);
+    if (fade) {
+      // compile anything the new area needs while the screen is covered, then reveal it
+      const R = this.renderer, prevRT = R.getRenderTarget();
+      R.setRenderTarget(this.graphics.composer?.renderTarget1 ?? null);
+      try { await R.compileAsync(this.scene, this.camera); } catch (e) { /* ignore */ } finally { R.setRenderTarget(prevRT); }
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await wait(250);
+      el.classList.remove('show');
+      setTimeout(() => { if (!el.classList.contains('show')) el.classList.add('hidden'); }, 450);
+    }
+    this._zoneBusy = false;
+  }
+
   /** a full-screen UI panel covers the world (menu, wish/artifact/spire/bounty modals, world map, kitchen) */
   _overlayOpen() {
     if (!this._overlays) this._overlays = [$('menu'), ...document.querySelectorAll('.custom-modal')];
@@ -1011,6 +1066,7 @@ class Game {
     }
     this._redrawFrozen = false;
     this._autoGfx(raw);
+    if (this.playing) this._updateZone(raw);
     updateCull(this.camera.position, raw);
     this._tick(dt);
     this.graphics.render();
@@ -1124,6 +1180,7 @@ if (game) {
   const warm = (async () => {
     await modelsIdle();
     await new Promise((r) => setTimeout(r, 60)); // let upgrade() attach the freshly loaded models
+    game._zoneInit();
     // compile for the target the scene is really drawn into (post-processing buffer: linear, no tone
     // mapping) — compiling for the screen would build a different, unused set of programs
     const R = game.renderer, prevRT = R.getRenderTarget();

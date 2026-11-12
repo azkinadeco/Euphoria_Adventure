@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon, outline } from './toon.js';
-import { cullFar } from './cull.js';
+import { cullFar, zoneInstanced } from './cull.js';
 
 const loader = new GLTFLoader();
 
@@ -152,6 +152,7 @@ export function scatter(scene, name, items, { material, shadow = true } = {}) {
     im.castShadow = shadow; im.receiveShadow = true;
     im.userData.scatter = name;
     scene.add(im);
+    zoneInstanced(im);
     return im;
   });
 }

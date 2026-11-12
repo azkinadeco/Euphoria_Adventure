@@ -3,6 +3,7 @@
 // lighting response and wind stay consistent across the whole world.
 // All textures are generated at load time: nothing is downloaded.
 import * as THREE from 'three';
+import { zoneInstanced } from './cull.js';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -554,6 +555,7 @@ export function plantForest(world, kinds, chunk = 128) {
     });
     im.computeBoundingSphere();
     world.scene.add(im);
+    zoneInstanced(im);
   }
 }
 /** switch chunks between detailed and light foliage around the player */

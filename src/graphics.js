@@ -6,6 +6,7 @@
 // - Anime color grading: ACES-filmic curve shaping, lush fantasy greens,
 //   crystalline skies, golden sunlight warmth, lifted lavender shadows, and subtle lens dispersion
 import * as THREE from 'three';
+import { wantedVisible } from './cull.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -162,7 +163,7 @@ export class Graphics {
       ao.overrideVisibility = function () {
         const cache = this._visibilityCache;
         this.scene.traverse((o) => {
-          cache.set(o, o.visible);
+          cache.set(o, wantedVisible(o)); // not the streamed value, or a far object would stay hidden after restore
           const m = o.material;
           if (o.isPoints || o.isLine || o.isSprite || o.userData.noAO || o.userData.isOutline || (m && (m.transparent || m.alphaTest > 0))) o.visible = false;
         });

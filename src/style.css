@@ -474,3 +474,15 @@ body.touch .photo-controls { background: rgba(14, 10, 24, 0.95); }
   .starlight-hud { padding: 3px 8px; font-size: 12px; }
   #btn-menu { top: calc(44px + var(--safe-t)); right: calc(124px + var(--safe-r)); }
 }
+
+/* ---------- zone loading (area streaming) ---------- */
+#zone-load { position: fixed; inset: 0; z-index: 28; display: flex; align-items: center; justify-content: center; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 55%, rgb(14, 28, 14), rgb(3, 7, 4)); opacity: 0; transition: opacity .28s ease; }
+#zone-load.show { opacity: 1; }
+.zl-inner { text-align: center; }
+.zl-tag { font-size: 11px; letter-spacing: 6px; color: var(--lime); opacity: .8; }
+#zone-name { margin-top: 6px; font-size: clamp(26px, 5vw, 46px); font-weight: 900; color: #fff; text-shadow: 0 0 24px rgba(143,230,58,.55), 0 3px 0 #2b4d10; }
+#zone-sub { margin-top: 4px; font-size: 13px; opacity: .75; }
+.zl-bar { margin: 14px auto 0; width: min(260px, 60vw); height: 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.zl-bar i { display: block; height: 100%; width: 40%; background: var(--lime); border-radius: 2px; animation: zl 0.9s ease-in-out infinite; }
+@keyframes zl { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
