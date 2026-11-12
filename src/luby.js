@@ -208,15 +208,19 @@ export class Luby extends Rig {
       b.rotation.set(0.35, 0, Math.PI + rz);
       return b;
     };
-    bang(-0.072, 0.135, 0.09, 0.25, 0.09, M.hair);
-    bang(-0.034, 0.142, 0.104, 0.1, 0.1, M.hairLime);
-    bang(0.0, 0.145, 0.108, 0.0, 0.085, M.hair);
-    bang(0.036, 0.142, 0.104, -0.12, 0.1, M.hair);
-    bang(0.072, 0.135, 0.09, -0.28, 0.085, M.hair);
+    const hairOld = [backHair, backLong];
+    hairOld.push(bang(-0.072, 0.135, 0.09, 0.25, 0.09, M.hair));
+    hairOld.push(bang(-0.034, 0.142, 0.104, 0.1, 0.1, M.hairLime));
+    hairOld.push(bang(0.0, 0.145, 0.108, 0.0, 0.085, M.hair));
+    hairOld.push(bang(0.036, 0.142, 0.104, -0.12, 0.1, M.hair));
+    hairOld.push(bang(0.072, 0.135, 0.09, -0.28, 0.085, M.hair));
     for (const s of [-1, 1]) { // side locks framing the face
       const l = add(head, part(new THREE.ConeGeometry(0.028, 0.17, 5), s < 0 ? M.hairLime : M.hair, { ol: 0.005 }), s * 0.108, 0.04, 0.045);
       l.rotation.set(0.1, 0, Math.PI + s * 0.12);
+      hairOld.push(l);
     }
+    // same skull as the heroes -> the shared Blender hair kit fits (lime streak on the 3rd bang)
+    applyKit('kit_b_hair', head, { hair: M.hair, side: M.hair, hair2: M.hairLime }, hairOld, { ol: 0.006 });
 
     // ---------- cat hood ----------
     const hoodG = grp(head, 'hood', 0, 0.112, -0.012);
@@ -224,7 +228,7 @@ export class Luby extends Rig {
     const cap = add(hoodG, part(S(R, 30, 12, 0, Math.PI * 2, 0, 1.12), M.lime, { ol: 0.009 }));
     cap.material = M.lime;
     const sides = add(hoodG, part(S(R, 30, 12, Math.PI / 2 + 0.82, Math.PI * 2 - 1.64, 1.1, 1.05), toon(C.lime, { side: THREE.DoubleSide }), { ol: 0.009 }));
-    void sides;
+    const hoodOld = [cap, sides];
     // hood rim around the face
     const rim = add(hoodG, part(new THREE.TorusGeometry(0.12, 0.016, 8, 24, Math.PI * 1.25), M.limeDark, { ol: 0.004 }), 0, -0.015, 0.088);
     rim.rotation.z = -Math.PI * 0.125 + Math.PI * 0.0; rim.rotation.x = -0.2;
@@ -252,8 +256,10 @@ export class Luby extends Rig {
       const inner = add(hoodG, new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.075, 4), M.limeDeep), s * 0.097, 0.13, 0.02);
       inner.rotation.set(-0.1, Math.PI / 4, -s * 0.38);
       // mecha bolt
-      add(hoodG, part(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 8), M.white, { ol: 0.003 }), s * 0.06, 0.135, 0.06).rotation.x = 0.8;
+      const bolt = add(hoodG, part(new THREE.CylinderGeometry(0.012, 0.012, 0.01, 8), M.white, { ol: 0.003 }), s * 0.06, 0.135, 0.06); bolt.rotation.x = 0.8;
+      hoodOld.push(ear, inner, bolt);
     }
+    applyKit('kit_luby_hood', hoodG, { lime: M.lime, limeDeep: M.limeDeep, white: M.white }, hoodOld, { ol: 0.008 });
     // panel on top of hood
     const panel = add(hoodG, part(new THREE.BoxGeometry(0.05, 0.012, 0.04), M.dark, { ol: 0.003 }), 0, 0.152, -0.02);
     void panel;
@@ -263,12 +269,14 @@ export class Luby extends Rig {
     for (const s of [-1, 1]) {
       const k = s > 0 ? 'L' : 'R';
       const arm = grp(chest, 'arm' + k, s * 0.19, 0.1, -0.01);
-      add(arm, part(Cy(0.058, 0.062, 0.25), M.lime, { ol: 0.008 }), 0, -0.11, 0);
-      add(arm, part(S(0.065, 14, 10), M.lime, { ol: 0.008 }), 0, 0, 0);
+      const ua = add(arm, part(Cy(0.058, 0.062, 0.25), M.lime, { ol: 0.008 }), 0, -0.11, 0);
+      const shd = add(arm, part(S(0.065, 14, 10), M.lime, { ol: 0.008 }), 0, 0, 0);
+      applyKit('kit_luby_upperarm', arm, { lime: M.lime }, [ua, shd], { ol: 0.008 });
       const elbow = grp(arm, 'elbow' + k, 0, -0.235, 0);
-      add(elbow, part(S(0.062, 14, 10), M.lime, { ol: 0.007 }));
-      add(elbow, part(Cy(0.064, 0.08, 0.2), M.lime, { ol: 0.008 }), 0, -0.1, 0);
-      add(elbow, part(Cy(0.07, 0.07, 0.04), M.limeDark, { ol: 0.005 }), 0, -0.2, 0);
+      const eb = add(elbow, part(S(0.062, 14, 10), M.lime, { ol: 0.007 }));
+      const fa = add(elbow, part(Cy(0.064, 0.08, 0.2), M.lime, { ol: 0.008 }), 0, -0.1, 0);
+      const cf = add(elbow, part(Cy(0.07, 0.07, 0.04), M.limeDark, { ol: 0.005 }), 0, -0.2, 0);
+      applyKit('kit_luby_forearm', elbow, { lime: M.lime, limeDark: M.limeDark }, [eb, fa, cf], { ol: 0.008 });
       const hand = grp(elbow, 'hand' + k, 0, -0.25, 0);
       const paw = add(hand, part(S(0.078, 18, 14), M.lime, { ol: 0.009 }), 0, -0.02, 0);
       paw.scale.set(1, 0.95, 0.9);
@@ -283,6 +291,7 @@ export class Luby extends Rig {
         const claw = add(hand, part(new THREE.ConeGeometry(0.008, 0.035, 6), M.white, { ol: 0.003 }), bx, -0.105, bz + 0.012);
         claw.rotation.x = Math.PI - 0.5;
       }
+      applyKit('kit_luby_paw', hand, { lime: M.lime, glow: M.glow, white: M.white }, [...hand.children], { ol: 0.007 });
     }
 
     // ---------- legs ----------

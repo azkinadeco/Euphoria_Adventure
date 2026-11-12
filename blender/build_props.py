@@ -3122,6 +3122,82 @@ def build_misc_kits():
     export('pepper', [join([pod, cap], 'pepper', 50)])
 
 
+
+def build_luby_kits():
+    sh = lambda lo=0.8, hi=1.0, sd=0: grey(lo, hi, sd, 3.0, 0.7)
+    # ---- hoodie sleeve: upper arm (arm joint) and forearm (elbow joint)
+    shd = ell(0.066, (0, 0, 0), (1.0, 1.0, 1.0), sub=2)
+    up = limb([(0, 0.0, 0), (0, -0.12, 0.003), (0, -0.24, 0)], [0.06, 0.059, 0.062], 12)
+    kit('kit_luby_upperarm', {'lime': [paint(shd, sh(0.82, 1.0, 1)), paint(up, sh(0.8, 1.0, 2))]})
+    eb = ell(0.063, (0, 0, 0), sub=2)
+    fa = lathe('sleeve', [(-0.21, 0.083), (-0.17, 0.08), (-0.08, 0.07), (0.0, 0.064)], 14,
+               rfn=lambda a, z, r: r * (1 + (0.04 * math.sin(a * 5) if z < -0.15 else 0)), caps=(False, True))
+    fix_normals(fa)
+    smooth(fa, 60)
+    cuff = lathe('cuff', [(-0.225, 0.074), (-0.21, 0.086), (-0.18, 0.084), (-0.17, 0.07)], 14)
+    kit('kit_luby_forearm', {'lime': [paint(eb, sh(0.82, 1.0, 3)), paint(fa, sh(0.78, 1.0, 4))], 'limeDark': [paint(cuff, sh(0.8, 1.0, 5))]})
+    # ---- cat paw (hand joint): mitt + glowing pads + toe beans + claws, pads face +z
+    mitt = ell(0.08, (0, -0.03, 0.005), (1.0, 0.98, 0.88), sub=3)
+    for v in mitt.data.vertices:
+        if -v.co.y > 0.04:     # flatten the palm side a touch
+            v.co.y = -0.04 - (-v.co.y - 0.04) * 0.6
+    mitt.data.update()
+    lime = [paint(mitt, sh(0.82, 1.0, 6))]
+    glow = []
+    pad = ell(0.033, (0, -0.03, 0.068), (1.15, 0.95, 0.4), sub=2)
+    glow.append(paint(pad, WHITE))
+    white = []
+    for i in range(4):
+        a = (i - 1.5) * 0.42
+        bx, bz = math.sin(a) * 0.056, math.cos(a) * 0.036 + 0.022
+        bean = ell(0.024, (bx, -0.088, bz), (1.0, 0.9, 1.0), sub=2)
+        lime.append(paint(bean, sh(0.82, 1.0, 7 + i)))
+        dot = ell(0.012, (bx, -0.093, bz + 0.016), (1.0, 0.8, 0.5), sub=1)
+        glow.append(paint(dot, WHITE))
+        cl = limb([(bx, -0.1, bz + 0.012), (bx, -0.118, bz + 0.026)], [0.007, 0.001], 5)
+        white.append(paint(cl, WHITE))
+    kit('kit_luby_paw', {'lime': lime, 'glow': glow, 'white': white})
+    # ---- cat hood shell (hood group space; sphere radius 0.152 kept so the mecha eyes still sit on it)
+    R = 0.152
+    sp = prim('uv_sphere', segments=56, ring_count=28, radius=R)
+    bm = bmesh.new()
+    bm.from_mesh(sp.data)
+    kill = []
+    for f in bm.faces:
+        c = f.calc_center_median()
+        x3, y3, z3 = c.x, c.z, -c.y
+        if (z3 > 0.03 and y3 < 0.075 - 0.25 * max(0.0, abs(x3) - 0.02)) or y3 < -0.11:
+            kill.append(f)
+    bmesh.ops.delete(bm, geom=kill, context='FACES')
+    bm.to_mesh(sp.data)
+    bm.free()
+    modify(sp, 'SOLIDIFY', thickness=0.012, offset=-1)
+    fix_normals(sp)
+    smooth(sp, 50)
+    shell = [paint(sp, lambda p, n, pc: (lambda k: (k, k, k))(0.82 + 0.18 * max(0.0, n.z) - (0.12 if abs(p.x) < 0.006 and p.z > 0.05 else 0)))]
+    deep, wh = [], []
+    for sx in (-1, 1):
+        base = Vector(B(sx * 0.09, 0.12, -0.01))
+        tip = Vector(B(sx * 0.15, 0.255, -0.03))
+        d = (tip - base).normalized()
+        ear = lathe('ear', [(0, 0.066), (0.06, 0.05), (0.14, 0.0)], 4, math.pi / 4, caps=(True, False))
+        ear.rotation_euler = Vector((0, 0, 1)).rotation_difference(d).to_euler()
+        ear.location = base
+        apply_tf(ear)
+        smooth(ear, 30)
+        shell.append(paint(ear, sh(0.8, 1.0, 12 + sx)))
+        inn = lathe('in', [(0.015, 0.04), (0.11, 0.0)], 4, math.pi / 4, caps=(True, False))
+        inn.rotation_euler = ear.rotation_euler.copy()
+        inn.location = base + Vector(B(0, 0, 0.032))
+        apply_tf(inn)
+        deep.append(paint(inn, WHITE))
+        bolt = cyl(0.013, 0.012, B(sx * 0.062, 0.135, 0.062), rot=(math.pi / 2 - 0.8, 0, 0), verts=8)
+        wh.append(paint(bolt, WHITE))
+        seam = limb([(sx * 0.05, 0.14, 0.08), (sx * 0.13, 0.06, 0.02)], [0.004, 0.004], 4)
+        deep.append(paint(seam, WHITE))
+    kit('kit_luby_hood', {'lime': shell, 'limeDeep': deep, 'white': wh})
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -3152,6 +3228,7 @@ ASSETS = {
     'hero_kits': build_hero_kits,
     'companion_kits': build_companion_kits,
     'misc_kits': build_misc_kits,
+    'luby_kits': build_luby_kits,
 }
 
 for name, fn in ASSETS.items():
