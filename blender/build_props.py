@@ -4309,6 +4309,230 @@ def build_hero_outfits():
     skinned_export('hero_outfits.glb', R, HERO_JC, HERO_PC, uv=True)
 
 
+# ------------------------------------------------------------------ batch 21: hero armour & accessory kits
+def build_hero_armor():
+    sst = lambda t: (lambda c: c * c * (3 - 2 * c))(min(1.0, max(0.0, t)))
+    metal = lambda seed=0: grey(0.7, 1.0, seed, 3.0, 0.85)
+    V = lambda *a: Vector(a)
+
+    def frame(a):
+        a = V(*a).normalized()
+        e1 = a.cross(V(0, 0, 1)) if abs(a.z) < 0.9 else a.cross(V(1, 0, 0))
+        e1 = e1.normalized()
+        if e1.y > 0:
+            e1 = -e1  # e1 points down/outward from the axis
+        e2 = a.cross(e1).normalized()
+        return a, e1, e2
+
+    def capf(c, ax, r, scl=(1, 1, 1), rfn=None, e=None):
+        """point on an ellipsoid cap around axis `ax`: (az, phi) -> three.js point"""
+        a, e1, e2 = e or frame(ax)
+        c = V(*c)
+
+        def f(az, ph):
+            d = a * math.cos(ph) + (e1 * math.cos(az) + e2 * math.sin(az)) * math.sin(ph)
+            rr = r * (rfn(az, ph) if rfn else 1.0)
+            return tuple(c + V(d.x * scl[0], d.y * scl[1], d.z * scl[2]) * rr)
+        return f
+
+    def band(f, ph0, ph1, nu, nv, name='cap', thick=0.006, inner=None):
+        """ring band of cap f between ph0(az) and ph1(az); az=0 along e1"""
+        p0 = ph0 if callable(ph0) else (lambda az, _p=ph0: _p)
+        p1 = ph1 if callable(ph1) else (lambda az, _p=ph1: _p)
+
+        def g(u, v):
+            az = u * TAU
+            return f(az, p0(az) + (p1(az) - p0(az)) * v)
+        ob = sheet(name, nu, nv, g, closed=True)
+        if thick:
+            modify(ob, 'SOLIDIFY', thickness=thick, offset=-1 if inner is None else inner)
+        fix_normals(ob)
+        return ob
+
+    def ring(pts, r, sides=6):
+        pts = list(pts)
+        return limb(pts + [pts[0], pts[1]], [r] * (len(pts) + 2), sides, cap=False)
+
+    def edge(f, ph, n, grow=1.02, r=0.005, sides=6, off=0.0):
+        return ring([f(k / n * TAU + off, ph(k / n * TAU) if callable(ph) else ph) for k in range(n)], r, sides)
+
+    # ---- pauldrons (arm joint, built for the +x / left arm; the game mirrors it for the right)
+    P = {}
+    AXP = (math.sin(0.55), math.cos(0.55), 0)
+    inner = lambda base, cut=0.5: (lambda az: base - cut * max(0.0, -math.cos(az)) ** 1.5)  # shorter toward the neck
+    # Fidelia: scallop shell with radiating ribs and a wavy rim, pearl ridges
+    rib = lambda az, ph: 1 + 0.045 * math.cos(az * 5) ** 2
+    fs = capf((0, 0.0, 0), AXP, 0.084, (1, 0.92, 1.15), rib)
+    rim = lambda az: inner(1.3, 0.55)(az) + 0.1 * abs(math.cos(az * 5))
+    P['shellPad'] = [paint(band(fs, 0.03, rim, 70, 12, thick=0.007), metal(1))]
+    fs2 = capf((0, 0.0, 0), AXP, 0.088, (1, 0.92, 1.15), rib)
+    P['shellRidge'] = [paint(edge(fs2, ph, 40, r=0.0042), WHITE) for ph in (0.55, 0.92)]
+    # Valeria: three overlapping lames (upper lame outside), dark rims
+    vl, vr = [], []
+    for k, (r, a0, a1) in enumerate(((0.094, 0.03, 0.72), (0.09, 0.62, 1.02), (0.086, 0.92, 1.36))):
+        f = capf((0, -0.004 * k, 0), AXP, r, (1, 0.9, 1.12))
+        top = a1 if k == 0 else inner(a1, 0.5)
+        vl.append(paint(band(f, a0 if k == 0 else inner(a0, 0.5), top, 48, 6, thick=0.006), metal(2 + k)))
+        fr = capf((0, -0.004 * k, 0), AXP, r * 1.035, (1, 0.9, 1.12))
+        vr.append(paint(edge(fr, top, 40, r=0.0045), WHITE))
+    P['valPad'], P['valRim'] = vl, vr
+    # Commander: chunky faceted plates with a dark trim and a top crest
+    cl, ct = [], []
+    for k, (r, a0, a1) in enumerate(((0.1, 0.03, 0.9), (0.096, 0.78, 1.36))):
+        f = capf((0.006, -0.006 * k, 0), AXP, r, (1.08, 0.85, 1.18))
+        top = a1 if k == 0 else inner(a1, 0.55)
+        cl.append(paint(band(f, a0 if k == 0 else inner(a0, 0.55), top, 10, 5, thick=0.008), metal(5 + k)))
+        fr = capf((0.006, -0.006 * k, 0), AXP, r * 1.04, (1.08, 0.85, 1.18))
+        ct.append(paint(edge(fr, top, 10, r=0.0065, off=0.0), WHITE))
+    fcr = capf((0.006, 0, 0), AXP, 0.106, (1.08, 0.85, 1.18))
+    crest = limb([fcr(math.pi / 2, 0.9), fcr(math.pi / 2, 0.3), fcr(0, 0.05), fcr(-math.pi / 2, 0.3), fcr(-math.pi / 2, 0.9)], [0.004, 0.009, 0.011, 0.009, 0.004], 6, 0.6, 1.0)
+    ct.append(paint(crest, WHITE))
+    P['cmdPad'], P['cmdTrim'] = cl, ct
+    kit('kit_a_pauldron', P)
+
+    # ---- chest pieces (chest joint)
+    Q = {}
+    # Fidelia: scallop-shell cups
+    cups = []
+    for sx in (-1, 1):
+        a = V(sx * 0.3, 0.12, 1).normalized()
+        f = capf((sx * 0.056, 0.028, 0.06), tuple(a), 0.066, (1, 0.9, 0.85), lambda az, ph: 1 + 0.05 * math.cos(az * 4) ** 2 * min(1, ph * 2))
+        cups.append(paint(band(f, 0.03, lambda az: 1.2 + 0.07 * abs(math.cos(az * 4)), 48, 8, thick=0.006), metal(9)))
+    Q['fidBust'] = cups
+    # Eropatra: usekh broad collar with turquoise bead rows + a fringe of drops
+    def usekh(u, v, lift=0.0):
+        az = u * TAU
+        s, c = math.sin(az), math.cos(az)
+        front = max(0.0, c)
+        rx, rz = 0.058 + (0.2 - 0.058) * v, 0.054 + (0.145 - 0.054) * v
+        y = 0.168 - (0.168 - (0.1 - 0.05 * front + 0.015 * max(0.0, -c))) * v ** 1.2 + 0.012 * math.sin(math.pi * v) + lift
+        return (s * rx, y, c * rz)
+    col = sheet('usekh', 48, 8, lambda u, v: usekh(u, v), closed=True)
+    modify(col, 'SOLIDIFY', thickness=0.009, offset=-1)
+    fix_normals(col)
+    Q['usekh'] = [paint(col, metal(10))]
+    beads = []
+    for v0, v1 in ((0.3, 0.42), (0.62, 0.74)):
+        b = sheet('row', 48, 2, lambda u, v, a=v0, z=v1: usekh(u, a + (z - a) * v, 0.006), closed=True)
+        modify(b, 'SOLIDIFY', thickness=0.004, offset=-1)
+        fix_normals(b)
+        beads.append(paint(b, metal(11)))
+    for k in range(30):
+        x, y, z = usekh(k / 30, 1.0)
+        beads.append(paint(ell(0.012, (x * 1.0, y - 0.014, z * 1.0), (1, 1.3, 0.8), sub=1), WHITE))
+    Q['usekhBead'] = beads
+    # Mora: slim gold collar with a four-point star clasp behind the jewel
+    mc = []
+    mc.append(paint(ring([(math.sin(k / 28 * TAU) * 0.066, 0.152 - 0.012 * max(0.0, math.cos(k / 28 * TAU)), math.cos(k / 28 * TAU) * 0.062) for k in range(28)], 0.009, 7), metal(12)))
+    st = []
+    for k in range(8):
+        rr = 0.042 if k % 2 == 0 else 0.013
+        a = k / 8 * TAU
+        st.append(B(math.sin(a) * rr, 0.1 + math.cos(a) * rr * 1.15, 0.094))
+    star = mesh('star', st + [B(0, 0.1, 0.1)], [(k, (k + 1) % 8, 8) for k in range(8)])
+    modify(star, 'SOLIDIFY', thickness=0.01, offset=1)
+    fix_normals(star)
+    mc.append(paint(star, metal(13)))
+    mc.append(paint(limb([(0, 0.142, 0.064), (0, 0.13, 0.08), (0, 0.12, 0.09)], [0.006, 0.006, 0.006], 6), WHITE))
+    Q['moraCollar'] = mc
+    kit('kit_a_chest', Q)
+
+    # ---- head pieces (head joint, head-local before the head group's 1.2 scale)
+    Hd = {}
+    # Fidelia: scallop-shell helmet, pearl rim + crest, swept fins
+    AXH = (0, math.cos(0.12), -math.sin(0.12))
+    eH = (V(*AXH).normalized(), V(0, -math.sin(0.12), -math.cos(0.12)) * -1, V(1, 0, 0))  # e1 -> front
+    eH = (eH[0], (eH[1] - eH[0] * eH[1].dot(eH[0])).normalized(), eH[2])
+    hrib = lambda az, ph: 1 + 0.035 * math.cos(az * 6) ** 2 * min(1.0, ph * 1.6)
+    hrim = lambda az: 0.98 + 0.46 * (1 - math.cos(az)) / 2 + 0.06 * abs(math.cos(az * 6))
+    fh = capf((0, 0.112, -0.012), AXH, 0.15, (1.04, 1.0, 1.06), hrib, eH)
+    Hd['fidHelm'] = [paint(band(fh, 0.03, hrim, 72, 14, thick=0.008), metal(14))]
+    fh2 = capf((0, 0.112, -0.012), AXH, 0.154, (1.04, 1.0, 1.06), None, eH)
+    hr = [paint(edge(fh2, lambda az: hrim(az) - 0.05, 48, r=0.0055), WHITE)]
+    hr.append(paint(limb([fh2(0, a) for a in (0.95, 0.6, 0.25, 0.0)] + [fh2(math.pi, a) for a in (0.25, 0.6, 1.0, 1.3)],
+                         [0.004, 0.007, 0.009, 0.01, 0.009, 0.008, 0.006, 0.003], 6, 0.8, 1.0), WHITE))
+    Hd['fidHelmRidge'] = hr
+    fins = []
+    for sx in (-1, 1):
+        D = V(sx * 0.6, 0.72, -0.38).normalized()
+        W = D.cross(V(sx, 0, 0)).normalized()
+        N = W.cross(D).normalized()
+        base = V(sx * 0.135, 0.14, -0.03)
+        L = 0.22
+        def fin(u, v, D=D, W=W, N=N, base=base):
+            w = 0.07 * math.sin(math.pi * min(1.0, u * 1.15) ** 0.8) * (1 - 0.35 * u)
+            sc = 1 + 0.18 * abs(math.sin(u * math.pi * 3))  # scalloped trailing edge
+            p = base + D * (L * u + 0.03 * (v - 0.5) * u) + W * (v - 0.5) * 2 * w * (sc if v > 0.5 else 1) + N * 0.012 * math.sin(math.pi * v) * sx
+            return tuple(p)
+        fo = sheet('fin', 16, 6, fin, closed=False)
+        modify(fo, 'SOLIDIFY', thickness=0.007, offset=0)
+        fix_normals(fo)
+        fins.append(paint(fo, metal(15)))
+        for t in (-0.6, 0.0, 0.6):
+            tip = base + D * L * (0.82 - abs(t) * 0.25) + W * t * 0.06
+            fins.append(paint(limb([tuple(base + D * 0.01), tuple((base + tip) / 2 + N * 0.01 * sx), tuple(tip)], [0.007, 0.005, 0.002], 5), metal(16)))
+    Hd['fidFin'] = fins
+    # Mora: star-cloak hood that drapes into a short capelet over the shoulders (uv for the star map)
+    NU, NV = 40, 18
+    def hood(u, v):
+        th = 0.05 + 1.95 * min(1.0, v / 0.8)
+        dv = max(0.0, (v - 0.72) / 0.28)
+        w = 0.95 * sst((th - 0.45) / 0.6) * (1 - 0.4 * dv)
+        az = w + u * (TAU - 2 * w)
+        r = 0.16 * (1 + 0.28 * dv ** 1.3)
+        s, c = math.sin(az), math.cos(az)
+        hz = math.sin(th) * r
+        x, y, z = s * hz * 1.0, 0.11 + math.cos(th) * r * 1.03, c * hz * 1.08 - 0.015
+        y -= 0.14 * dv ** 1.1
+        back = max(0.0, -c)
+        z -= 0.045 * back * math.exp(-((th - 0.55) / 0.3) ** 2)   # soft peak at the back
+        y += 0.02 * back * math.exp(-((th - 0.55) / 0.3) ** 2)
+        if dv > 0:
+            x *= 1 + 0.25 * dv * abs(s)  # spread over the shoulders
+        return (x, y, z)
+    ho = sheet('hood', NU, NV, hood, closed=False)
+    sheet_uv(ho, NU, NV)
+    modify(ho, 'SOLIDIFY', thickness=0.008, offset=1)
+    fix_normals(ho)
+    Hd['moraHood'] = [paint(ho, lambda p, n, pc: (lambda k: (k, k, k))(0.8 + 0.2 * (0.5 + 0.5 * n.z)))]
+    tr = []
+    for u in (0.0, 1.0):
+        pts = [hood(u, j / 24) for j in range(5, 25)]
+        tr.append(paint(limb(pts, [0.0065] * len(pts), 6), WHITE))
+    pts = [hood(i / 40, 1.0) for i in range(41)]
+    tr.append(paint(limb(pts, [0.007] * len(pts), 6), WHITE))
+    Hd['moraHoodTrim'] = tr
+    # Eropatra: gold crown band with a rising uraeus cobra
+    def crown(u, v):
+        az = u * TAU
+        s, c = math.sin(az), math.cos(az)
+        y = 0.19 - 0.012 * c + v * 0.036
+        r = 0.139 + 0.006 * v
+        return (s * r, y, c * r * 1.03 - 0.004)
+    cr = sheet('crown', 48, 3, crown, closed=True)
+    modify(cr, 'SOLIDIFY', thickness=0.008, offset=1)
+    fix_normals(cr)
+    ec = [paint(cr, metal(17))]
+    for v in (0.0, 1.0):
+        ec.append(paint(ring([crown(k / 40, v) for k in range(40)], 0.0045, 6), WHITE))
+    ec.append(paint(limb([(0, 0.215, 0.147), (0, 0.245, 0.153), (0, 0.275, 0.152), (0, 0.29, 0.158)], [0.012, 0.022, 0.02, 0.01], 8, 1.5, 0.45), metal(18)))
+    ec.append(paint(ell(0.016, (0, 0.297, 0.168), (0.8, 0.7, 1.3), sub=2), metal(19)))
+    for sx in (-1, 1):  # small rising plumes over the temples
+        ec.append(paint(limb([(sx * 0.12, 0.22, 0.06), (sx * 0.13, 0.27, 0.05), (sx * 0.125, 0.31, 0.03)], [0.012, 0.01, 0.002], 6, 0.5, 1.4), metal(20)))
+    Hd['eroCrown'] = ec
+    # Valeria: circlet that dips to a point over the brow, with little wings beside the jewel
+    def circ(k, n=40):
+        a = k / n * TAU
+        s, c = math.sin(a), math.cos(a)
+        y = 0.17 + 0.03 * c - 0.018 * math.exp(-(math.atan2(s, c) / 0.25) ** 2)
+        return (s * 0.133, y, c * 0.135 + 0.01)
+    vc = [paint(ring([circ(k) for k in range(40)], 0.0075, 6), metal(21))]
+    for sx in (-1, 1):
+        vc.append(paint(limb([(sx * 0.02, 0.19, 0.142), (sx * 0.05, 0.205, 0.136), (sx * 0.085, 0.225, 0.12)], [0.009, 0.007, 0.002], 6, 1.0, 0.5), metal(22)))
+    Hd['valCirclet'] = vc
+    kit('kit_a_head', Hd)
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -4346,6 +4570,7 @@ ASSETS = {
     'luby_skinned': build_luby_skinned,
     'hero_skinned': build_hero_skinned,
     'hero_outfits': build_hero_outfits,
+    'hero_armor': build_hero_armor,
 }
 
 for name, fn in ASSETS.items():
