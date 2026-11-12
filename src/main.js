@@ -1,6 +1,7 @@
 // Euphoria Adventure — open-world action RPG prototype (web first, mobile later).
 import * as THREE from 'three';
 import { applyKit, pendingModels, modelsIdle } from './assets.js';
+import { updateCull, setCullScale } from './cull.js';
 import { World, LOC } from './world.js';
 import { Player } from './player.js';
 import { PurrBot, makeMora, makeFidelia } from './characters.js';
@@ -889,6 +890,7 @@ class Game {
   applyGfx(level, user = false) {
     this.gfx = level;
     this._redrawFrozen = true;
+    setCullScale(level === 'low' ? 0.75 : 1);
     const P = PRESETS[level];
     this.graphics.apply(level);
     const sun = this.world.sun;
@@ -1009,6 +1011,7 @@ class Game {
     }
     this._redrawFrozen = false;
     this._autoGfx(raw);
+    updateCull(this.camera.position, raw);
     this._tick(dt);
     this.graphics.render();
   }

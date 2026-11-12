@@ -1,12 +1,14 @@
 // Shared humanoid rig + procedural animator. Every playable hero builds meshes onto the same joint names
 // (pivot, hips, spine, chest, head, armL/R, elbowL/R, handL/R, legL/R, kneeL/R, footL/R, optional tail[]).
 import * as THREE from 'three';
+import { cullFar } from './cull.js';
 import { damp } from './toon.js';
 
 export class Rig {
   constructor(name) {
     this.root = new THREE.Group();
     this.root.name = name;
+    cullFar(this.root, 110); // heroes/NPC rigs: ~80 draw calls each, pointless beyond fog of detail
     this.j = {};
     this.mats = {};
     this._build();

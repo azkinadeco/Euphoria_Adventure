@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon, outline } from './toon.js';
+import { cullFar } from './cull.js';
 
 const loader = new GLTFLoader();
 
@@ -72,6 +73,7 @@ export function upgrade(name, parent, old, place, opts) {
     place(m);
     parent.add(m);
     for (const o of [].concat(old)) o?.removeFromParent();
+    cullFar(m); // draw distance from the model's size
     return m;
   });
 }

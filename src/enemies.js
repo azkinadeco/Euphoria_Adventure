@@ -1,5 +1,6 @@
 // Corrupted wildlife of Whispering Woods: Slime, Corrupted Gumi Fox, and the boss Gumi Wolf (Nine Tails).
 import * as THREE from 'three';
+import { cullFar } from './cull.js';
 import { toon, part, damp, applyRim } from './toon.js';
 import { boostGlow } from './graphics.js';
 import { sfx } from './sfx.js';
@@ -725,6 +726,7 @@ export class Enemy {
     boostGlow(this.root);
     if (this.isBoss) applyRim(this.root, 0xffe0f0, 0.5);
     game.scene.add(this.root);
+    cullFar(this.root, undefined, 110);
 
     // hp bar (camera-facing)
     const bar = new THREE.Group();

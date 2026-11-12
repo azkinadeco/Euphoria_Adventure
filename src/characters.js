@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { toon, part, damp } from './toon.js';
 import { applyKit } from './assets.js';
+import { cullFar } from './cull.js';
 
 export class PurrBot {
   constructor(scene) {
@@ -157,7 +158,7 @@ export function makeNPC({ skin = 0xffe2cf, hair, hair2, outfit, accent, cape, ex
     head.rotation.y = Math.sin(t * 0.5) * 0.25;
     arms[0].rotation.x = Math.sin(t * 1.3) * 0.05; arms[1].rotation.x = -Math.sin(t * 1.3) * 0.05;
   };
-  return g;
+  return cullFar(g, 110);
 }
 
 export function makeMora() {

@@ -1,5 +1,6 @@
 // Euphoria Adventure — wind rings. Gliding through one launches the hero forward and refills stamina.
 import * as THREE from 'three';
+import { cullFar } from './cull.js';
 import { sfx } from './sfx.js';
 
 const RING_COOLDOWN = 2.4;
@@ -87,6 +88,7 @@ export class FlightRings {
       }
 
       this.group.add(root);
+      cullFar(root, 160); // 5 draw calls per ring; only near rings matter
       this.rings.push({
         root,
         outer,
