@@ -25,7 +25,7 @@
       <div id="char-info">
         <div id="char-name"><span id="char-nm">Luby</span> <span class="elem" id="char-elem">✦ WIND</span> <span id="char-lv">Lv.1</span></div>
         <div class="bar hp"><div id="hp-fill"></div><div id="shield-fill"></div><span id="hp-text">100/100</span></div>
-        <div class="bar hunger"><div id="hunger-fill"></div><span class="bar-label">🍖 Lapar</span></div>
+        <div class="bar hunger"><div id="hunger-fill"></div><span class="bar-label"><i data-ico="meat"></i>Lapar</span></div>
         <div class="bar exp"><div id="exp-fill"></div></div>
         <div id="status-line"></div>
       </div>
@@ -40,7 +40,7 @@
     <div id="minimap-wrap">
       <canvas id="minimap" width="180" height="180"></canvas>
       <div id="clock">06:00</div>
-      <div id="weather-badge" class="weather-badge" title="Cuaca (Klik untuk ganti)">☀️ <span class="w-name">Cerah</span></div>
+      <div id="weather-badge" class="weather-badge" title="Cuaca (Klik untuk ganti)"><span class="w-icon"></span><span class="w-name">Cerah</span></div>
     </div>
 
     <div id="party"></div>
@@ -48,25 +48,25 @@
     <div id="stamina-ring"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="bg"/><circle cx="20" cy="20" r="16" id="stamina-arc"/></svg></div>
 
     <div id="inventory">
-      <div class="inv" id="inv-berry"><span class="key">Z</span>🫐<b id="cnt-berry">0</b></div>
-      <div class="inv" id="inv-fish"><span class="key">X</span>🐟<b id="cnt-fish">0</b></div>
-      <div class="inv" id="inv-grilled"><span class="key">C</span>🍢<b id="cnt-grilled">0</b></div>
-      <div class="inv" id="inv-cool"><span class="key">V</span>🧊<b id="cnt-cool">0</b></div>
-      <div class="inv" id="inv-soup"><span class="key">B</span>🍲<b id="cnt-soup">0</b></div>
-      <div class="inv" id="inv-pepper">🌶️<b id="cnt-pepper">0</b></div>
-      <div class="inv" id="inv-scrap"><span class="key">⚙</span><b id="cnt-scrap">0/3</b></div>
+      <div class="inv" id="inv-berry"><span class="key">Z</span><i data-ico="berry"></i><b id="cnt-berry">0</b></div>
+      <div class="inv" id="inv-fish"><span class="key">X</span><i data-ico="fish"></i><b id="cnt-fish">0</b></div>
+      <div class="inv" id="inv-grilled"><span class="key">C</span><i data-ico="skewer"></i><b id="cnt-grilled">0</b></div>
+      <div class="inv" id="inv-cool"><span class="key">V</span><i data-ico="drink"></i><b id="cnt-cool">0</b></div>
+      <div class="inv" id="inv-soup"><span class="key">B</span><i data-ico="soup"></i><b id="cnt-soup">0</b></div>
+      <div class="inv" id="inv-pepper"><i data-ico="pepper"></i><b id="cnt-pepper">0</b></div>
+      <div class="inv" id="inv-scrap"><i data-ico="cog"></i><b id="cnt-scrap">0/3</b></div>
     </div>
 
     <div id="skills">
       <div class="skill" id="btn-q" data-key="Q">
-        <div class="skill-icon" id="icon-q">🌪️</div><div class="cd"></div><div class="energy"><div id="energy-fill"></div></div><span class="key">Q</span>
+        <div class="skill-icon" id="icon-q"></div><div class="cd"></div><div class="energy"><div id="energy-fill"></div></div><span class="key">Q</span>
       </div>
       <div class="skill" id="btn-e" data-key="E">
-        <div class="skill-icon" id="icon-e">🐾</div><div class="cd"></div><span class="key">E</span>
+        <div class="skill-icon" id="icon-e"></div><div class="cd"></div><span class="key">E</span>
       </div>
     </div>
 
-    <div id="prompt" class="hidden"><span class="key">F</span><span id="prompt-text"></span></div>
+    <div id="prompt" class="hidden"><span class="key">F</span><i class="p-hand" data-ico="hand"></i><span id="prompt-text"></span></div>
     <div id="boss-bar" class="hidden"><div id="boss-name">Gumi Wolf · Nine Tails</div><div class="bar"><div id="boss-fill"></div></div></div>
     <div id="toasts"></div>
     <div id="dmg-layer"></div>
@@ -82,23 +82,23 @@
     <div id="touch" class="hidden">
       <div id="joy"><div id="joy-knob"></div></div>
       <div id="tbtns">
-        <button id="t-attack" class="tb big">🐾</button>
-        <button id="t-jump" class="tb">⤒</button>
-        <button id="t-dash" class="tb">»</button>
-        <button id="t-sprint" class="tb">⚡</button>
-        <button id="t-sight" class="tb">👁️</button>
-        <button id="t-interact" class="tb hidden">F</button>
-        <button id="t-lock" class="tb">🎯</button>
+        <button id="t-attack" class="tb big" aria-label="Serang"><i data-ico="paw"></i></button>
+        <button id="t-jump" class="tb" aria-label="Lompat"><i data-ico="jump"></i></button>
+        <button id="t-dash" class="tb" aria-label="Dash"><i data-ico="dash"></i></button>
+        <button id="t-sprint" class="tb" aria-label="Lari"><i data-ico="bolt"></i></button>
+        <button id="t-sight" class="tb" aria-label="Mata Aether"><i data-ico="eye"></i></button>
+        <button id="t-interact" class="tb hidden" aria-label="Interaksi"><i data-ico="hand"></i></button>
+        <button id="t-lock" class="tb" aria-label="Kunci target"><i data-ico="target"></i></button>
       </div>
     </div>
     <div id="hud-top-row">
-    <div id="starlight-hud" class="starlight-hud">✦ <span id="starlight-num">1600</span></div>
-    <button id="btn-map" title="Peta Dunia (M)" class="hud-top-btn map-btn">🗺️ <span class="key-hint">M</span></button>
-    <button id="btn-sight" title="Mata Aether (T)" class="hud-top-btn sight-btn">👁️ <span class="key-hint">T</span></button>
-    <button id="btn-photo" title="Mode Kamera (P)" class="hud-top-btn photo-btn">📷 <span class="key-hint">P</span></button>
-    <button id="btn-wish" title="Wish (F3)" class="hud-top-btn">🌟 Wish</button>
+    <div id="starlight-hud" class="starlight-hud"><i data-ico="sparkle"></i><span id="starlight-num">1600</span></div>
+    <button id="btn-map" title="Peta Dunia (M)" class="hud-top-btn map-btn"><i data-ico="map"></i><span class="key-hint">M</span></button>
+    <button id="btn-sight" title="Mata Aether (T)" class="hud-top-btn sight-btn"><i data-ico="eye"></i><span class="key-hint">T</span></button>
+    <button id="btn-photo" title="Mode Kamera (P)" class="hud-top-btn photo-btn"><i data-ico="camera"></i><span class="key-hint">P</span></button>
+    <button id="btn-wish" title="Wish (F3)" class="hud-top-btn wish-btn"><i data-ico="star"></i><span class="lbl">Wish</span></button>
     </div>
-    <button id="btn-menu" title="Menu (Esc)">☰</button>
+    <button id="btn-menu" title="Menu (Esc)" aria-label="Menu"><i data-ico="menu"></i></button>
   </div>
 
   <!-- ================= DIALOG ================= -->
@@ -136,23 +136,40 @@
   <!-- ================= MENU ================= -->
   <div id="menu" class="hidden">
     <div class="menu-card">
-      <h2>Jeda</h2>
-      <button id="m-resume">Lanjut</button>
-      <button id="m-wish" class="gold">🌟 Doa Bintang (Wish Banner)</button>
-      <button id="m-artifacts">🛡️ Artifak &amp; Perlengkapan</button>
-      <button id="m-spire">⚔️ Menara Ujian (Celestial Spire)</button>
-      <button id="m-bounties">📜 Papan Buronan (Bounties)</button>
-      <button id="m-cook">🍳 Dapur Memasak (Gourmet)</button>
-      <button id="m-map">🗺️ Peta Benua Euphoria</button>
-      <button id="m-photo">📷 Mode Kamera</button>
-      <button id="m-profile">Profil Hero</button>
-      <button id="m-gfx">Grafis: HIGH</button>
-      <div class="menu-sec"><div class="tp-title">Atur Party (maks. 4)</div><div id="team"></div><button id="team-apply" class="small">Terapkan</button></div>
-      <div class="menu-sec"><div class="tp-title">Masak <span id="cook-hint"></span></div><div id="cook"></div></div>
-      <div id="tp-wrap"><div class="tp-title">Teleport</div><div id="tp"></div></div>
-      <button id="m-save">Simpan</button>
-      <button id="m-reset" class="ghost">Hapus save &amp; ulang</button>
-      <div id="profile" class="hidden"></div>
+      <div class="mc-head">
+        <div class="mc-who"><img id="mc-img" alt="" /><div><div class="mc-tag">JEDA</div><div id="mc-hero">Luby</div></div></div>
+        <button id="m-resume" class="mc-resume"><i data-ico="play"></i>Lanjut</button>
+      </div>
+      <div class="mc-grid">
+        <button id="m-wish" class="mc-tile gold"><i data-ico="star"></i><span>Wish</span></button>
+        <button id="m-artifacts" class="mc-tile"><i data-ico="shield"></i><span>Artefak</span></button>
+        <button id="m-spire" class="mc-tile"><i data-ico="tower"></i><span>Menara</span></button>
+        <button id="m-bounties" class="mc-tile"><i data-ico="scroll"></i><span>Buronan</span></button>
+        <button id="m-cook" class="mc-tile"><i data-ico="pot"></i><span>Dapur</span></button>
+        <button id="m-map" class="mc-tile"><i data-ico="map"></i><span>Peta</span></button>
+        <button id="m-photo" class="mc-tile"><i data-ico="camera"></i><span>Kamera</span></button>
+        <button id="m-profile" class="mc-tile"><i data-ico="user"></i><span>Profil</span></button>
+      </div>
+      <div class="mc-tabs">
+        <button data-tab="party"><i data-ico="users"></i>Party</button>
+        <button data-tab="tp"><i data-ico="pin"></i>Teleport</button>
+        <button data-tab="cook"><i data-ico="skewer"></i>Bekal</button>
+        <button data-tab="set"><i data-ico="gear"></i>Pengaturan</button>
+      </div>
+      <div class="mc-body">
+        <div class="mc-pane" data-pane="party"><div class="mc-note">Pilih maksimal 4 hero untuk dibawa.</div><div id="team"></div><button id="team-apply" class="mc-btn primary">Terapkan Party</button></div>
+        <div class="mc-pane" data-pane="tp"><div id="tp"></div></div>
+        <div class="mc-pane" data-pane="cook"><div class="mc-note">Masak bekal di dekat api unggun · <span id="cook-hint"></span></div><div id="cook"></div></div>
+        <div class="mc-pane" data-pane="set">
+          <div class="mc-row"><div class="mc-label">Kualitas grafis</div>
+            <div class="mc-seg" id="m-gfx"><button data-gfx="auto">Otomatis</button><button data-gfx="low">Rendah</button><button data-gfx="med">Sedang</button><button data-gfx="high">Tinggi</button></div>
+          </div>
+          <div class="mc-row"><div class="mc-label">Progres</div>
+            <div class="mc-actions"><button id="m-save" class="mc-btn primary"><i data-ico="save"></i>Simpan</button><button id="m-reset" class="mc-btn danger"><i data-ico="trash"></i><span>Hapus save</span></button></div>
+          </div>
+        </div>
+        <div class="mc-pane" data-pane="profile"><div id="profile"></div></div>
+      </div>
     </div>
   </div>
 

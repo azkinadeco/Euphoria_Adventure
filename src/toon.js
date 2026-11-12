@@ -280,24 +280,30 @@ export function outlineMaterial(thickness = 0.01, color = 0x221a2d) {
 
   m.onBeforeCompile = (s) => {
     s.uniforms.uThick = { value: thickness };
-    s.vertexShader = `
-      uniform float uThick;
-    ` + s.vertexShader.replace(
-      '#include <begin_vertex>',
-      `
-      vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
-      vec3 vNorm = normalize(mat3(modelViewMatrix) * normal);
-      // View-space normal extrusion with subtle distance compensation
-      float distFactor = clamp(length(mvPos.xyz) * 0.09, 0.45, 2.2);
-      mvPos.xyz += vNorm * (uThick * distFactor);
-      vec3 transformed = position;
-      gl_Position = projectionMatrix * mvPos;
-      `
+    // extrude AFTER three's own projection (replacing begin_vertex got overwritten by project_vertex,
+    // so the shells never showed); works for plain, instanced and skinned meshes
+    s.vertexShader = 'uniform float uThick;\n' + s.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+      {
+        vec3 oN = normal;
+        #ifdef USE_SKINNING
+          oN = objectNormal;
+        #endif
+        #ifdef USE_INSTANCING
+          oN = mat3(instanceMatrix) * oN;
+        #endif
+        vec3 vN = normalize(mat3(modelViewMatrix) * oN);
+        // view-space extrusion with distance compensation: near-constant apparent width
+        float distFactor = clamp(-mvPosition.z * 0.09, 0.45, 2.2);
+        mvPosition.xyz += vN * (uThick * distFactor);
+        gl_Position = projectionMatrix * mvPosition;
+      }`
     );
   };
 
   // thickness is a uniform and colour is the material colour: every outline can share one program
-  m.customProgramCacheKey = () => 'animeOutlineV3';
+  m.customProgramCacheKey = () => 'animeOutlineV4';
   _outlineCache.set(key, m);
   return m;
 }
@@ -327,6 +333,31 @@ export function canvasTex(w, h, draw) {
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
+}
+
+/**
+ * Anime head shape: narrow V jaw and a small pointed chin. Skull-local (sphere r ~0.12, centre 0).
+ * Apply the same call to the skull AND its face decal so the painted face follows the new shape.
+ */
+export function animeHead(geo) {
+  const p = geo.attributes.position;
+  const sm = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const t = Math.min(1, Math.max(0, (-y - 0.01) / 0.11)); // 0 at the eyes .. 1 at the chin
+    const fw = sm((z / 0.12 + 0.3) / 0.9); // front of the face
+    x *= 1 - 0.3 * Math.pow(t, 1.4) * (0.35 + 0.65 * fw);
+    y -= 0.02 * t * t * fw;
+    z *= 1 - 0.08 * t * (1 - fw);
+    p.setXYZ(i, x, y, z);
+  }
+  geo.computeVertexNormals();
+  // weld normals across the UV seam / poles (duplicated vertices) so no lighting crease shows
+  const n = geo.attributes.normal, acc = new Map();
+  const key = (i) => `${Math.round(p.getX(i) * 1e4)},${Math.round(p.getY(i) * 1e4)},${Math.round(p.getZ(i) * 1e4)}`;
+  for (let i = 0; i < p.count; i++) { const k = key(i), a = acc.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(k, a); }
+  for (let i = 0; i < p.count; i++) { const a = acc.get(key(i)), l = Math.hypot(a[0], a[1], a[2]) || 1; n.setXYZ(i, a[0] / l, a[1] / l, a[2] / l); }
+  return geo;
 }
 
 export const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));

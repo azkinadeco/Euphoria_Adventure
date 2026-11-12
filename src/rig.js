@@ -13,6 +13,11 @@ export class Rig {
     this.mats = {};
     this._build();
     if (!this.j.tail) this.j.tail = [];
+    // rest pose of every joint in rig-root space (skinned bodies bind against it, even if they load later)
+    this.root.updateMatrixWorld(true);
+    const inv = this.root.matrixWorld.clone().invert();
+    this.bindRest = {};
+    for (const [n, g] of Object.entries(this.j)) if (g?.isObject3D) this.bindRest[n] = inv.clone().multiply(g.matrixWorld);
     this.phase = 0;
     this.idleT = 0;
     this.time = 0;

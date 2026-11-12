@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { toon, outline } from './toon.js';
+import { toon, outline, outlineMaterial } from './toon.js';
 import { cullFar, zoneInstanced } from './cull.js';
 
 const loader = new GLTFLoader();
@@ -199,6 +199,49 @@ function whiteColors(geo) {
  * The role materials switch on vertexColors (kits carry greyscale shading); any primitive left on the
  * same model that still uses one of those materials gets a white colour attribute.
  */
+/**
+ * Bind a skinned Blender body (bones named after the rig's joints) straight onto a procedural Rig:
+ * the rig's joint groups become the skeleton, so the existing animator bends the mesh smoothly.
+ * Each skinned mesh is named after a material ROLE, like the kits.
+ */
+export function applySkinned(name, rig, roles, old = [], { ol = 0.006 } = {}) {
+  return loadKitSrc(name).then((src) => {
+    if (!src || !rig.bindRest) return null;
+    const holder = new THREE.Group();
+    holder.name = name;
+    const used = new Set();
+    const skels = new Map();
+    src.traverse((o) => {
+      if (!o.isSkinnedMesh) return;
+      const mat = roles[o.name.replace(/[._\d].*$/, '')];
+      if (!mat) return;
+      const names = o.skeleton.bones.map((b) => b.name);
+      if (names.some((n) => !rig.j[n] || !rig.bindRest[n])) { console.warn('[assets] ' + name + ': unknown joint in', names); return; }
+      const key = names.join();
+      if (!skels.has(key)) skels.set(key, new THREE.Skeleton(names.map((n) => rig.j[n]), names.map((n) => rig.bindRest[n].clone().invert())));
+      const sk = skels.get(key);
+      const mk = (m) => { const sm = new THREE.SkinnedMesh(o.geometry, m); sm.bind(sk, new THREE.Matrix4()); sm.frustumCulled = false; return sm; };
+      const m = mk(mat);
+      m.name = o.name;
+      m.castShadow = !mat.isMeshBasicMaterial; m.receiveShadow = true;
+      holder.add(m);
+      used.add(mat);
+      if (ol > 0 && !mat.isMeshBasicMaterial) {
+        const line = mk(outlineMaterial(ol));
+        line.userData.isOutline = true; line.raycast = () => {}; line.castShadow = false;
+        holder.add(line);
+      }
+    });
+    for (const o of [].concat(old)) o?.removeFromParent();
+    rig.root.add(holder);
+    for (const mat of used) if (!mat.vertexColors) { mat.vertexColors = true; mat.needsUpdate = true; }
+    rig.root.traverse((o) => {
+      if (o.isMesh && !o.userData.isOutline && used.has(o.material) && !o.geometry.attributes.color) whiteColors(o.geometry);
+    });
+    return holder;
+  });
+}
+
 export function applyKit(name, parent, roles, old = [], { ol = 0.015, place } = {}) {
   return loadKitSrc(name).then((src) => {
     if (!src || !parent) return null;

@@ -10,6 +10,7 @@ import { ARTIFACT_SETS, SLOTS, upgradeArtifact } from './artifacts.js';
 import { WEAPON_BY_ID } from './gacha.js';
 import { SPIRE_FLOORS } from './spire.js';
 import { BOUNTIES } from './bounties.js';
+import { icon, iconFor, hydrateIcons } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const clean = (s) => s.replace(/\s*\(EO\)/g, '');
@@ -21,6 +22,7 @@ export class UI {
     this.mm = $('minimap').getContext('2d');
     this.mmTick = 0;
     this.dialogOpen = false;
+    hydrateIcons(document);
     this._bindMenu();
   }
 
@@ -60,9 +62,9 @@ export class UI {
     $('char-elem').textContent = '✦ ' + H.element;
     $('char-elem').style.color = ELEMENT_COLOR[H.element];
     $('char-portrait').style.borderColor = H.color;
-    $('icon-e').textContent = H.icons.e;
-    $('icon-q').textContent = H.icons.q;
-    $('btn-e').style.borderColor = $('btn-q').style.borderColor = H.color;
+    $('icon-e').innerHTML = iconFor(H.icons.e);
+    $('icon-q').innerHTML = iconFor(H.icons.q);
+    $('skills').style.setProperty('--hc', H.color);
     $('energy-fill').style.background = `linear-gradient(0deg, ${H.color}aa, ${H.color}22)`;
   }
   updateStarlightHUD() { const el = $('starlight-num'); if (el) el.textContent = this.game.state.starlight || 0; }
@@ -210,25 +212,43 @@ export class UI {
     };
     $('m-reset').onclick = () => {
       const b = $('m-reset');
-      if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = 'Yakin? Tekan lagi untuk hapus'; setTimeout(() => { b.dataset.armed = ''; b.textContent = 'Hapus save & ulang'; }, 3000); return; }
+      const lbl = b.querySelector('span');
+      if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.classList.add('armed'); lbl.textContent = 'Tekan lagi = hapus'; setTimeout(() => { b.dataset.armed = ''; b.classList.remove('armed'); lbl.textContent = 'Hapus save'; }, 3000); return; }
       try { localStorage.removeItem(this.game.SAVE_KEY); } catch (e) { /* storage blocked */ }
       location.reload();
     };
-    $('m-gfx').onclick = () => {
-      const order = ['low', 'med', 'high', 'ultra'];
-      const next = order[(order.indexOf(this.game.gfx) + 1) % 3];
-      this.game.applyGfx(next, true);
+    $('m-gfx').onclick = (e) => {
+      const v = e.target.closest('[data-gfx]')?.dataset.gfx;
+      if (!v) return;
+      const G = this.game;
+      if (v === 'auto') {
+        G.gfxAuto = true; G.fpsAcc = 0; G.fpsFrames = 0;
+        try { localStorage.removeItem('euphoria_adventure_gfx'); } catch (err) { /* ignore */ }
+      } else G.applyGfx(v, true);
+      sfx.ui();
       this._gfxLabel();
     };
-    $('m-profile').onclick = () => {
-      const p = $('profile');
-      p.classList.toggle('hidden');
-      const P = this.game.player, H = P.hero, L = H.profile;
-      p.innerHTML = `<b>${H.name}</b> — ${H.title}<br/>Elemen: <b style="color:${ELEMENT_COLOR[H.element]}">${H.element}</b> · Kelas: <b>${H.role}</b><br/>
-        Ulang tahun: ${L.birthday} · Tinggi: ${L.height}<br/>Suka: ${L.likes}<br/>Tidak suka: ${L.dislikes}<br/>Hobi: ${L.hobby}<br/><br/>
-        Lv.${P.level} · HP ${Math.ceil(P.hp)}/${P.maxHp} · ATK ${P.atk} · 🦪 Mutiara Laut ${this.game.state.pearls || 0}/${this.game.state.chestTotal || 8}<br/><br/>${H.kit.map((k) => '• ' + k).join('<br/>')}
-        <br/><br/><b>Reaksi elemen</b><br/>• Pusaran — WIND mengenai musuh ber-aura WATER/LIGHT: damage area + menyebarkan aura.<br/>• Prism — WATER + LIGHT: damage ×1.75.<br/>Aura terlihat sebagai kristal berwarna di atas musuh.`;
-    };
+    $('m-profile').onclick = () => this._menuTab(this._tab === 'profile' ? (this._lastTab || 'party') : 'profile');
+    for (const t of document.querySelectorAll('.mc-tabs [data-tab]')) t.onclick = () => this._menuTab(t.dataset.tab);
+  }
+  _menuTab(id) {
+    if (id === 'party' && this._noParty) id = 'tp';
+    if (id !== 'profile') this._lastTab = id;
+    this._tab = id;
+    for (const t of document.querySelectorAll('.mc-tabs [data-tab]')) t.classList.toggle('on', t.dataset.tab === id);
+    for (const p of document.querySelectorAll('.mc-pane')) p.classList.toggle('hidden', p.dataset.pane !== id);
+    $('m-profile').classList.toggle('on', id === 'profile');
+    if (id === 'profile') this._renderProfile();
+  }
+  _renderProfile() {
+    const p = $('profile');
+    const P = this.game.player, H = P.hero, L = H.profile;
+    p.innerHTML = `<div class="pf-head"><img src="${H.portrait}" alt=""><div><b>${H.name}</b><div class="pf-title">${H.title}</div>
+      <div class="pf-tags"><span style="color:${ELEMENT_COLOR[H.element]}">${H.element}</span><span>${H.role}</span><span>Lv.${P.level}</span></div></div></div>
+      <div class="pf-stats"><div><small>HP</small>${Math.ceil(P.hp)}/${P.maxHp}</div><div><small>ATK</small>${P.atk}</div><div><small>Mutiara Laut</small>${this.game.state.pearls || 0}/${this.game.state.chestTotal || 8}</div></div>
+      <div class="pf-sec">Kemampuan</div>${H.kit.map((k) => '<div class="pf-li">' + k + '</div>').join('')}
+      <div class="pf-sec">Tentang</div><div class="pf-li">Ulang tahun ${L.birthday} · Tinggi ${L.height}</div><div class="pf-li">Suka: ${L.likes}</div><div class="pf-li">Tidak suka: ${L.dislikes}</div><div class="pf-li">Hobi: ${L.hobby}</div>
+      <div class="pf-sec">Reaksi elemen</div><div class="pf-li">Pusaran: WIND mengenai musuh ber-aura WATER/LIGHT, damage area dan menyebarkan aura.</div><div class="pf-li">Prism: WATER + LIGHT, damage ×1.75. Aura tampil sebagai kristal berwarna di atas musuh.</div>`;
   }
   _buildTeamMenu() {
     const P = this.game.player, wrap = $('team');
@@ -236,7 +256,10 @@ export class UI {
     this._pick = new Set(P.members.map((m) => m.id));
     for (const m of P.roster) {
       const b = document.createElement('button');
-      const paint = () => { b.classList.toggle('on', this._pick.has(m.id)); b.textContent = (this._pick.has(m.id) ? '✓ ' : '') + m.def.name + ' · ' + m.def.element; };
+      b.className = 'mc-hero';
+      b.style.setProperty('--c', m.def.color);
+      b.innerHTML = `<img src="${m.def.portrait}" alt=""><span class="nm">${m.def.name}</span><span class="el" style="color:${ELEMENT_COLOR[m.def.element]}">${m.def.element}</span>`;
+      const paint = () => b.classList.toggle('on', this._pick.has(m.id));
       b.onclick = () => {
         if (this._pick.has(m.id)) { if (this._pick.size > 1) this._pick.delete(m.id); }
         else if (this._pick.size < 4) this._pick.add(m.id);
@@ -246,16 +269,20 @@ export class UI {
       paint(); wrap.appendChild(b);
     }
     $('team-apply').onclick = () => { if (this.game.setTeam([...this._pick])) this.toggleMenu(false); };
-    $('team-apply').parentElement.classList.toggle('hidden', P.roster.length <= 1);
+    this._noParty = P.roster.length <= 1;
+    document.querySelector('.mc-tabs [data-tab="party"]').classList.toggle('hidden', this._noParty);
   }
   _buildCookMenu() {
     const G = this.game, S = G.state, wrap = $('cook');
     wrap.innerHTML = '';
     const near = G.nearFire();
-    $('cook-hint').textContent = near ? `(🫐 ${S.inv.berry} · 🐟 ${S.inv.fish} · 🌶️ ${S.inv.pepper || 0})` : '(dekati api unggun)';
-    for (const [id, label] of [['grilled', '🍢 Ikan Bakar — 2🫐 1🐟 (pulih party 35%)'], ['cool', '🧊 Jus Sejuk — 3🫐 1🐟 (kebal panas 5 mnt)'], ['soup', '🍲 Sup Pedas — 1🫐 1🐟 1🌶️ (hangat 5 mnt)']]) {
+    const ic = (n) => `<i class="ico-wrap">${icon(n)}</i>`;
+    $('cook-hint').innerHTML = near ? `punya ${ic('berry')}${S.inv.berry} ${ic('fish')}${S.inv.fish} ${ic('pepper')}${S.inv.pepper || 0}` : 'kamu belum di dekat api unggun';
+    for (const [id, ico, name, req, eff] of [['grilled', 'skewer', 'Ikan Bakar', [['berry', 2], ['fish', 1]], 'Pulihkan party 35%'], ['cool', 'drink', 'Jus Sejuk', [['berry', 3], ['fish', 1]], 'Kebal panas 5 menit'], ['soup', 'soup', 'Sup Pedas', [['berry', 1], ['fish', 1], ['pepper', 1]], 'Hangat 5 menit']]) {
       const b = document.createElement('button');
-      b.textContent = label; b.disabled = !near;
+      b.className = 'mc-cook';
+      b.innerHTML = `${ic(ico)}<span class="nm">${name}<small>${eff}</small></span><span class="req">${req.map(([k, n]) => ic(k) + n).join(' ')}</span>`;
+      b.disabled = !near;
       b.onclick = () => { if (G.cook(id)) this._buildCookMenu(); };
       wrap.appendChild(b);
     }
@@ -487,7 +514,10 @@ export class UI {
     }
   }
 
-  _gfxLabel() { $('m-gfx').textContent = 'Grafis: ' + this.game.gfx.toUpperCase() + (this.game.gfxAuto ? ' (otomatis)' : ''); }
+  _gfxLabel() {
+    const G = this.game, cur = G.gfxAuto ? 'auto' : G.gfx;
+    for (const b of $('m-gfx').children) b.classList.toggle('on', b.dataset.gfx === cur);
+  }
   toggleMenu(force) {
     const m = $('menu');
     const show = force ?? m.classList.contains('hidden');
@@ -495,14 +525,18 @@ export class UI {
     m.classList.toggle('hidden', !show);
     if (show) {
       this._gfxLabel();
+      const H = this.game.player.hero;
+      $('mc-img').src = H.portrait; $('mc-hero').textContent = `${H.name} · Lv.${this.game.player.level}`;
       this._buildTeamMenu(); this._buildCookMenu();
       const tp = $('tp'); tp.innerHTML = '';
       for (const w of this.game.waypoints()) {
         const b = document.createElement('button');
-        b.textContent = (w.ok ? '◆ ' : '🔒 ') + w.name; b.disabled = !w.ok;
+        b.className = 'mc-tp';
+        b.innerHTML = `<i class="ico-wrap">${icon(w.ok ? 'pin' : 'lock')}</i><span>${w.name}</span>`; b.disabled = !w.ok;
         b.onclick = () => this.game.teleport(w.id);
         tp.appendChild(b);
       }
+      this._menuTab(this._lastTab || (this._noParty ? 'tp' : 'party'));
     }
     this.game.paused = show;
     if (show) document.exitPointerLock?.();

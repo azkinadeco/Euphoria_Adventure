@@ -3680,6 +3680,318 @@ def build_vfx():
     export('vfx_rune_ring', [join(parts, 'fx', 80)]); reset()
 
 
+# ------------------------------------------------------------------ Luby: continuous skinned body
+LUBY_J = {'pivot': (0, 0.92, 0), 'hips': (0, 0.92, 0), 'spine': (0, 0.97, 0), 'chest': (0, 1.16, 0), 'head': (0, 1.35, 0.005)}
+LUBY_PARENT = {'hips': 'pivot', 'spine': 'hips', 'chest': 'spine', 'head': 'chest'}
+for _s, _k in ((1, 'L'), (-1, 'R')):
+    LUBY_J.update({'arm' + _k: (_s * 0.155, 1.25, -0.01), 'elbow' + _k: (_s * 0.155, 1.015, -0.01), 'hand' + _k: (_s * 0.155, 0.78, -0.01),
+                   'leg' + _k: (_s * 0.082, 0.87, 0), 'knee' + _k: (_s * 0.082, 0.47, 0), 'foot' + _k: (_s * 0.082, 0.08, 0)})
+    LUBY_PARENT.update({'arm' + _k: 'chest', 'elbow' + _k: 'arm' + _k, 'hand' + _k: 'elbow' + _k,
+                        'leg' + _k: 'hips', 'knee' + _k: 'leg' + _k, 'foot' + _k: 'knee' + _k})
+
+
+def cr(keys, y):
+    """Catmull-Rom through keys [(y, a, b, ...)] sorted by y (clamped at the ends)"""
+    if y <= keys[0][0]:
+        return list(keys[0][1:])
+    if y >= keys[-1][0]:
+        return list(keys[-1][1:])
+    i = max(k for k in range(len(keys) - 1) if keys[k][0] <= y)
+    p0, p1, p2, p3 = keys[max(i - 1, 0)], keys[i], keys[i + 1], keys[min(i + 2, len(keys) - 1)]
+    t = (y - p1[0]) / (p2[0] - p1[0])
+    out = []
+    for a, b, c, d in zip(p0[1:], p1[1:], p2[1:], p3[1:]):
+        out.append(0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t ** 3))
+    return out
+
+
+def sheet(name, nu, nv, fn, closed=True, caps=(False, False)):
+    """quad sheet through three.js points fn(u, v); u wraps around when closed"""
+    cols = nu if closed else nu + 1
+    verts = [B(*fn(i / nu, j / nv)) for j in range(nv + 1) for i in range(cols)]
+    faces = []
+    for j in range(nv):
+        for i in range(nu):
+            i2 = (i + 1) % cols if closed else i + 1
+            faces.append((j * cols + i, j * cols + i2, (j + 1) * cols + i2, (j + 1) * cols + i))
+    if closed and caps[0]:
+        faces.append(tuple(range(cols)))
+    if closed and caps[1]:
+        faces.append(tuple(range(nv * cols, nv * cols + cols)))
+    return mesh(name, verts, faces)
+
+
+def outward(ob, ax=0.0, az=0.0):
+    """flip faces so they point away from a vertical axis at three.js (ax, az)"""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    c0 = Vector(B(ax, 0, az))
+    for f in bm.faces:
+        n, c = f.normal, f.calc_center_median()
+        r = Vector((c.x - c0.x, c.y - c0.y, 0))
+        if abs(n.z) < 0.85 and n.dot(r) < 0:
+            f.normal_flip()
+        elif abs(n.z) >= 0.85 and r.length < 0.03:
+            pass
+    bm.to_mesh(ob.data)
+    bm.free()
+    ob.data.update()
+    return ob
+
+
+def weigh(ob, fn):
+    """vertex groups from fn(x, y, z three.js) -> {bone: w}; normalised, at most 4 bones"""
+    groups = {}
+    for v in ob.data.vertices:
+        w = fn(v.co.x, v.co.z, -v.co.y)
+        w = sorted(((k, x) for k, x in w.items() if x > 1e-3), key=lambda t: -t[1])[:4]
+        tot = sum(x for _, x in w) or 1.0
+        for k, x in w:
+            if k not in groups:
+                groups[k] = ob.vertex_groups.get(k) or ob.vertex_groups.new(name=k)
+            groups[k].add([v.index], x / tot, 'REPLACE')
+    return ob
+
+
+def build_luby_skinned():
+    sst = lambda t: (lambda c: c * c * (3 - 2 * c))(min(1.0, max(0.0, t)))
+    TORSO = [(0.775, 0.05, 0.035, 0.04), (0.80, 0.112, 0.068, 0.08), (0.835, 0.14, 0.078, 0.096), (0.885, 0.158, 0.082, 0.104),
+             (0.935, 0.149, 0.077, 0.095), (0.99, 0.126, 0.07, 0.08), (1.04, 0.113, 0.068, 0.071), (1.09, 0.118, 0.072, 0.071),
+             (1.14, 0.127, 0.077, 0.074), (1.19, 0.134, 0.078, 0.077), (1.23, 0.138, 0.068, 0.074), (1.26, 0.126, 0.056, 0.064),
+             (1.285, 0.076, 0.048, 0.052), (1.31, 0.05, 0.043, 0.046), (1.39, 0.045, 0.04, 0.043)]
+
+    def wrap(a):
+        return math.atan2(math.sin(a), math.cos(a))
+
+    def bust(y, th):
+        b = 0.0
+        for sd in (-1, 1):
+            d = wrap(th - sd * 0.43)
+            gy = (y - 1.135) / (0.05 if y > 1.135 else 0.03)
+            b = max(b, 0.043 * math.exp(-gy * gy - (d / 0.27) ** 2))
+        return b
+
+    def torso(y, th, push=0.0, busty=1.0):
+        rx, zf, zb = cr(TORSO, y)
+        s, c = math.sin(th), math.cos(th)
+        zr = zb + (zf - zb) * (0.5 + 0.5 * c)
+        bb = bust(y, th) * busty
+        # soft navel dip + spine groove
+        dip = -0.004 * math.exp(-((y - 1.0) / 0.012) ** 2 - (wrap(th) / 0.12) ** 2)
+        groove = -0.005 * math.exp(-(wrap(th - math.pi) / 0.18) ** 2) * sst((y - 0.92) / 0.05) * sst((1.25 - y) / 0.05)
+        return ((rx + push) * s + bb * s * 0.55, y, (zr + push + dip + groove) * c + bb * c)
+
+    def leg_ring(y):
+        r, rf, rb = cr([(0.06, 0.03, 0.032, 0.03), (0.11, 0.031, 0.033, 0.031), (0.18, 0.037, 0.037, 0.039), (0.26, 0.045, 0.043, 0.053),
+                        (0.34, 0.05, 0.047, 0.062), (0.41, 0.048, 0.05, 0.05), (0.47, 0.05, 0.056, 0.048), (0.53, 0.055, 0.057, 0.053),
+                        (0.61, 0.064, 0.063, 0.061), (0.69, 0.072, 0.071, 0.071), (0.77, 0.08, 0.078, 0.081), (0.84, 0.084, 0.082, 0.088),
+                        (0.9, 0.072, 0.07, 0.075)], y)
+        cx = 0.07 + 0.012 * sst((y - 0.45) / 0.4)
+        return r, rf, rb, cx
+
+    def leg(s, y, ph, push=0.0):
+        r, rf, rb, cx = leg_ring(y)
+        a, c = math.sin(ph), math.cos(ph)
+        zr = rb + (rf - rb) * (0.5 + 0.5 * c)
+        return (s * (cx + (r + push) * a), y, (zr + push) * c)
+
+    # ---------------- weights ----------------
+    def w_body(x, y, z, garment=False):
+        side = 'L' if x > 0 else 'R'
+        h = 1 - sst((y - 0.9) / 0.11)
+        c = sst((y - 1.06) / 0.11)
+        w = {'hips': h, 'spine': max(0.0, 1 - h - c), 'chest': c}
+        def take(k, amt):
+            if amt <= 0:
+                return
+            for q in list(w):
+                w[q] *= 1 - amt
+            w[k] = w.get(k, 0) + amt
+        take('head', sst((y - 1.3) / 0.07) * 0.75)
+        take('leg' + side, sst((0.87 - y) / 0.08) * sst(abs(x) / 0.08) * (0.45 if garment else 0.7))
+        take('arm' + side, sst((abs(x) - 0.1) / 0.06) * sst((y - 1.15) / 0.07) * (0.85 if garment else 0.6))
+        return w
+
+    def w_leg(x, y, z):
+        s = 'L' if x > 0 else 'R'
+        hp = sst((y - 0.83) / 0.08) * 0.65
+        kn = sst((0.5 - y) / 0.06)
+        ft = sst((0.115 - y) / 0.04)
+        return {'hips': hp, 'leg' + s: (1 - hp) * (1 - kn), 'knee' + s: kn * (1 - ft), 'foot' + s: kn * ft}
+
+    def w_sleeve(x, y, z):
+        s = 'L' if x > 0 else 'R'
+        ch = sst((y - 1.21) / 0.08) * 0.55
+        el = sst((1.045 - y) / 0.07)
+        return {'chest': ch, 'arm' + s: (1 - ch) * (1 - el), 'elbow' + s: el}
+
+    sh = lambda lo=0.82, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
+    R = {k: [] for k in ('skin', 'stock', 'lime', 'limeDark', 'limeDeep', 'dark', 'white', 'glow')}
+
+    def put(role, ob, wfn, pnt=None):
+        if pnt is not None:
+            paint(ob, pnt)
+        weigh(ob, wfn)
+        R[role].append(ob)
+        return ob
+
+    # ---- skin: torso + neck (closed at the crotch)
+    tor = sheet('skin', 56, 46, lambda u, v: torso(0.775 + (1.39 - 0.775) * v, u * TAU), caps=(True, True))
+    outward(tor)
+    put('skin', tor, w_body, sh(0.9, 1.0))
+    # ---- legs: bare thigh above the stocking, stocking below
+    for s in (1, -1):
+        sk = sheet('skin', 28, 16, lambda u, v: leg(s, 0.6 + 0.3 * v, u * TAU))
+        outward(sk, s * 0.08)
+        put('skin', sk, w_leg, sh(0.9, 1.0))
+        st = sheet('stock', 28, 40, lambda u, v: leg(s, 0.06 + 0.575 * v, u * TAU, 0.0025))
+        outward(st, s * 0.08)
+        put('stock', st, w_leg, sh(0.78, 1.0))
+        band = sheet('dark', 28, 3, lambda u, v: leg(s, 0.6 + 0.045 * v, u * TAU, 0.0065))
+        outward(band, s * 0.08)
+        modify(band, 'SOLIDIFY', thickness=0.004, offset=-1)
+        put('dark', band, w_leg, lambda p, n, pc: (lambda k: (k, k, k))(0.8 + 0.2 * (0.5 + 0.5 * math.sin(math.atan2(p.x - s * 0.08, -p.y) * 40))))
+        # glowing circuit traces down the front + Ω on the band
+        for i, a0 in enumerate((-0.32, 0.0, 0.32)):
+            pts = []
+            for t in range(14):
+                y = 0.585 - 0.44 * t / 13
+                a = a0 * (1 if y > 0.36 else 1.7)
+                pts.append(leg(s, y, a, 0.0045))
+            put('glow', paint(limb(pts, [0.0028] * 14, 4, cap=False), WHITE), w_leg)
+            put('glow', paint(ell(0.0055, leg(s, 0.585, a0, 0.005), (1, 1, 0.5), sub=1), WHITE), w_leg)
+        p = leg(s, 0.622, 0.0, 0.0075)
+        put('glow', paint(omega(0.042, p, 0.0), WHITE), w_leg)
+
+    # ---- bikini (dark lime with glowing trims)
+    for sd in (-1, 1):
+        def cup(u, v, sd=sd):
+            th = sd * (0.04 + 0.8 * u)
+            d = abs(abs(th) - 0.43) / 0.4
+            ytop = 1.118 + 0.075 * max(0.0, 1 - d) ** 1.4
+            y = 1.085 + (ytop - 1.085) * v
+            return torso(y, th, 0.0045)
+        cp = sheet('limeDeep', 16, 10, cup, closed=False)
+        outward(cp)
+        modify(cp, 'SOLIDIFY', thickness=0.004, offset=1)
+        put('limeDeep', cp, w_body, sh(0.75, 1.0))
+        top = torso(1.193, sd * 0.43, 0.006)
+        strap = limb([top, (sd * 0.075, 1.268, 0.045), (sd * 0.07, 1.29, -0.01), (sd * 0.075, 1.255, -0.06), torso(1.16, sd * 2.6, 0.004)], [0.0042] * 5, 5)
+        put('limeDeep', paint(strap, WHITE), w_body)
+        put('glow', paint(omega(0.034, torso(1.13, sd * 0.43, 0.009), sd * 0.43, tilt=-0.25), WHITE), w_body)
+    bandb = sheet('limeDeep', 40, 2, lambda u, v: torso(1.087 + 0.022 * v, 0.84 + (TAU - 1.68) * u, 0.004), closed=False)
+    outward(bandb)
+    modify(bandb, 'SOLIDIFY', thickness=0.004, offset=1)
+    put('limeDeep', bandb, w_body, sh(0.75, 0.95))
+    gore = box((0.036, 0.006, 0.009), B(*torso(1.096, 0.0, 0.006)), bevel=0.002)
+    put('glow', paint(gore, WHITE), w_body)
+
+    def brief(u, v):
+        th = u * TAU
+        yb = 0.79 + 0.058 * math.sin(th) ** 2
+        yt = 0.868 - 0.006 * math.cos(th)
+        return torso(yb + (yt - yb) * v, th, 0.0045)
+    bf = sheet('limeDeep', 48, 8, brief, caps=(True, False))
+    outward(bf)
+    put('limeDeep', bf, lambda x, y, z: w_body(x, y, z, True), sh(0.72, 1.0))
+    put('glow', paint(omega(0.032, torso(0.835, 0.0, 0.009), 0.0, tilt=0.15), WHITE), w_body)
+    for sd in (-1, 1):  # string ties on the hips
+        a = torso(0.866, sd * math.pi / 2, 0.006)
+        knot = ell(0.009, a, (1, 1, 1), sub=1)
+        tails = [limb([a, (a[0] + sd * 0.008, a[1] - 0.03, a[2] + 0.01 * k), (a[0] + sd * 0.004, a[1] - 0.06, a[2] + 0.018 * k)], [0.0035, 0.003, 0.0025], 4) for k in (-1, 1)]
+        for o in [knot] + tails:
+            put('dark', paint(o, WHITE), lambda x, y, z: w_body(x, y, z, True))
+
+    # ---- open hoodie: oversized body, folds, zipper, ribbed hem, collar
+    def gap(y):
+        return cr([(0.83, 1.0), (1.0, 0.92), (1.12, 0.66), (1.22, 0.56), (1.3, 0.62)], y)[0]
+
+    def loose(y):
+        return cr([(0.83, 0.028), (0.95, 0.023), (1.08, 0.019), (1.18, 0.015), (1.26, 0.012), (1.3, 0.011)], y)[0]
+
+    def jk(y, u, extra=0.0):
+        g = gap(y)
+        th = g + (TAU - 2 * g) * u
+        fold = (0.007 * math.sin(th * 7 + y * 11) + 0.004 * math.sin(th * 13 - y * 5)) * sst((1.12 - y) / 0.2)
+        return torso(y, th, loose(y) + fold + extra, busty=0.85), th
+
+    jac = sheet('lime', 52, 34, lambda u, v: jk(0.845 + (1.3 - 0.845) * v, u)[0], closed=False)
+    outward(jac)
+    modify(jac, 'SOLIDIFY', thickness=0.008, offset=1)
+    put('lime', jac, lambda x, y, z: w_body(x, y, z, True),
+        lambda p, n, pc: (lambda k: (k, k, k))(0.86 + 0.12 * max(0.0, n.z) + 0.05 * math.sin(math.atan2(p.x, -p.y) * 7 + p.z * 11) * sst((1.12 - p.z) / 0.2)))
+    for u, sgn in ((0.0, 1), (1.0, -1)):
+        edge = [jk(0.85 + 0.44 * t / 18, u, 0.006)[0] for t in range(19)]
+        put('dark', paint(limb(edge, [0.0085] * 19, 6, cap=False), sh(0.8, 1.0)), lambda x, y, z: w_body(x, y, z, True))
+        teeth = [jk(0.85 + 0.44 * t / 18, u + sgn * 0.004, 0.011)[0] for t in range(19)]
+        put('white', paint(limb(teeth, [0.0042] * 19, 4, cap=False), lambda p, n, pc: (0.95,) * 3 if int(p.z * 260) % 2 else (0.6,) * 3), lambda x, y, z: w_body(x, y, z, True))
+    hem = sheet('limeDark', 52, 2, lambda u, v: jk(0.838 + 0.04 * v, u, 0.01)[0], closed=False)
+    outward(hem)
+    modify(hem, 'SOLIDIFY', thickness=0.012, offset=0)
+    put('limeDark', hem, lambda x, y, z: w_body(x, y, z, True), lambda p, n, pc: (lambda k: (k, k, k))(0.78 + 0.22 * (0.5 + 0.5 * math.sin(math.atan2(p.x, -p.y) * 70))))
+    for u, sd in ((0.12, 1), (0.88, -1)):  # pocket seams
+        seam = limb([jk(0.97, u, 0.007)[0], jk(0.9, u - sd * 0.05, 0.007)[0]], [0.0035, 0.0035], 4)
+        put('limeDark', paint(seam, WHITE), lambda x, y, z: w_body(x, y, z, True))
+    for u, y, size in ((0.075, 1.12, 0.075), (0.925, 1.12, 0.075), (0.5, 1.07, 0.15)):
+        pos, th = jk(y, u, 0.01)
+        put('glow', paint(omega(size, pos, th), WHITE), lambda x, y, z: w_body(x, y, z, True))
+    # collar roll where the hood comes down behind the neck
+    col = []
+    for t in range(15):
+        th = 0.75 + (TAU - 1.5) * t / 14
+        col.append(torso(1.282, th, 0.028))
+    put('limeDark', paint(limb(col, [0.018] * 15, 8, cap=False), sh(0.8, 1.0)), lambda x, y, z: w_body(x, y, z, True))
+
+    # ---- baggy sleeves (vertical arm axis at x ±0.155)
+    def sleeve_r(y):
+        return cr([(0.84, 0.05), (0.88, 0.054), (0.93, 0.066), (0.98, 0.064), (1.03, 0.055), (1.1, 0.056), (1.2, 0.058), (1.27, 0.052), (1.3, 0.038)], y)[0]
+    for s in (1, -1):
+        def slv(u, v, s=s, push=0.0):
+            y = 0.86 + (1.3 - 0.86) * v
+            ph = u * TAU
+            r = sleeve_r(y) + push
+            r *= 1 + 0.06 * math.sin(ph * 5 + y * 40) * sst((1.0 - y) / 0.08) + 0.03 * math.sin(y * 110) * math.exp(-((y - 1.02) / 0.04) ** 2)
+            cx = s * (0.158 + 0.006 * math.sin(math.pi * (y - 0.86) / 0.44))
+            return (cx + r * math.sin(ph) * s, y + 0.012 * math.cos(ph) * sst((y - 1.2) / 0.06) * s * math.sin(ph), -0.01 + r * math.cos(ph))
+        sl = sheet('lime', 26, 30, slv)
+        outward(sl, s * 0.158, -0.01)
+        modify(sl, 'SOLIDIFY', thickness=0.007, offset=1)
+        put('lime', sl, w_sleeve, lambda p, n, pc: (lambda k: (k, k, k))(0.84 + 0.14 * max(0.0, n.z) + 0.05 * math.sin(math.atan2(p.x, -p.y) * 5 + p.z * 40) * sst((1.0 - p.z) / 0.08)))
+        cuff = sheet('limeDark', 26, 3, lambda u, v, s=s: (s * 0.158 + 0.052 * math.sin(u * TAU) * s, 0.835 + 0.045 * v, -0.01 + 0.052 * math.cos(u * TAU)))
+        outward(cuff, s * 0.158, -0.01)
+        modify(cuff, 'SOLIDIFY', thickness=0.01, offset=0)
+        put('limeDark', cuff, w_sleeve, lambda p, n, pc: (lambda k: (k, k, k))(0.78 + 0.22 * (0.5 + 0.5 * math.sin(math.atan2(p.x, -p.y) * 50))))
+
+    # ---- armature named after the game's joints
+    ad = bpy.data.armatures.new('rig')
+    rig = link(bpy.data.objects.new('rig', ad))
+    sel([rig])
+    bpy.ops.object.mode_set(mode='EDIT')
+    for nm, p in LUBY_J.items():
+        b = ad.edit_bones.new(nm)
+        b.head = B(*p)
+        b.tail = B(p[0], p[1] + 0.05, p[2])
+    for c, pa in LUBY_PARENT.items():
+        ad.edit_bones[c].parent = ad.edit_bones[pa]
+    bpy.ops.object.mode_set(mode='OBJECT')
+    obs = []
+    for role, parts in R.items():
+        if not parts:
+            continue
+        ob = join(parts, role, 60)
+        ob.parent = rig
+        m = ob.modifiers.new('arm', 'ARMATURE')
+        m.object = rig
+        obs.append(ob)
+    sel(obs + [rig])
+    path = os.path.join(OUT, 'luby_body_skinned.glb')
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True, export_colors=True,
+                              export_normals=True, export_yup=True, export_materials='EXPORT', export_texcoords=False,
+                              export_skins=True, export_animations=False)
+    tris = sum(len(p.vertices) - 2 for o in obs for p in o.data.polygons)
+    print(f'[props] luby_body_skinned.glb  {tris} tris  {os.path.getsize(path) // 1024} KB')
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -3714,6 +4026,7 @@ ASSETS = {
     'vfx': build_vfx,
     'luby_body': build_luby_body_kits,
     'hair_styles': build_hair_styles,
+    'luby_skinned': build_luby_skinned,
 }
 
 for name, fn in ASSETS.items():

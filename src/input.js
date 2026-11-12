@@ -73,7 +73,7 @@ export class Input {
       el.addEventListener('touchend', () => el.classList.remove('down'));
     };
     btn('t-attack', () => { this.events.push('attack'); this.attackHeld = true; }); btn('t-jump', 'jump'); btn('t-lock', 'lock'); btn('t-dash', 'dash'); btn('t-interact', 'interact'); btn('t-sight', 'sight');
-    btn('t-sprint', () => { this.sprintToggle = !this.sprintToggle; document.getElementById('t-sprint').style.background = this.sprintToggle ? 'rgba(255,225,77,.5)' : ''; });
+    btn('t-sprint', () => { this.sprintToggle = !this.sprintToggle; document.getElementById('t-sprint').classList.toggle('on', this.sprintToggle); });
     btn('btn-e', 'skill'); btn('btn-q', 'burst');
     // hold attack button = charged attack
     const atk = document.getElementById('t-attack');

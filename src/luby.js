@@ -4,46 +4,63 @@
 // lime eyes, black thigh-highs with lime circuit lines, lime sneakers.
 // The model exposes named joints that the procedural animator drives.
 import * as THREE from 'three';
-import { applyKit } from './assets.js';
-import { toon, part, canvasTex, animeSkin, animeHair, animeCloth } from './toon.js';
+import { applyKit, applySkinned } from './assets.js';
+import { toon, part, canvasTex, animeSkin, animeHair, animeCloth, animeHead } from './toon.js';
 import { Rig } from './rig.js';
 
 const C = {
-  lime: 0x8fe63a, limeDark: 0x5c9e1e, limeDeep: 0x2f5a0f, skin: 0xffe2cf, hair: 0x1c1e24,
+  lime: 0x9fd63c, limeDark: 0x679a22, limeDeep: 0x2f5a0f, skin: 0xfcd9c4, hair: 0x1c1e24,
   stocking: 0x17181d, white: 0xf4f4f0, glow: 0xb8ff4a,
 };
 
 function faceTexture() {
-  return canvasTex(256, 256, (g, w, h) => {
+  return canvasTex(512, 512, (g) => {
+    g.scale(2, 2); const w = 256, h = 256; // drawn at 256, rasterised at 512 for crisp eyes
     g.clearRect(0, 0, w, h);
     const eye = (cx, flip) => {
-      const cy = 132;
-      // sclera
+      const cy = 130;
+      // sclera with a soft lid shadow
       g.fillStyle = '#ffffff';
-      g.beginPath(); g.ellipse(cx, cy, 25, 31, 0, 0, Math.PI * 2); g.fill();
-      // iris
-      const gr = g.createLinearGradient(0, cy - 24, 0, cy + 24);
-      gr.addColorStop(0, '#2f6b08'); gr.addColorStop(0.55, '#8fe63a'); gr.addColorStop(1, '#d9ff7a');
+      g.beginPath(); g.ellipse(cx, cy, 27, 33, 0, 0, Math.PI * 2); g.fill();
+      const sh = g.createLinearGradient(0, cy - 33, 0, cy - 8);
+      sh.addColorStop(0, 'rgba(120,90,110,0.55)'); sh.addColorStop(1, 'rgba(120,90,110,0)');
+      g.fillStyle = sh; g.beginPath(); g.ellipse(cx, cy, 27, 33, 0, 0, Math.PI * 2); g.fill();
+      // layered iris: dark rim, lime body, bright lower crescent
+      const ix = cx + flip * 1, iy = cy + 3;
+      g.fillStyle = '#1d3d05';
+      g.beginPath(); g.ellipse(ix, iy, 22, 30, 0, 0, Math.PI * 2); g.fill();
+      const gr = g.createLinearGradient(0, iy - 28, 0, iy + 28);
+      gr.addColorStop(0, '#3d7a0c'); gr.addColorStop(0.45, '#8fe63a'); gr.addColorStop(0.85, '#e4ff8a'); gr.addColorStop(1, '#f6ffc8');
       g.fillStyle = gr;
-      g.beginPath(); g.ellipse(cx + flip * 1, cy + 2, 20, 28, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(ix, iy + 1, 19, 27, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(40,90,8,0.6)'; g.lineWidth = 1.2;
+      for (let k = 0; k < 14; k++) { // radial iris fibres
+        const a = (k / 14) * Math.PI * 2;
+        g.beginPath(); g.moveTo(ix + Math.cos(a) * 7, iy + Math.sin(a) * 10); g.lineTo(ix + Math.cos(a) * 17, iy + Math.sin(a) * 24); g.stroke();
+      }
       // slit pupil (cat!)
-      g.fillStyle = '#10200a';
-      g.beginPath(); g.ellipse(cx + flip * 1, cy + 3, 4.5, 15, 0, 0, Math.PI * 2); g.fill();
-      // highlights
-      g.fillStyle = '#ffffff';
-      g.beginPath(); g.arc(cx - flip * 6, cy - 9, 5.5, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.arc(cx + flip * 7, cy + 11, 2.5, 0, Math.PI * 2); g.fill();
-      // upper lash (thick, sly tilt)
-      g.strokeStyle = '#141018'; g.lineWidth = 7; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(cx - flip * 26, cy - 14); g.quadraticCurveTo(cx, cy - 34, cx + flip * 24, cy - 22); g.stroke();
-      g.lineWidth = 4;
-      g.beginPath(); g.moveTo(cx + flip * 24, cy - 22); g.lineTo(cx + flip * 31, cy - 26); g.stroke();
-      // lower lash
-      g.lineWidth = 2;
-      g.beginPath(); g.moveTo(cx - flip * 14, cy + 25); g.quadraticCurveTo(cx, cy + 29, cx + flip * 14, cy + 24); g.stroke();
-      // mischievous brow
+      g.fillStyle = '#0c1a06';
+      g.beginPath(); g.ellipse(ix, iy + 1, 4.5, 17, 0, 0, Math.PI * 2); g.fill();
+      // highlights: big soft one, sharp sparkle, small bounce
+      g.fillStyle = 'rgba(255,255,255,0.95)';
+      g.beginPath(); g.ellipse(cx - flip * 7, cy - 11, 7, 6, -0.4, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(cx + flip * 8, cy - 4); g.lineTo(cx + flip * 10, cy + 1); g.lineTo(cx + flip * 15, cy + 3); g.lineTo(cx + flip * 10, cy + 5); g.lineTo(cx + flip * 8, cy + 10); g.lineTo(cx + flip * 6, cy + 5); g.lineTo(cx + flip * 1, cy + 3); g.lineTo(cx + flip * 6, cy + 1); g.fill();
+      g.beginPath(); g.arc(cx + flip * 6, cy + 17, 2.6, 0, Math.PI * 2); g.fill();
+      // thick winged upper lash line + double-lid crease
+      g.strokeStyle = '#120c14'; g.lineCap = 'round'; g.lineJoin = 'round';
+      g.lineWidth = 8;
+      g.beginPath(); g.moveTo(cx - flip * 28, cy - 12); g.quadraticCurveTo(cx - flip * 2, cy - 38, cx + flip * 27, cy - 22); g.stroke();
       g.lineWidth = 5;
-      g.beginPath(); g.moveTo(cx - flip * 18, cy - 46); g.lineTo(cx + flip * 20, cy - 38); g.stroke();
+      g.beginPath(); g.moveTo(cx + flip * 25, cy - 23); g.lineTo(cx + flip * 35, cy - 28); g.stroke();
+      g.beginPath(); g.moveTo(cx + flip * 24, cy - 19); g.lineTo(cx + flip * 33, cy - 16); g.stroke();
+      g.lineWidth = 1.6; g.strokeStyle = 'rgba(70,40,50,0.7)';
+      g.beginPath(); g.moveTo(cx - flip * 22, cy - 34); g.quadraticCurveTo(cx, cy - 46, cx + flip * 24, cy - 35); g.stroke();
+      // lower lash
+      g.strokeStyle = '#2a1a22'; g.lineWidth = 2.2;
+      g.beginPath(); g.moveTo(cx - flip * 16, cy + 28); g.quadraticCurveTo(cx, cy + 33, cx + flip * 18, cy + 25); g.stroke();
+      // mischievous brow
+      g.strokeStyle = '#141018'; g.lineWidth = 4.5;
+      g.beginPath(); g.moveTo(cx - flip * 18, cy - 54); g.quadraticCurveTo(cx, cy - 52, cx + flip * 22, cy - 44); g.stroke();
     };
     eye(128 - 58, -1);
     eye(128 + 58, 1);
@@ -115,7 +132,7 @@ function stockingTextures() {
 }
 
 export class Luby extends Rig {
-  constructor() { super('Luby'); }
+  constructor() { super('Luby'); this._skin(); }
 
   _build() {
     const M = this.mats;
@@ -143,17 +160,21 @@ export class Luby extends Rig {
     const Cy = (rt, rb, h, rs = 16, ...a) => new THREE.CylinderGeometry(rt, rb, h, rs, 1, ...a);
 
     // pivot (used for flips) sits at hip height
-    const pivot = grp(this.root, 'pivot', 0, 0.865, 0);
+    const pivot = grp(this.root, 'pivot', 0, 0.92, 0);
+    const bodyOld = []; // primitive body, replaced by the skinned Blender body (luby_body_skinned.glb)
     const hips = grp(pivot, 'hips', 0, 0, 0);
 
     // ---------- pelvis ----------
     const pelvis = add(hips, part(S(0.135), M.skin, { ol: 0.007 }));
+    bodyOld.push(pelvis);
     pelvis.scale.set(1.12, 0.78, 0.86);
     const bottoms = add(hips, part(S(0.139, 22, 12, 0, Math.PI * 2, 1.45, 1.1), M.limeDark, { ol: 0.006 }), 0, -0.004, 0);
+    bodyOld.push(bottoms);
     bottoms.scale.set(1.12, 0.78, 0.86);
     for (const s of [-1, 1]) { // side ties
       const tie = add(hips, part(new THREE.BoxGeometry(0.012, 0.07, 0.012), M.dark, { ol: 0 }), s * 0.15, -0.04, 0.0);
       tie.rotation.z = s * 0.3;
+      bodyOld.push(tie);
     }
 
     // ---------- tail (mecha) ----------
@@ -173,13 +194,15 @@ export class Luby extends Rig {
 
     // ---------- spine / chest ----------
     const spine = grp(hips, 'spine', 0, 0.05, 0);
-    add(spine, part(Cy(0.098, 0.12, 0.22), M.skin, { ol: 0.006 }), 0, 0.06, 0);
-    const chest = grp(spine, 'chest', 0, 0.2, 0);
+    bodyOld.push(add(spine, part(Cy(0.098, 0.12, 0.22), M.skin, { ol: 0.006 }), 0, 0.06, 0));
+    const chest = grp(spine, 'chest', 0, 0.19, 0);
     const ch = add(chest, part(S(0.125), M.skin, { ol: 0.007 }), 0, 0.04, 0);
     ch.scale.set(1.08, 0.95, 0.8);
+    bodyOld.push(ch);
     for (const s of [-1, 1]) {
       const b = add(chest, part(S(0.057, 14, 10), M.limeDark, { ol: 0.006 }), s * 0.055, 0.02, 0.07);
       b.scale.set(1, 0.92, 0.72);
+      bodyOld.push(b);
     }
     // hoodie body (open front)
     const hood = add(chest, part(Cy(0.155, 0.205, 0.44, 22, true, 0.62, Math.PI * 2 - 1.24), M.hoodie, { ol: 0.008 }), 0, -0.07, -0.01);
@@ -191,16 +214,16 @@ export class Luby extends Rig {
     const hem = add(chest, part(new THREE.TorusGeometry(0.205, 0.022, 8, 24, Math.PI * 2 - 1.3), M.limeDark, { ol: 0.005 }), 0, -0.29, -0.01);
     hem.rotation.x = Math.PI / 2; hem.rotation.z = Math.PI / 2 + 0.65;
     // Blender open hoodie: folds, zipper tapes, ribbed hem, pockets, glowing Ω (chest + back)
-    applyKit('kit_luby_jacket', chest, { lime: M.lime, limeDark: M.limeDark, white: M.white, glow: M.glow }, [hood, yoke, hem], { ol: 0.008 });
+    bodyOld.push(hood, yoke, hem);
 
     // neck + head
-    add(chest, part(Cy(0.042, 0.05, 0.1), M.skin, { ol: 0.005 }), 0, 0.17, 0);
-    applyKit('kit_luby_choker', chest, { dark: M.dark, glow: M.glow }, [], { ol: 0.004 });
-    const head = grp(chest, 'head', 0, 0.2, 0.005);
-    head.scale.setScalar(1.22);
-    const skull = add(head, part(S(0.12, 28, 20), M.skin, { ol: 0.008 }), 0, 0.1, 0);
+    bodyOld.push(add(chest, part(Cy(0.042, 0.05, 0.1), M.skin, { ol: 0.005 }), 0, 0.17, 0));
+    applyKit('kit_luby_choker', chest, { dark: M.dark, glow: M.glow }, [], { ol: 0.004, place: (m) => { m.position.y = -0.014; m.scale.set(0.96, 1, 0.96); } });
+    const head = grp(chest, 'head', 0, 0.19, 0.005);
+    head.scale.setScalar(1.12); // ~6.5 heads tall (was a chibi-ish 1.22)
+    const skull = add(head, part(animeHead(S(0.12, 32, 24)), M.skin, { ol: 0.008 }), 0, 0.1, 0);
     skull.scale.set(1, 1.04, 0.98);
-    const face = add(skull, new THREE.Mesh(S(0.1206, 32, 20, Math.PI / 2 - 0.8, 1.6, Math.PI / 2 - 0.7, 1.3), M.face));
+    const face = add(skull, new THREE.Mesh(animeHead(S(0.1206, 32, 20, Math.PI / 2 - 0.8, 1.6, Math.PI / 2 - 0.7, 1.3)), M.face));
     face.renderOrder = 2;
     this.faceMesh = face;
     // tiny nose
@@ -228,7 +251,7 @@ export class Luby extends Rig {
       hairOld.push(l);
     }
     // same skull as the heroes -> the shared Blender hair kit fits (lime streak on the 3rd bang)
-    applyKit('kit_b_hair', head, { hair: M.hair, side: M.hair, hair2: M.hairLime }, hairOld, { ol: 0.006 });
+    applyKit('kit_b_hair', head, { hair: M.hair, hair2: M.hairLime } /* back locks hidden: the hood covers them */, hairOld, { ol: 0.006 });
 
     // ---------- cat hood ----------
     const hoodG = grp(head, 'hood', 0, 0.112, -0.012);
@@ -276,17 +299,18 @@ export class Luby extends Rig {
     // ---------- arms ----------
     for (const s of [-1, 1]) {
       const k = s > 0 ? 'L' : 'R';
-      const arm = grp(chest, 'arm' + k, s * 0.19, 0.1, -0.01);
+      const arm = grp(chest, 'arm' + k, s * 0.155, 0.09, -0.01);
       const ua = add(arm, part(Cy(0.058, 0.062, 0.25), M.lime, { ol: 0.008 }), 0, -0.11, 0);
       const shd = add(arm, part(S(0.065, 14, 10), M.lime, { ol: 0.008 }), 0, 0, 0);
-      applyKit('kit_luby_upperarm', arm, { lime: M.lime }, [ua, shd], { ol: 0.008 });
+      bodyOld.push(ua, shd);
       const elbow = grp(arm, 'elbow' + k, 0, -0.235, 0);
       const eb = add(elbow, part(S(0.062, 14, 10), M.lime, { ol: 0.007 }));
       const fa = add(elbow, part(Cy(0.064, 0.08, 0.2), M.lime, { ol: 0.008 }), 0, -0.1, 0);
       const cf = add(elbow, part(Cy(0.07, 0.07, 0.04), M.limeDark, { ol: 0.005 }), 0, -0.2, 0);
-      applyKit('kit_luby_forearm', elbow, { lime: M.lime, limeDark: M.limeDark }, [eb, fa, cf], { ol: 0.008 });
-      const hand = grp(elbow, 'hand' + k, 0, -0.25, 0);
+      bodyOld.push(eb, fa, cf);
+      const hand = grp(elbow, 'hand' + k, 0, -0.235, 0);
       const paw = add(hand, part(S(0.078, 18, 14), M.lime, { ol: 0.009 }), 0, -0.02, 0);
+      hand.scale.setScalar(0.88);
       paw.scale.set(1, 0.95, 0.9);
       const pad = add(hand, new THREE.Mesh(S(0.034, 14, 10), M.glow), 0, -0.025, 0.06);
       pad.scale.set(1.1, 0.95, 0.45);
@@ -306,15 +330,14 @@ export class Luby extends Rig {
     for (const s of [-1, 1]) {
       const k = s > 0 ? 'L' : 'R';
       const leg = grp(hips, 'leg' + k, s * 0.082, -0.05, 0);
-      add(leg, part(Cy(0.078, 0.072, 0.08), M.skin, { ol: 0.007 }), 0, -0.04, 0);
+      bodyOld.push(add(leg, part(Cy(0.078, 0.072, 0.08), M.skin, { ol: 0.007 }), 0, -0.04, 0));
       const thighOld = add(leg, part(Cy(0.073, 0.056, 0.3), M.stocking, { ol: 0.007 }), 0, -0.23, 0);
-      const knee = grp(leg, 'knee' + k, 0, -0.38, 0);
+      const knee = grp(leg, 'knee' + k, 0, -0.4, 0);
       const kneeOld = add(knee, part(S(0.056, 12, 10), M.stocking, { ol: 0.006 }));
       const shinOld = add(knee, part(Cy(0.055, 0.04, 0.34), M.stocking, { ol: 0.007 }), 0, -0.17, 0);
       // Blender thigh-highs: band with glowing Ω + circuit traces (knee cap rides on the thigh kit)
-      applyKit('kit_luby_thigh', leg, { stock: M.stockK, dark: M.dark, glow: M.glow }, [thighOld, kneeOld], { ol: 0.007 });
-      applyKit('kit_luby_shin', knee, { stock: M.stockK, glow: M.glow }, [shinOld], { ol: 0.007 });
-      const foot = grp(knee, 'foot' + k, 0, -0.355, 0);
+      bodyOld.push(thighOld, kneeOld, shinOld);
+      const foot = grp(knee, 'foot' + k, 0, -0.39, 0);
       const shoe = add(foot, part(S(0.1, 16, 12), M.lime, { ol: 0.008 }), 0, -0.02, 0.045);
       shoe.scale.set(0.62, 0.52, 1.28);
       const sole = add(foot, part(new THREE.BoxGeometry(0.12, 0.025, 0.24), M.white, { ol: 0.005 }), 0, -0.055, 0.045);
@@ -324,5 +347,9 @@ export class Luby extends Rig {
     }
 
     this.root.traverse((o) => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
+    // one continuous skinned body (skin, open hoodie + sleeves, bikini, thigh-highs) bound to these joints
+    this._skin = () => applySkinned('luby_body_skinned', this, {
+      skin: M.skin, stock: M.stockK, lime: M.lime, limeDark: M.limeDark, limeDeep: M.limeDeep, dark: M.dark, white: M.white, glow: M.glow,
+    }, bodyOld, { ol: 0.0045 });
   }
 }

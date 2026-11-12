@@ -2,11 +2,12 @@
 // built on the shared Rig so they reuse every animation Luby has.
 import * as THREE from 'three';
 import { applyKit } from './assets.js';
-import { toon, part, canvasTex } from './toon.js';
+import { toon, part, canvasTex, animeHead } from './toon.js';
 import { Rig } from './rig.js';
 
 function softFace({ iris = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], lash = '#2a2238', mouth = 'smile', brow = 'soft' } = {}) {
-  return canvasTex(256, 256, (g, w, h) => {
+  return canvasTex(512, 512, (g) => {
+    g.scale(2, 2); const w = 256, h = 256; // drawn at 256, rasterised at 512 for crisp eyes
     g.clearRect(0, 0, w, h);
     const eye = (cx, flip) => {
       const cy = 134;
@@ -61,9 +62,9 @@ function buildBody(rig, S) {
   applyKit('kit_b_chest', chest, { chest: ch.material, skin: S.skin }, [ch, neckM], { ol: 0.007 });
   const head = grp(chest, 'head', 0, 0.2, 0.005);
   head.scale.setScalar(1.2);
-  const skull = add(head, part(Sp(0.12, 28, 20), S.skin, { ol: 0.008 }), 0, 0.1, 0); skull.scale.set(1, 1.04, 0.98);
+  const skull = add(head, part(animeHead(Sp(0.12, 32, 24)), S.skin, { ol: 0.008 }), 0, 0.1, 0); skull.scale.set(1, 1.04, 0.98);
   const faceMat = toon(0xffffff, { map: S.face, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
-  rig.faceMesh = add(skull, new THREE.Mesh(Sp(0.1206, 32, 20, Math.PI / 2 - 0.8, 1.6, Math.PI / 2 - 0.7, 1.3), faceMat));
+  rig.faceMesh = add(skull, new THREE.Mesh(animeHead(Sp(0.1206, 32, 20, Math.PI / 2 - 0.8, 1.6, Math.PI / 2 - 0.7, 1.3)), faceMat));
   rig.faceMesh.renderOrder = 2;
   // hair cap + bangs
   const cap = add(head, part(Sp(0.13, 22, 10, 0, Math.PI * 2, 0, 1.05), S.hair, { ol: 0.008 }), 0, 0.105, -0.012); cap.scale.set(1.04, 1.03, 1.04);

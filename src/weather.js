@@ -6,6 +6,7 @@
 // - AURORA: Shimmering undulating celestial ribbons across the night sky
 import * as THREE from 'three';
 import { sfx } from './sfx.js';
+import { icon, WEATHER_ICON } from './icons.js';
 
 export const WEATHERS = {
   sunny: { id: 'sunny', name: 'Cerah', icon: '☀️', desc: 'Langit cerah & hangat. Gerakan lincah.' },
@@ -28,6 +29,7 @@ export class WeatherManager {
     this._initRain();
     this._initAurora();
     this._initLightning();
+    this._updateHUD();
   }
 
   // ---------- Procedural Rain Simulation ----------
@@ -205,7 +207,7 @@ export class WeatherManager {
     const el = document.getElementById('weather-badge');
     if (!el) return;
     const info = WEATHERS[this.current] || WEATHERS.sunny;
-    el.innerHTML = `<span class="w-icon">${info.icon}</span><span class="w-name">${info.name}</span>`;
+    el.innerHTML = `<span class="w-icon">${icon(WEATHER_ICON[info.id] || 'sun')}</span><span class="w-name">${info.name}</span>`;
     el.title = `${info.name}: ${info.desc} (Klik untuk ganti cuaca)`;
   }
 
