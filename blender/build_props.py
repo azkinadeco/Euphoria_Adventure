@@ -3366,6 +3366,139 @@ def build_luby_body_kits():
     kit('kit_luby_shin', {'stock': [paint(shin, sh(0.82, 1.0, 4))], 'glow': g})
 
 
+def build_hair_styles():
+    """signature hairstyles (head-local, before the head's 1.2 scale). Front kit replaces kit_b_hair
+    (roles hair / side / hair2 / tie), back kit replaces kit_b_hairlong (top at y 0, length 1, role side)."""
+    sh = lambda lo=0.72, hi=1.0, sd=0: grey(lo, hi, sd, 3.0, 0.7)
+    rnd = random.Random(7)
+
+    def cap():
+        c = ell(0.133, (0, 0.108, -0.014), (1.05, 1.04, 1.06), sub=3)
+        for v in c.data.vertices:
+            y3, z3 = v.co.z, -v.co.y
+            if z3 > 0.02 and y3 < 0.17:
+                v.co.y = -(z3 - 0.11 * min(1.0, (0.17 - y3) / 0.06))
+        c.data.update()
+        return paint(c, sh(0.75, 1.0, 1))
+
+    def strand(pts, radii, sides=6, flat=0.5, seed=0, blunt=False):
+        st = limb(pts, radii, sides, 1.0, flat, cap=True)
+        return paint(st, sh(0.7 if not blunt else 0.75, 1.0, seed))
+
+    def sides_ring(n=9, spread=3.4, drop=0.02, out=1.0):
+        res = []
+        for k in range(n):
+            a = (k / (n - 1) - 0.5) * spread
+            sx_, sz_ = math.sin(a), -math.cos(a)
+            res.append(strand([(sx_ * 0.12, 0.17, sz_ * 0.11 - 0.015), (sx_ * 0.138 * out, 0.08, sz_ * 0.13 - 0.02), (sx_ * 0.132 * out, drop, sz_ * 0.12 - 0.025)],
+                              [0.035, 0.03, 0.008], seed=30 + k))
+        return res
+
+    def back(name, n, spread, fn, flat=0.5, blunt=False):
+        """fn(k, u, t) -> (x, y, z) offset along the strand; t 0 (top) .. 1 (tip)"""
+        out = []
+        for k in range(n):
+            u = k / (n - 1) - 0.5
+            a = u * spread
+            sx_, sz_ = math.sin(a), -math.cos(a)
+            pts, rad = [], []
+            for i in range(7):
+                t = i / 6
+                r = 0.13 + 0.07 * t
+                ox, oy, oz = fn(k, u, t)
+                pts.append((sx_ * r + ox, -t + oy, sz_ * (r - 0.02 * t) - 0.04 + oz))
+                w = 0.05 + 0.012 * math.sin(t * math.pi)
+                rad.append(w * (1 - 0.15 * t) if blunt else w * (1 - t) ** 0.7 + 0.004)
+            out.append(strand(pts, rad, 6, flat, 40 + k, blunt))
+        kit(name, {'side': out})
+
+    # ---------- HIME: blunt fringe + long straight side locks + straight blunt back (Eropatra)
+    hair, side = [cap()], sides_ring()
+    for i in range(11):
+        x = (i - 5) * 0.022
+        z0 = 0.104 - abs(i - 5) * 0.006
+        hair.append(strand([(x * 0.9, 0.205, z0 - 0.03), (x, 0.175, z0 + 0.012), (x * 1.02, 0.128, z0 + 0.012)], [0.02, 0.019, 0.016], 5, 0.45, 10 + i, True))
+    for sx in (-1, 1):  # hime side locks, cut level at the jaw... and longer in front of the shoulders
+        hair.append(strand([(sx * 0.1, 0.15, 0.07), (sx * 0.112, 0.05, 0.075), (sx * 0.11, -0.04, 0.07)], [0.028, 0.03, 0.028], 6, 0.5, 20, True))
+        hair.append(strand([(sx * 0.12, 0.12, 0.03), (sx * 0.135, -0.05, 0.045), (sx * 0.14, -0.2, 0.05)], [0.03, 0.032, 0.03], 6, 0.5, 22, True))
+    kit('kit_hs_hime_front', {'hair': hair, 'side': side})
+    back('kit_hs_hime_back', 13, 2.4, lambda k, u, t: (0, 0, 0), 0.5, True)
+
+    # ---------- WAVY: side-swept bangs, S-curved locks, voluminous waves (Fidelia, Scylla, Rumi)
+    hair, side, hair2 = [cap()], sides_ring(out=1.08), []
+    for i in range(8):
+        x = (i - 3.5) * 0.03
+        z0 = 0.104 - abs(i - 3.5) * 0.01
+        L = 0.06 + 0.045 * (i / 7)
+        sweep = 0.035 + 0.01 * i / 7
+        b = strand([(x * 0.85, 0.205, z0 - 0.03), (x + sweep * 0.4, 0.175, z0 + 0.013), (x + sweep, 0.17 - L, z0 + 0.008)], [0.026, 0.022, 0.004], 6, 0.5, 10 + i)
+        (hair2 if i == 3 else hair).append(b)
+    for sx in (-1, 1):
+        pts = [(sx * (0.11 + 0.012 * math.sin(t * 7)), 0.13 - t * 0.36, 0.05 + 0.01 * math.cos(t * 7)) for t in [j / 6 for j in range(7)]]
+        hair.append(strand(pts, [0.03, 0.032, 0.03, 0.026, 0.02, 0.012, 0.004], 6, 0.5, 20 + sx))
+    kit('kit_hs_wavy_front', {'hair': hair, 'side': side, 'hair2': hair2})
+    back('kit_hs_wavy_back', 13, 2.6, lambda k, u, t: (0.03 * t * math.sin(t * 9 + k * 0.9) + u * 0.08 * t, 0, 0.025 * t * math.cos(t * 7 + k)), 0.55)
+
+    # ---------- STRAIGHT: centre-parted bangs, long tapered locks, V-cut back (Mora, Valeria, Gemora)
+    hair, side, hair2 = [cap()], sides_ring(), []
+    for i in range(8):
+        sgn = -1 if i < 4 else 1
+        j = i if i < 4 else 7 - i
+        x = sgn * (0.012 + j * 0.026)
+        z0 = 0.106 - j * 0.012
+        L = 0.07 + 0.02 * (3 - j) / 3
+        b = strand([(x * 0.6, 0.212, z0 - 0.035), (x * 1.05, 0.175, z0 + 0.012), (x * 1.25, 0.17 - L, z0 + 0.004)], [0.025, 0.021, 0.004], 6, 0.5, 10 + i)
+        (hair2 if i == 3 else hair).append(b)
+    for sx in (-1, 1):
+        hair.append(strand([(sx * 0.108, 0.13, 0.055), (sx * 0.12, -0.02, 0.06), (sx * 0.122, -0.2, 0.055), (sx * 0.12, -0.3, 0.05)], [0.03, 0.03, 0.022, 0.004], 6, 0.5, 20 + sx))
+    hair.append(strand([(0.0, 0.235, -0.01), (0.02, 0.29, 0.0), (0.05, 0.3, 0.02)], [0.012, 0.009, 0.002], 5, 0.6, 26))  # ahoge
+    kit('kit_hs_straight_front', {'hair': hair, 'side': side, 'hair2': hair2})
+    back('kit_hs_straight_back', 13, 2.4, lambda k, u, t: (0, (abs(u) * 0.12) * t, 0), 0.45)
+
+    # ---------- WILD: spiky messy fringe + flicked-out tips (Glytta)
+    hair, side, hair2 = [cap()], sides_ring(11, 3.6, 0.0, 1.12), []
+    for i in range(9):
+        x = (i - 4) * 0.026
+        z0 = 0.104 - abs(i - 4) * 0.01
+        L = 0.06 + rnd.random() * 0.06
+        jx = (rnd.random() - 0.5) * 0.05
+        b = strand([(x * 0.85, 0.21, z0 - 0.03), (x + jx * 0.4, 0.18, z0 + 0.016), (x + jx, 0.17 - L, z0 + 0.03)], [0.026, 0.02, 0.003], 5, 0.55, 10 + i)
+        (hair2 if i == 4 else hair).append(b)
+    for k in range(5):  # spikes on the crown
+        a = (k / 4 - 0.5) * 2.2
+        hair.append(strand([(math.sin(a) * 0.1, 0.2, -math.cos(a) * 0.09), (math.sin(a) * 0.16, 0.25, -math.cos(a) * 0.15)], [0.03, 0.003], 5, 0.6, 50 + k))
+    kit('kit_hs_wild_front', {'hair': hair, 'side': side, 'hair2': hair2})
+    back('kit_hs_wild_back', 15, 2.9, lambda k, u, t: (u * 0.2 * t ** 2 + 0.03 * math.sin(k * 2.3) * t, 0.06 * t ** 3 * ((k % 3) - 1), -0.05 * t ** 2 * (k % 2)), 0.6)
+
+    # ---------- TWIN TAILS: front = default bangs + ahoge, back = two high tails with ties (Kali, Micca)
+    hair, side, hair2 = [cap()], sides_ring(), []
+    for i in range(7):
+        x = (i - 3) * 0.031
+        L = 0.075 + (0.03 if i in (1, 4) else 0)
+        z0 = 0.103 - abs(i - 3) * 0.012
+        b = strand([(x * 0.85, 0.2, z0 - 0.03), (x, 0.17, z0 + 0.012), (x * 1.08, 0.17 - L, z0 + 0.008)], [0.026, 0.022, 0.004], 6, 0.5, 10 + i)
+        (hair2 if i == 2 else hair).append(b)
+    hair.append(strand([(0.0, 0.235, -0.01), (-0.02, 0.29, 0.0), (-0.05, 0.3, 0.02)], [0.012, 0.009, 0.002], 5, 0.6, 26))
+    kit('kit_hs_twin_front', {'hair': hair, 'side': side, 'hair2': hair2})
+    tails, ties = [], []
+    for sx in (-1, 1):  # tail root at y 0 (game lifts the kit to the tie height), hangs to y -1
+        for j in range(5):
+            a = j / 5 * TAU
+            ox, oz = math.cos(a) * 0.03, math.sin(a) * 0.03
+            pts = []
+            for i in range(7):
+                t = i / 6
+                pts.append((sx * (0.15 + 0.06 * math.sin(t * math.pi) + 0.02 * t) + ox * (1 - t * 0.6), -t, -0.06 - 0.05 * math.sin(t * math.pi) + oz * (1 - t * 0.6)))
+            rad = [0.04, 0.055, 0.052, 0.045, 0.034, 0.02, 0.004]
+            tails.append(strand(pts, rad, 6, 0.7, 60 + j + (sx + 1) * 5))
+        tie = lathe('tie', [(-0.02, 0.045), (0.0, 0.05), (0.02, 0.045)], 10)
+        for v in tie.data.vertices:
+            v.co += Vector(B(sx * 0.15, 0.0, -0.06))
+        tie.data.update()
+        ties.append(paint(tie, sh(0.8, 1.0, 70)))
+    kit('kit_hs_twin_back', {'side': tails, 'tie': ties})
+
+
 def build_vfx():
     """effect meshes: brightness lives in vertex colours, so with additive blending black = transparent"""
     def flat_mesh(name, rows):
@@ -3580,6 +3713,7 @@ ASSETS = {
     'luby_kits': build_luby_kits,
     'vfx': build_vfx,
     'luby_body': build_luby_body_kits,
+    'hair_styles': build_hair_styles,
 }
 
 for name, fn in ASSETS.items():
