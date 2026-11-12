@@ -3198,6 +3198,174 @@ def build_luby_kits():
     kit('kit_luby_hood', {'lime': shell, 'limeDeep': deep, 'white': wh})
 
 
+def omega(size, loc3, theta, depth=0.0025, tilt=0.0):
+    """raised Ω emblem facing outward along three.js direction (sin theta, 0, cos theta)"""
+    cu = bpy.data.curves.new('om', 'FONT')
+    for fp in ('/System/Library/Fonts/Supplemental/Georgia Bold.ttf', '/System/Library/Fonts/Supplemental/Georgia.ttf',
+               '/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf'):
+        if os.path.exists(fp):
+            cu.font = bpy.data.fonts.load(fp, check_existing=True)
+            break
+    cu.body = 'Ω'
+    cu.resolution_u = 2
+    cu.size = size
+    cu.extrude = depth
+    cu.align_x = 'CENTER'
+    cu.align_y = 'CENTER'
+    ob = link(bpy.data.objects.new('om', cu))
+    sel([ob])
+    bpy.ops.object.convert(target='MESH')
+    ob = C.active_object
+    if len(ob.data.vertices) < 8:
+        raise RuntimeError('font has no Ω glyph')
+    ob.rotation_euler = (math.pi / 2 + tilt, 0, theta)
+    ob.location = B(*loc3)
+    apply_tf(ob)
+    return set_mat(ob)
+
+
+def build_luby_body_kits():
+    sh = lambda lo=0.8, hi=1.0, sd=0: grey(lo, hi, sd, 3.0, 0.7)
+    sstep = lambda t: t * t * (3 - 2 * t)
+
+    def interp(keys, y):
+        for (y0, *a), (y1, *b) in zip(keys, keys[1:]):
+            if y0 <= y <= y1:
+                t = sstep((y - y0) / (y1 - y0))
+                return [u + (v - u) * t for u, v in zip(a, b)]
+        return list(keys[0][1:] if y < keys[0][0] else keys[-1][1:])
+
+    # ---- open hoodie jacket (chest-group space; old cylinder sat at z -0.01, y -0.29..0.15)
+    ZC = -0.012
+    prof = [(-0.30, 0.214, 0.182, 1.05), (-0.2, 0.203, 0.172, 0.98), (-0.06, 0.176, 0.152, 0.82), (0.04, 0.17, 0.146, 0.72),
+            (0.11, 0.196, 0.142, 0.66), (0.16, 0.16, 0.12, 0.62), (0.2, 0.078, 0.072, 0.7)]
+    NY, NA = 20, 40
+
+    def surf(y, u, push=0.0):
+        rx, rz, gap = interp(prof, y)
+        th = gap + (TAU - 2 * gap) * u
+        fold = (0.022 * math.sin(th * 7 + y * 11) + 0.012 * math.sin(th * 13 - y * 5)) * min(1, max(0, (0.08 - y) * 3))
+        k = 1 + fold
+        return ((rx * k + push) * math.sin(th), y, (rz * k + push) * math.cos(th) + ZC), th
+
+    verts, faces = [], []
+    for j in range(NY + 1):
+        y = -0.30 + 0.5 * j / NY
+        for i in range(NA + 1):
+            verts.append(B(*surf(y, i / NA)[0]))
+    for j in range(NY):
+        for i in range(NA):
+            a = j * (NA + 1) + i
+            faces.append((a, a + NA + 1, a + NA + 2, a + 1))
+    jk = mesh('jacket', verts, faces)
+    fix_normals(jk)
+    modify(jk, 'SOLIDIFY', thickness=0.009, offset=1)
+
+    def jacket_col(p, n, pc):
+        x3, y3, z3 = p.x, p.z, -p.y
+        th = math.atan2(x3, z3 - ZC)
+        k = 0.86 + 0.1 * max(0.0, n.z) + 0.07 * math.sin(th * 7 + y3 * 11) * min(1, max(0, (0.08 - y3) * 3))
+        return (k, k, k)
+    lime = [paint(jk, jacket_col)]
+    dark, white, glow = [], [], []
+    # zipper tapes + teeth along both front edges
+    for u in (0.0, 1.0):
+        edge = [surf(-0.27 + 0.47 * t / 16, u, 0.004)[0] for t in range(17)]
+        tape = limb(edge, [0.009] * 17, 6)
+        dark.append(paint(tape, sh(0.8, 1.0, 3)))
+        teeth = limb([surf(-0.27 + 0.47 * t / 16, u + (0.004 if u == 0 else -0.004), 0.009)[0] for t in range(17)], [0.0045] * 17, 4)
+        white.append(paint(teeth, lambda p, n, pc: (0.95,) * 3 if int(p.z * 260) % 2 else (0.6,) * 3))
+    # ribbed hem band
+    rows = []
+    for y, push in ((-0.305, 0.012), (-0.27, 0.012)):
+        rows.append([B(*surf(y, i / NA, push)[0]) for i in range(NA + 1)])
+    hv = [v for r in rows for v in r]
+    hf = [(i, i + NA + 1, i + NA + 2, i + 1) for i in range(NA)]
+    hem = mesh('hem', hv, hf)
+    fix_normals(hem)
+    modify(hem, 'SOLIDIFY', thickness=0.012, offset=0)
+    dark.append(paint(hem, lambda p, n, pc: (lambda k: (k, k, k))(0.78 + 0.22 * (0.5 + 0.5 * math.sin(math.atan2(p.x, -p.y - ZC) * 70)))))
+    # pocket seams
+    for sx in (-1, 1):
+        u0 = 0.16 if sx > 0 else 0.84
+        seam = limb([surf(-0.12, u0, 0.006)[0], surf(-0.21, u0 + sx * 0.05, 0.006)[0]], [0.004, 0.004], 4)
+        dark.append(paint(seam, WHITE))
+    # glowing Ω: both chest panels + back
+    for u, y, size in ((0.1, -0.01, 0.085), (0.9, -0.01, 0.085), (0.5, -0.07, 0.16)):
+        pos, th = surf(y, u, 0.008)
+        glow.append(paint(omega(size, pos, th), WHITE))
+    kit('kit_luby_jacket', {'lime': lime, 'limeDark': dark, 'white': white, 'glow': glow})
+
+    # ---- mecha choker (chest space, neck centre y 0.17)
+    band = lathe('choker', [(0.145, 0.053), (0.152, 0.057), (0.172, 0.057), (0.18, 0.053)], 24, caps=(False, False))
+    for v in band.data.vertices:
+        v.co.y += 0.005  # three z -0.005 (neck sits a touch back)
+    band.data.update()
+    fix_normals(band)
+    modify(band, 'SOLIDIFY', thickness=0.006, offset=-1)
+    lockb = box((0.034, 0.012, 0.028), B(0, 0.162, 0.054), bevel=0.003)
+    gl = box((0.018, 0.004, 0.01), B(0, 0.163, 0.061))
+    side = [paint(box((0.012, 0.01, 0.014), B(sx * 0.05, 0.162, 0.02)), WHITE) for sx in (-1, 1)]
+    kit('kit_luby_choker', {'dark': [paint(band, sh(0.75, 1.0, 1)), paint(lockb, sh(0.7, 0.9, 2))] + side, 'glow': [paint(gl, WHITE)]})
+
+    # ---- fluffy tail segment (tail-group space, runs toward -Z; next group at z -0.06)
+    def fur_tube(name, z0, z1, r0, r1, rmid, spikes=0.0, seed=0):
+        n = 9
+        pts = [(0, 0, z0 + (z1 - z0) * t / (n - 1)) for t in range(n)]
+        rad = []
+        for t in range(n):
+            u = t / (n - 1)
+            rad.append(r0 + (r1 - r0) * u + (rmid - (r0 + r1) / 2) * math.sin(math.pi * u))
+        tb = limb(pts, rad, 14, cap=False)
+        for v in tb.data.vertices:
+            d = Vector((v.co.x, 0, v.co.z))
+            if d.length > 1e-5:
+                v.co += d.normalized() * spikes * max(0.0, nz(v.co * 1.0, 60.0, seed)) * d.length
+        tb.data.update()
+        return tb
+    seg = fur_tube('seg', 0.012, -0.072, 0.03, 0.03, 0.04, spikes=0.5, seed=2)
+    stripe = limb([(0, 0.034, 0.0), (0, 0.04, -0.035), (0, 0.033, -0.068)], [0.0045] * 3, 5)
+    kit('kit_luby_tailseg', {'lime': [paint(seg, lambda p, n, pc: (lambda k: (k, k, k))(0.8 + 0.2 * max(0.0, n.z)))], 'glow': [paint(stripe, WHITE)]})
+    # flame tuft tip
+    tip = fur_tube('tip', 0.01, -0.13, 0.032, 0.0, 0.058, spikes=0.9, seed=5)
+    for v in tip.data.vertices:  # curl the end upward like a flame
+        z3 = -v.co.y
+        if z3 < -0.04:
+            v.co.z += (z3 + 0.04) ** 2 * 6
+    tip.data.update()
+    core = limb([(0, 0.0, -0.01), (0, 0.006, -0.06), (0, 0.022, -0.1)], [0.022, 0.026, 0.006], 8)
+    kit('kit_luby_tailtip', {'lime': [paint(tip, lambda p, n, pc: (lambda k: (k * 0.9, k, k * 0.85))(0.8 + 0.2 * max(0.0, n.z)))], 'glow': [paint(core, WHITE)]})
+
+    # ---- thigh-high stocking (leg-group space): y -0.08 .. -0.385
+    th_pts = [(0, -0.075, 0), (0, -0.16, 0.002), (0, -0.27, 0.003), (0, -0.385, 0)]
+    stk = limb(th_pts, [0.0755, 0.071, 0.063, 0.057], 18, cap=False)
+    bandt = limb([(0, -0.07, 0), (0, -0.108, 0.001)], [0.079, 0.0765], 18, cap=False)
+    knee = ell(0.057, (0, -0.38, 0), (1.0, 1.0, 1.0), sub=2)
+    def lines(y0, y1, r_at, xs):
+        out = []
+        for x in xs:
+            pts = []
+            for t in range(9):
+                y = y0 + (y1 - y0) * t / 8
+                xx = x * (1 if t < 4 else 1.6)
+                r = r_at(y) + 0.002
+                pts.append((xx, y, math.sqrt(max(1e-6, r * r - xx * xx))))
+            out.append(paint(limb(pts, [0.0032] * 9, 4), WHITE))
+        return out
+    r_th = lambda y: 0.0755 + (0.057 - 0.0755) * (-0.075 - y) / 0.31
+    g = lines(-0.13, -0.36, r_th, (-0.022, 0.0, 0.022))
+    for x in (-0.022, 0.0, 0.022):
+        g.append(paint(ell(0.006, (x, -0.13, r_th(-0.13) + 0.002), (1, 1, 0.5), sub=1), WHITE))
+    g.append(paint(omega(0.05, (0, -0.089, 0.081), 0.0), WHITE))
+    kit('kit_luby_thigh', {'stock': [paint(stk, sh(0.82, 1.0, 1)), paint(knee, sh(0.82, 1.0, 2))], 'dark': [paint(bandt, sh(0.75, 1.0, 3))], 'glow': g})
+
+    # ---- shin (knee-group space): knee 0 .. ankle -0.34, a little calf
+    shin = limb([(0, 0.0, 0), (0, -0.09, -0.006), (0, -0.2, -0.004), (0, -0.34, 0)], [0.056, 0.058, 0.05, 0.04], 18, cap=False)
+    r_sh = lambda y: 0.057 + (0.04 - 0.057) * (-y) / 0.34
+    g = lines(-0.04, -0.3, r_sh, (-0.016, 0.016))
+    kit('kit_luby_shin', {'stock': [paint(shin, sh(0.82, 1.0, 4))], 'glow': g})
+
+
 def build_vfx():
     """effect meshes: brightness lives in vertex colours, so with additive blending black = transparent"""
     def flat_mesh(name, rows):
@@ -3411,6 +3579,7 @@ ASSETS = {
     'misc_kits': build_misc_kits,
     'luby_kits': build_luby_kits,
     'vfx': build_vfx,
+    'luby_body': build_luby_body_kits,
 }
 
 for name, fn in ASSETS.items():

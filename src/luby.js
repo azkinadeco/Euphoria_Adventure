@@ -132,6 +132,8 @@ export class Luby extends Rig {
     M.eyeYellow = new THREE.MeshBasicMaterial({ color: 0xe8ff5a });
     const st = stockingTextures();
     M.stocking = animeCloth(0xffffff, { map: st.map, emissiveMap: st.emi, emissive: 0x9cff3a, emissiveIntensity: 0.9 });
+    M.stockK = toon(C.stocking);
+    M.stockK.userData.rimColor = new THREE.Color(0xffffff); M.stockK.userData.rimStrength = 0.45; // kit loads after applyRim runs
     M.face = toon(0xffffff, { map: faceTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
 
     const j = this.j;
@@ -159,12 +161,15 @@ export class Luby extends Rig {
     j.tail = [];
     for (let i = 0; i < 7; i++) {
       const seg = add(tp, part(S(0.032 - i * 0.0025, 10, 8), i % 2 ? M.lime : M.dark, { ol: 0.005 }), 0, 0, -0.045);
+      // fluffy glowing-stripe segment, growing toward the tip like the key art
+      const sc = 0.85 + i * 0.07;
+      applyKit('kit_luby_tailseg', tp, { lime: M.lime, glow: M.glow }, [seg], { ol: 0.005, place: (m) => m.scale.set(sc, sc, 1) });
       const g = grp(tp, 'tail' + (i + 1), 0, 0, -0.06);
       j.tail.push(tp);
       tp = g;
-      void seg;
     }
-    add(tp, part(S(0.03, 10, 8), M.glow, { ol: 0.005 }), 0, 0, -0.02);
+    const tipOld = add(tp, part(S(0.03, 10, 8), M.glow, { ol: 0.005 }), 0, 0, -0.02);
+    applyKit('kit_luby_tailtip', tp, { lime: M.lime, glow: M.glow }, [tipOld], { ol: 0.005, place: (m) => m.scale.setScalar(1.45) });
 
     // ---------- spine / chest ----------
     const spine = grp(hips, 'spine', 0, 0.05, 0);
@@ -185,9 +190,12 @@ export class Luby extends Rig {
     // hem ring
     const hem = add(chest, part(new THREE.TorusGeometry(0.205, 0.022, 8, 24, Math.PI * 2 - 1.3), M.limeDark, { ol: 0.005 }), 0, -0.29, -0.01);
     hem.rotation.x = Math.PI / 2; hem.rotation.z = Math.PI / 2 + 0.65;
+    // Blender open hoodie: folds, zipper tapes, ribbed hem, pockets, glowing Ω (chest + back)
+    applyKit('kit_luby_jacket', chest, { lime: M.lime, limeDark: M.limeDark, white: M.white, glow: M.glow }, [hood, yoke, hem], { ol: 0.008 });
 
     // neck + head
     add(chest, part(Cy(0.042, 0.05, 0.1), M.skin, { ol: 0.005 }), 0, 0.17, 0);
+    applyKit('kit_luby_choker', chest, { dark: M.dark, glow: M.glow }, [], { ol: 0.004 });
     const head = grp(chest, 'head', 0, 0.2, 0.005);
     head.scale.setScalar(1.22);
     const skull = add(head, part(S(0.12, 28, 20), M.skin, { ol: 0.008 }), 0, 0.1, 0);
@@ -299,10 +307,13 @@ export class Luby extends Rig {
       const k = s > 0 ? 'L' : 'R';
       const leg = grp(hips, 'leg' + k, s * 0.082, -0.05, 0);
       add(leg, part(Cy(0.078, 0.072, 0.08), M.skin, { ol: 0.007 }), 0, -0.04, 0);
-      add(leg, part(Cy(0.073, 0.056, 0.3), M.stocking, { ol: 0.007 }), 0, -0.23, 0);
+      const thighOld = add(leg, part(Cy(0.073, 0.056, 0.3), M.stocking, { ol: 0.007 }), 0, -0.23, 0);
       const knee = grp(leg, 'knee' + k, 0, -0.38, 0);
-      add(knee, part(S(0.056, 12, 10), M.stocking, { ol: 0.006 }));
-      add(knee, part(Cy(0.055, 0.04, 0.34), M.stocking, { ol: 0.007 }), 0, -0.17, 0);
+      const kneeOld = add(knee, part(S(0.056, 12, 10), M.stocking, { ol: 0.006 }));
+      const shinOld = add(knee, part(Cy(0.055, 0.04, 0.34), M.stocking, { ol: 0.007 }), 0, -0.17, 0);
+      // Blender thigh-highs: band with glowing Ω + circuit traces (knee cap rides on the thigh kit)
+      applyKit('kit_luby_thigh', leg, { stock: M.stockK, dark: M.dark, glow: M.glow }, [thighOld, kneeOld], { ol: 0.007 });
+      applyKit('kit_luby_shin', knee, { stock: M.stockK, glow: M.glow }, [shinOld], { ol: 0.007 });
       const foot = grp(knee, 'foot' + k, 0, -0.355, 0);
       const shoe = add(foot, part(S(0.1, 16, 12), M.lime, { ol: 0.008 }), 0, -0.02, 0.045);
       shoe.scale.set(0.62, 0.52, 1.28);
