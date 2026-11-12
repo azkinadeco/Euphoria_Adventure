@@ -1,0 +1,179 @@
+// Playable hero roster (data from Euphoria Online: character_database.json, profiles.json, voice_lines.json, db.gd).
+import { Luby } from './luby.js';
+import { FideliaRig, MoraRig, ScyllaRig, EropatraRig, RumiRig, ValeriaRig, GlyttaRig, GemoraRig, MiccaRig, CommanderRig, KaliRig } from './heroes3d.js';
+
+export const ELEMENT_COLOR = { WIND: '#8fe63a', WATER: '#4fb4f0', LIGHT: '#f5c542', DARK: '#b06bff', FIRE: '#ff7a2a', ICE: '#9ee8ff', LIGHTNING: '#c07aff', CHAOS: '#ff5ca8' };
+
+export const HEROES = {
+  luby: {
+    id: 'luby', name: 'Luby', title: 'MECHA CAT MISCHIEF', element: 'WIND', role: 'ASSASSIN', color: '#8fe63a',
+    portrait: 'assets/portraits/luby.png', make: () => new Luby(),
+    hpMul: 1, atkMul: 1, defMul: 1, skillCD: 6, burstCD: 15, burstCost: 60, icons: { e: '🐾', q: '🌪️' },
+    skillName: 'Mecha-Cat Pounce', burstName: 'Blender Purr Storm',
+    profile: { birthday: '22 Februari', height: '152 cm', likes: 'Sinar matahari, camilan ikan, ngoprek mesin', dislikes: 'Mandi, suara vacuum yang keras', hobby: 'Upgrade robot kucingnya (Purr-Bot)' },
+    kit: [
+      'Serangan biasa — 3 cakaran beruntun (fisik), pukulan ke-3 menghantam area.',
+      'E · Mecha-Cat Pounce — menerkam musuh terdekat, 240% ATK WIND + stun.',
+      'Q · Blender Purr Storm — Purr-Bot jadi tornado WIND 4.5 dtk, menarik musuh.',
+      'Pasif · Precision — Crit +15%. Cat Leap: lompat ganda.',
+    ],
+    voice: { greet: 'Nya~! Mecha cat-ku mau dielus. …Ya udah, aku juga.', skill: 'Mecha-Cat Pounce!', burst: 'Purr-Bot! Blender Purr Storm, nya!', hurt: 'Nyau!', ko: 'Cuma… tidur siang… sebentar…', swap: 'Giliran Luby, nya!' },
+  },
+  fidelia: {
+    id: 'fidelia', name: 'Fidelia', title: 'VALKYRIE TIDAL SHIELD', element: 'WATER', role: 'PALADIN', color: '#4fb4f0',
+    portrait: 'assets/portraits/fidelia.png', make: () => new FideliaRig(),
+    hpMul: 1.45, atkMul: 0.85, defMul: 1.5, skillCD: 9, burstCD: 18, burstCost: 60, icons: { e: '🛡️', q: '🌊' },
+    skillName: 'Tidal Bulwark', burstName: 'Valkyrie Tide',
+    profile: { birthday: '1 Juni', height: '164 cm', likes: 'Latihan, kehormatan, keselamatan Commander', dislikes: 'Pengecut', hobby: 'Menggosok perisai' },
+    kit: [
+      'Serangan biasa — 3 tebasan pedang (fisik), tebasan ke-3 menusuk area.',
+      'E · Tidal Bulwark — terjang dengan perisai, 180% ATK WATER, dapat perisai 25% Max HP.',
+      'Q · Valkyrie Tide — gelombang raksasa 300% ATK WATER + pulihkan seluruh party 25%.',
+      'Pasif · Iron Guard — DEF tinggi, menerima damage lebih kecil.',
+    ],
+    voice: { greet: 'Aku akan melindungimu. Tetap aman hari ini juga.', skill: 'Tidal Bulwark, aktif!', burst: 'Ombak Valkyrie, lindungi semuanya!', hurt: 'Aduh!', ko: 'Tidak mungkin…', swap: 'Fidelia, siap bertugas!' },
+  },
+  mora: {
+    id: 'mora', name: 'Mora', title: 'CHRONOS ASTRAL SISTER', element: 'LIGHT', role: 'MAGE', color: '#f5c542',
+    portrait: 'assets/portraits/mora.png', make: () => new MoraRig(),
+    hpMul: 0.85, atkMul: 1.12, defMul: 0.9, skillCD: 8, burstCD: 18, burstCost: 70, icons: { e: '⏳', q: '✨' },
+    skillName: 'Chronos Ring', burstName: 'Hourglass of Dawn',
+    profile: { birthday: '1 Januari', height: '162 cm', likes: 'Jam, matahari terbenam, cerita panjang', dislikes: 'Diburu-buru', hobby: 'Menulis buku harian' },
+    kit: [
+      'Serangan biasa — peluru bintang LIGHT yang mengejar musuh (jarak jauh).',
+      'E · Chronos Ring — cincin waktu 160% ATK LIGHT, musuh melambat 4 dtk.',
+      'Q · Hourglass of Dawn — pilar cahaya 3× 140% ATK, pulihkan party 15%, reset cooldown Skill semua hero.',
+      'Pasif · Purify — LIGHT memberi +20% damage ke makhluk terkorupsi.',
+    ],
+    voice: { greet: 'Waktu terus berjalan, tapi aku suka saat menunggumu.', skill: 'Cincin waktu, berputarlah!', burst: 'Jam pasir fajar — mundurlah!', hurt: 'Kau akan membayarnya!', ko: 'Maaf…', swap: 'Waktunya Mora.' },
+  },
+  scylla: {
+    id: 'scylla', name: 'Scylla', title: 'KRAKEN ABYSS QUEEN', element: 'WATER', role: 'ASSASSIN', color: '#9a5cff',
+    portrait: 'assets/portraits/scylla.png', make: () => new ScyllaRig(),
+    hpMul: 0.95, atkMul: 1.25, defMul: 0.9, skillCD: 7, burstCD: 16, burstCost: 60, icons: { e: '🦑', q: '🌀' },
+    skillName: 'Kraken Ambush', burstName: 'Abyss Maw', swim: true,
+    profile: { birthday: '9 September', height: '163 cm', likes: 'Laut di malam hari, teman yang pendiam', dislikes: 'Keramaian', hobby: 'Memandangi pasang surut' },
+    kit: [
+      'Serangan biasa — 3 sabetan sabit lebar (fisik), sabetan ke-3 berputar.',
+      'E · Kraken Ambush — menghilang lalu menyergap musuh TERJAUH (≤15 m), 190% ATK WATER, Crit +30%.',
+      'Q · Abyss Maw — tentakel muncul di sekitar: 5× 75% ATK WATER, menarik musuh.',
+      'Pasif · Queen of the Deep — satu-satunya yang bisa BERENANG di air dalam; tidak melambat di air dangkal.',
+    ],
+    voice: { greet: '…Ombak bilang kau sudah kembali.', skill: 'Kraken ambush.', burst: 'Mulut jurang… telan mereka.', hurt: 'Aduh!', ko: 'Sisanya… kuserahkan…', swap: '…Giliranku.' },
+  },
+  eropatra: {
+    id: 'eropatra', name: 'Eropatra', title: 'DESERT SERPENT EMPRESS', element: 'FIRE', role: 'ASSASSIN', color: '#ff9a3a',
+    portrait: 'assets/portraits/eropatra.png', make: () => new EropatraRig(),
+    hpMul: 1.05, atkMul: 1.3, defMul: 1, skillCD: 7, burstCD: 17, burstCost: 70, icons: { e: '🐍', q: '☀️' },
+    skillName: 'Serpent Empress Fang', burstName: 'Desert Sun Serpent',
+    profile: { birthday: '23 Juli', height: '170 cm', likes: 'Emas, parfum, dikagumi', dislikes: 'Pasir di sepatunya', hobby: 'Mengoleksi perhiasan' },
+    kit: [
+      'Serangan biasa — 3 sabetan tongkat Anubis (fisik).',
+      'E · Serpent Empress Fang — menerjang menembus garis musuh ke musuh TERJAUH, 200% ATK FIRE + Terbakar.',
+      'Q · Desert Sun Serpent — ular api raksasa mengitari dirinya: 6× 60% ATK FIRE + Terbakar.',
+      'Pasif · Empress — +20% damage ke musuh yang Terbakar.',
+    ],
+    voice: { greet: 'Membuat seorang Maharani menunggu? Berani sekali.', skill: 'Rasakan taring sang ular!', burst: 'Matahari gurun, bakar mereka!', hurt: 'Hya!', ko: 'Sisanya… kuserahkan…', swap: 'Berlututlah… bercanda. Berdirilah di sisiku.' },
+  },
+  rumi: {
+    id: 'rumi', name: 'Rumi', title: 'CRIMSON HORN EXORCIST', element: 'DARK', role: 'MAGE', color: '#e0404a',
+    portrait: 'assets/portraits/rumi.png', make: () => new RumiRig(),
+    hpMul: 0.85, atkMul: 1.2, defMul: 0.9, skillCD: 6, burstCD: 16, burstCost: 60, icons: { e: '✝️', q: '💰' },
+    skillName: 'Crimson Exorcism', burstName: 'Paid in Full',
+    profile: { birthday: '13 Oktober', height: '152 cm', likes: 'Uang, mochi, kerjaan eksorsisme', dislikes: 'Kerja gratis', hobby: 'Menghitung koin' },
+    kit: [
+      'Serangan biasa — duri merah DARK yang mengejar musuh (jarak jauh).',
+      'E · Crimson Exorcism — salib merah meledak di musuh TERJAUH (≤18 m), 160% ATK DARK, +80% ke musuh HP < 35%.',
+      'Q · Paid in Full — lingkaran talisman 4× 80% ATK DARK; musuh yang tumbang memberi bahan makanan ekstra.',
+      'Pasif · Exorcist — +40% damage ke arwah (Eroghost) dan Segel Darah.',
+    ],
+    voice: { greet: 'Ada kerjaan eksorsisme? Bayar di muka!', skill: 'Eksorsisme merah, enyahlah!', burst: 'Lunas! Sekarang bayar!', hurt: 'Kau akan membayarnya!', ko: 'Aku… masih bisa…', swap: 'Rumi masuk! Tarif normal, ya.' },
+  },
+  valeria: {
+    id: 'valeria', name: 'Valeria', title: 'FROSTVALE EMPRESS', element: 'ICE', role: 'KNIGHT', color: '#74b9ff',
+    portrait: 'assets/portraits/valeria.png', make: () => new ValeriaRig(),
+    hpMul: 1.55, atkMul: 1.05, defMul: 1.6, skillCD: 9, burstCD: 18, burstCost: 70, icons: { e: '❄️', q: '👑' }, coldImmune: true,
+    skillName: 'Frostvale Judgement', burstName: 'Empress of Winter',
+    profile: { birthday: '24 Desember', height: '172 cm', likes: 'Salju turun, cokelat panas, ilmu pedang', dislikes: 'Musim panas', hobby: 'Memahat es' },
+    kit: [
+      'Serangan biasa — 3 tebasan pedang besar (fisik).',
+      'E · Frostvale Judgement — duri es menyapu satu kolom di depan, 170% ATK ICE + stun, dapat perisai 20% Max HP.',
+      'Q · Empress of Winter — domain es 8 m: 260% ATK ICE, semua musuh membeku 3 dtk.',
+      'Pasif · Putri Frostvale — kebal dingin; DEF sangat tinggi.',
+    ],
+    voice: { greet: 'Masuklah sebelum kau membeku.', skill: 'Penghakiman Frostvale!', burst: 'Musim dingin, berlututlah pada ratumu.', hurt: 'Kau akan membayarnya!', ko: 'Aku… masih bisa…', swap: 'Pedangku milikmu.' },
+  },
+  glytta: {
+    id: 'glytta', name: 'Glytta', title: 'CRYSTAL BLADE DANCER', element: 'WIND', role: 'WARRIOR', color: '#3fd0c8',
+    portrait: 'assets/portraits/glytta.png', make: () => new GlyttaRig(),
+    hpMul: 1.2, atkMul: 1.1, defMul: 1.1, skillCD: 6, burstCD: 15, burstCost: 60, icons: { e: '💃', q: '💎' }, speedMul: 1.15, staminaMul: 0.7,
+    skillName: 'Crystal Waltz', burstName: 'Grand Finale',
+    profile: { birthday: '5 Mei', height: '157 cm', likes: 'Menari, festival, kilauan', dislikes: 'Berdiam diri', hobby: 'Membuat koreografi' },
+    kit: [
+      'Serangan biasa — 3 tebasan pedang kristal kembar (fisik), cepat.',
+      'E · Crystal Waltz — menari menembus seluruh barisan musuh di depan, 140% ATK WIND (bisa Pusaran).',
+      'Q · Grand Finale — pusaran pedang kristal: 6× 55% ATK WIND di sekitarnya.',
+      'Pasif · Langkah Penari — bergerak 15% lebih cepat, lari & dash hemat stamina 30%.',
+    ],
+    voice: { greet: 'Ayo menari, satu, dua!', skill: 'Crystal Waltz!', burst: 'Finale! Beri aku tepuk tangan!', hurt: 'Hya!', ko: 'Aku… masih bisa…', swap: 'Giliranku! Satu putaran penuh!' },
+  },
+  gemora: {
+    id: 'gemora', name: 'Gemora', title: 'COSMIC VOID ENVOY', element: 'LIGHTNING', role: 'RANGER', color: '#b07aff',
+    portrait: 'assets/portraits/gemora.png', make: () => new GemoraRig(),
+    hpMul: 0.9, atkMul: 1.22, defMul: 0.9, skillCD: 7, burstCD: 17, burstCost: 70, icons: { e: '⚡', q: '🛰️' },
+    skillName: 'Void Railgun', burstName: 'Orbital Strike',
+    profile: { birthday: '29 Februari', height: '160 cm', likes: 'Data, peta bintang, kata-kata baru', dislikes: 'Hujan (statis!)', hobby: 'Mempelajari kebiasaan manusia' },
+    kit: [
+      'Serangan biasa — tembakan plasma LIGHTNING jarak jauh (cepat).',
+      'E · Void Railgun — sinar menembus SELURUH garis 30 m, 200% ATK LIGHTNING, Crit +20%.',
+      'Q · Orbital Strike — 5 tembakan satelit dari langit ke musuh sekitar, masing-masing 150% ATK LIGHTNING.',
+      'Pasif · Analisis — Crit +10%; reaksi LIGHTNING miliknya lebih kuat.',
+    ],
+    voice: { greet: 'Sinyal terkonfirmasi. Selamat datang kembali.', skill: 'Void railgun, tembak!', burst: 'Koordinat terkunci. Serangan orbital!', hurt: 'Cih… belum!', ko: 'Maaf…', swap: 'Gemora, siap mengumpulkan data.' },
+  },
+  micca: {
+    id: 'micca', name: 'Micca', title: 'CHAOS BOX SOVEREIGN', element: 'CHAOS', role: 'MAGE', color: '#ff5ca8',
+    portrait: 'assets/portraits/micca.png', make: () => new MiccaRig(),
+    hpMul: 1.15, atkMul: 1.25, defMul: 1.05, skillCD: 8, burstCD: 18, burstCost: 70, icons: { e: '🎁', q: '👄' },
+    skillName: 'Pandora Unboxed', burstName: 'Mimic Feast',
+    profile: { birthday: '1 April', height: '149 cm', likes: 'Iseng, permen, kejutan', dislikes: 'Hari yang membosankan', hobby: 'Mengoleksi barang aneh' },
+    kit: [
+      'Serangan biasa — 3 hantaman palu; tiap pukulan memakai ELEMEN ACAK (bisa memicu reaksi apa saja!).',
+      'E · Pandora Unboxed — kotak terbuka: SEMUA musuh dalam 12 m kena 120% ATK elemen acak, 20% stun.',
+      'Q · Mimic Feast — peti raksasa menggigit area 3× 160% ATK elemen acak.',
+      'Pasif · Kekacauan — elemen CHAOS bisa jadi WATER, FIRE, ICE, LIGHTNING, WIND, atau LIGHT.',
+    ],
+    voice: { greet: 'Yahoo! Hari ini kita bikin kekacauan apa?', skill: 'Kotak Pandora, terbuka!', burst: 'Semuanya masuk ke kotak!', hurt: 'Hya!', ko: 'Aku… masih bisa…', swap: 'Mau lihat isi kotaknya? Rahasia~' },
+  },
+  kali: {
+    id: 'kali', name: 'Kali', title: 'HUNDRED BLADE SAINT', element: 'WIND', role: 'WARRIOR', color: '#d9d2c3',
+    portrait: 'assets/portraits/kali.png', make: () => new KaliRig(),
+    hpMul: 1.3, atkMul: 1.28, defMul: 1.2, skillCD: 8, burstCD: 17, burstCost: 70, icons: { e: '🗡️', q: '⚔️' },
+    skillName: 'Hundred Blade Rain', burstName: 'Pedang ke-101',
+    profile: { birthday: '15 Maret', height: '167 cm', likes: 'Pedang, kaligrafi, disiplin', dislikes: 'Karat', hobby: 'Merawat pedang' },
+    kit: [
+      'Serangan biasa — 3 tebasan katana (fisik); tebasan ke-3 menjatuhkan 3 pedang WIND tambahan.',
+      'E · Hundred Blade Rain — hujan pedang menyapu satu garis 14 m di depan, 230% ATK WIND, DEF musuh turun (+30% damage diterima) 8 dtk.',
+      'Q · Pedang ke-101 — seratus pedang menghujani semua musuh dalam 11 m (8× 45% ATK WIND), ditutup tebasan 220% ATK.',
+      'Pasif · Seratus Pedang — tebasan ke-3 memanggil 3 pedang jatuh (3× 35% ATK WIND, bisa memicu Pusaran).',
+    ],
+    voice: { greet: 'Seratus pedang akan menjagamu lagi hari ini.', skill: 'Hujan Seratus Pedang!', burst: 'Pedang keseratus satu… adalah kau. Bersama kita tebas!', hurt: 'Kya!', ko: 'Maaf… kan… aku…', swap: 'Kali, Saint Seratus Pedang. Aku akan jadi pedangmu.' },
+  },
+  commander: {
+    id: 'commander', name: 'Commander Aethel', title: 'AETHER STARFORGER', element: 'LIGHT', role: 'WARRIOR', color: '#ffd700',
+    portrait: 'assets/portraits/commander.png', make: () => new CommanderRig(),
+    hpMul: 1.35, atkMul: 1.4, defMul: 1.25, skillCD: 7, burstCD: 16, burstCost: 70, icons: { e: '⚔️', q: '🌟' },
+    skillName: 'Starfall Blade', burstName: 'Genesis Nova',
+    profile: { birthday: '10 Oktober', height: '178 cm', likes: 'Kedamaian Euphoria, rekan party-nya, strategi', dislikes: 'Korupsi kehampaan', hobby: 'Membaca peta bintang & menempa pedang' },
+    kit: [
+      'Serangan biasa — 4 tebasan pedang ganda Solaris & Lunaris (fisik & LIGHT).',
+      'E · Starfall Blade — melesat menembus barisan musuh, 260% ATK LIGHT, memberi perisai 20% Max HP.',
+      'Q · Genesis Nova — melepaskan domain supernova bintang: 420% ATK LIGHT ke semua musuh, ATK party +25% & Crit +15% selama 12 dtk.',
+      'Pasif · Starforger Vanguard — +20% damage Burst seluruh party & +15% regenerasi energi.',
+    ],
+    voice: { greet: 'Terima kasih telah membangunkanku. Mulai saat ini, kita berjuang bersama!', skill: 'Tebasan Bintang!', burst: 'Genesis Nova — Terangilah kegelapan!', hurt: 'Cuma goresan!', ko: 'Lindungi… Euphoria…', swap: 'Komandan siap di garda depan!' },
+  },
+};
+export const CHAOS_ELEMENTS = ['WATER', 'FIRE', 'ICE', 'LIGHTNING', 'WIND', 'LIGHT'];
+export const chaosEl = () => CHAOS_ELEMENTS[Math.floor(Math.random() * CHAOS_ELEMENTS.length)];
+export const PARTY_ORDER = ['luby', 'fidelia', 'mora', 'scylla', 'eropatra', 'rumi', 'valeria', 'glytta', 'gemora', 'micca', 'commander', 'kali'];

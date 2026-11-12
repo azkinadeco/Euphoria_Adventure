@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0d1a10" />
+  <title>Euphoria Adventure</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hidden">
+    <div id="char-panel">
+      <div id="char-portrait"><img id="char-img" src="assets/portraits/luby.png" alt="" /></div>
+      <div id="char-info">
+        <div id="char-name"><span id="char-nm">Luby</span> <span class="elem" id="char-elem">✦ WIND</span> <span id="char-lv">Lv.1</span></div>
+        <div class="bar hp"><div id="hp-fill"></div><div id="shield-fill"></div><span id="hp-text">100/100</span></div>
+        <div class="bar hunger"><div id="hunger-fill"></div><span class="bar-label">🍖 Lapar</span></div>
+        <div class="bar exp"><div id="exp-fill"></div></div>
+        <div id="status-line"></div>
+      </div>
+    </div>
+
+    <div id="quest-tracker">
+      <div id="quest-chapter">PROLOG · WHISPERING WOODS</div>
+      <div id="quest-title">—</div>
+      <div id="quest-desc">—</div>
+    </div>
+
+    <div id="minimap-wrap">
+      <canvas id="minimap" width="180" height="180"></canvas>
+      <div id="clock">06:00</div>
+      <div id="weather-badge" class="weather-badge" title="Cuaca (Klik untuk ganti)">☀️ <span class="w-name">Cerah</span></div>
+    </div>
+
+    <div id="party"></div>
+
+    <div id="stamina-ring"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" class="bg"/><circle cx="20" cy="20" r="16" id="stamina-arc"/></svg></div>
+
+    <div id="inventory">
+      <div class="inv" id="inv-berry"><span class="key">Z</span>🫐<b id="cnt-berry">0</b></div>
+      <div class="inv" id="inv-fish"><span class="key">X</span>🐟<b id="cnt-fish">0</b></div>
+      <div class="inv" id="inv-grilled"><span class="key">C</span>🍢<b id="cnt-grilled">0</b></div>
+      <div class="inv" id="inv-cool"><span class="key">V</span>🧊<b id="cnt-cool">0</b></div>
+      <div class="inv" id="inv-soup"><span class="key">B</span>🍲<b id="cnt-soup">0</b></div>
+      <div class="inv" id="inv-pepper">🌶️<b id="cnt-pepper">0</b></div>
+      <div class="inv" id="inv-scrap"><span class="key">⚙</span><b id="cnt-scrap">0/3</b></div>
+    </div>
+
+    <div id="skills">
+      <div class="skill" id="btn-q" data-key="Q">
+        <div class="skill-icon" id="icon-q">🌪️</div><div class="cd"></div><div class="energy"><div id="energy-fill"></div></div><span class="key">Q</span>
+      </div>
+      <div class="skill" id="btn-e" data-key="E">
+        <div class="skill-icon" id="icon-e">🐾</div><div class="cd"></div><span class="key">E</span>
+      </div>
+    </div>
+
+    <div id="prompt" class="hidden"><span class="key">F</span><span id="prompt-text"></span></div>
+    <div id="boss-bar" class="hidden"><div id="boss-name">Gumi Wolf · Nine Tails</div><div class="bar"><div id="boss-fill"></div></div></div>
+    <div id="toasts"></div>
+    <div id="dmg-layer"></div>
+    <div id="hurt-vignette"></div>
+    <div id="lock" class="hidden"><i></i><i></i><i></i><i></i></div>
+    <div id="combo" class="hidden"><div class="cn"><span id="combo-n">0</span><small>HIT</small></div><div id="combo-rank" class="rank">C</div><div id="combo-dmg"></div><div class="cbar"><div id="combo-bar"></div></div></div>
+    <div id="bigtext"></div>
+    <div id="cutin" class="hidden"><div class="streaks"></div><img id="cutin-img" alt="" /><div class="cut-txt"><div id="cutin-skill"></div><div id="cutin-name"></div></div></div>
+    <div id="wave-banner" class="hidden"></div>
+    <div id="rift-hud" class="hidden"><span id="rift-wave"></span><span id="rift-time"></span></div>
+
+    <!-- mobile controls -->
+    <div id="touch" class="hidden">
+      <div id="joy"><div id="joy-knob"></div></div>
+      <div id="tbtns">
+        <button id="t-attack" class="tb big">🐾</button>
+        <button id="t-jump" class="tb">⤒</button>
+        <button id="t-dash" class="tb">»</button>
+        <button id="t-sprint" class="tb">⚡</button>
+        <button id="t-sight" class="tb">👁️</button>
+        <button id="t-interact" class="tb hidden">F</button>
+        <button id="t-lock" class="tb">🎯</button>
+      </div>
+    </div>
+    <div id="hud-top-row">
+    <div id="starlight-hud" class="starlight-hud">✦ <span id="starlight-num">1600</span></div>
+    <button id="btn-map" title="Peta Dunia (M)" class="hud-top-btn map-btn">🗺️ <span class="key-hint">M</span></button>
+    <button id="btn-sight" title="Mata Aether (T)" class="hud-top-btn sight-btn">👁️ <span class="key-hint">T</span></button>
+    <button id="btn-photo" title="Mode Kamera (P)" class="hud-top-btn photo-btn">📷 <span class="key-hint">P</span></button>
+    <button id="btn-wish" title="Wish (F3)" class="hud-top-btn">🌟 Wish</button>
+    </div>
+    <button id="btn-menu" title="Menu (Esc)">☰</button>
+  </div>
+
+  <!-- ================= DIALOG ================= -->
+  <div id="dialog" class="hidden">
+    <img id="dlg-left" class="dlg-portrait left" alt="" />
+    <img id="dlg-right" class="dlg-portrait right" alt="" />
+    <div id="dlg-box">
+      <div id="dlg-name"></div>
+      <div id="dlg-text"></div>
+      <div id="dlg-choices"></div>
+      <div id="dlg-hint">▼ klik / spasi</div>
+    </div>
+    <button id="dlg-skip">SKIP ▶▶</button>
+  </div>
+
+  <!-- ================= TITLE ================= -->
+  <div id="title">
+    <div class="title-inner">
+      <div class="title-sub">EUPHORIA ONLINE · STORY</div>
+      <h1>Euphoria<br/><span>Adventure</span></h1>
+      <div class="title-tag">Prolog — <i>Whispering Woods</i></div>
+      <button id="btn-start">MULAI PETUALANGAN</button>
+      <button id="btn-new" class="ghost hidden">Mulai dari awal</button>
+      <div id="loading">Membangun dunia…</div>
+      <div class="controls-help">
+        <b>PC:</b> WASD gerak · Mouse kamera · Klik kiri serang (tahan = charged, di udara = plunge) · Tab / klik tengah = lock-on · <b>E</b> Skill · <b>Q</b> Burst · <b>1-4</b> ganti hero · Spasi lompat (2x = Cat Leap) · Shift lari · Klik kanan / Ctrl dash · <b>F</b> interaksi · Z/X/C/V/B makan & minum · lompat 3x di udara = glider<br/>
+        <b>HP:</b> joystick kiri · geser kanan untuk kamera · tombol di kanan bawah
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MENU ================= -->
+  <div id="menu" class="hidden">
+    <div class="menu-card">
+      <h2>Jeda</h2>
+      <button id="m-resume">Lanjut</button>
+      <button id="m-wish" class="gold">🌟 Doa Bintang (Wish Banner)</button>
+      <button id="m-artifacts">🛡️ Artifak &amp; Perlengkapan</button>
+      <button id="m-spire">⚔️ Menara Ujian (Celestial Spire)</button>
+      <button id="m-bounties">📜 Papan Buronan (Bounties)</button>
+      <button id="m-cook">🍳 Dapur Memasak (Gourmet)</button>
+      <button id="m-map">🗺️ Peta Benua Euphoria</button>
+      <button id="m-photo">📷 Mode Kamera</button>
+      <button id="m-profile">Profil Hero</button>
+      <button id="m-gfx">Grafis: HIGH</button>
+      <div class="menu-sec"><div class="tp-title">Atur Party (maks. 4)</div><div id="team"></div><button id="team-apply" class="small">Terapkan</button></div>
+      <div class="menu-sec"><div class="tp-title">Masak <span id="cook-hint"></span></div><div id="cook"></div></div>
+      <div id="tp-wrap"><div class="tp-title">Teleport</div><div id="tp"></div></div>
+      <button id="m-save">Simpan</button>
+      <button id="m-reset" class="ghost">Hapus save &amp; ulang</button>
+      <div id="profile" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- ================= WISH MODAL ================= -->
+  <div id="wish-modal" class="custom-modal hidden">
+    <div class="modal-card">
+      <button class="modal-close" id="wish-close">✕</button>
+      <h2>🌟 Doa Bintang · Panggilan Sang Penakluk</h2>
+      <div class="wish-banner-box">
+        <div class="wish-banner-title">✦ PANGGILAN SANG PENAKLUK ✦</div>
+        <div class="wish-banner-sub">Peluang tinggi Senjata Bintang 5 Legendaris &amp; Artifak Bintang 5 Langka!</div>
+        <div id="wish-pity-text" style="font-size:12px; color:#ffd700; margin-bottom:12px;">Pity Garansi Bintang 5: 15 tarikan</div>
+        <div class="wish-buttons">
+          <button class="wish-btn" id="wish-1">Tarik 1× (160 ✦)</button>
+          <button class="wish-btn" id="wish-10">Tarik 10× (1600 ✦)</button>
+        </div>
+      </div>
+      <div id="wish-results-wrap" class="hidden">
+        <h3 style="color:#ffd700; margin-top:14px;">Hasil Doa Bintang:</h3>
+        <div id="wish-results-grid" class="wish-results-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ARTIFACT MODAL ================= -->
+  <div id="artifact-modal" class="custom-modal hidden">
+    <div class="modal-card">
+      <button class="modal-close" id="art-close">✕</button>
+      <h2>🛡️ Artifak &amp; Perlengkapan Hero</h2>
+      <div id="art-hero-tabs" class="art-hero-tabs"></div>
+      <div id="art-slots" class="art-slots-grid"></div>
+      <div id="art-weapons" class="art-weapons"></div>
+      <div id="art-bonus-box" class="art-bonus-box"></div>
+      <h3>Inventaris Artifak (Klik untuk pasang / lepas):</h3>
+      <div id="art-inv-list" class="art-inv-list"></div>
+    </div>
+  </div>
+
+  <!-- ================= SPIRE MODAL ================= -->
+  <div id="spire-modal" class="custom-modal hidden">
+    <div class="modal-card">
+      <button class="modal-close" id="spire-close">✕</button>
+      <h2>⚔️ Menara Ujian · Celestial Spire</h2>
+      <p style="color:#d0c0e8; font-size:13px; margin-bottom:16px;">Tantangan 6 lantai pertarungan berwaktu. Dapatkan hingga 18 ⭐ Bintang &amp; ribuan Starlight Crystals!</p>
+      <div id="spire-floors-list"></div>
+    </div>
+  </div>
+
+  <!-- ================= BOUNTY MODAL ================= -->
+  <div id="bounty-modal" class="custom-modal hidden">
+    <div class="modal-card bounty-card">
+      <button class="modal-close" id="bounty-close">✕</button>
+      <h2>📜 Papan Buronan Adventurer</h2>
+      <p style="color:#d0c0e8; font-size:13px; margin-bottom:16px;">Kalahkan monster mutasi purba untuk memperoleh Starlight Crystals &amp; Artifak Bintang 5!</p>
+      <div id="bounty-list"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

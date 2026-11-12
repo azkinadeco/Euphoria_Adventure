@@ -1,0 +1,18 @@
+{
+  "name": "euphoria-adventure",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "models": "/Applications/Blender.app/Contents/MacOS/Blender -b -P blender/build_props.py -- public/assets/models"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}
