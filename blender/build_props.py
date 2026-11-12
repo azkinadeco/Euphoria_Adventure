@@ -4701,6 +4701,54 @@ def build_hero_weapons():
     })
 
 
+def build_waystone():
+    """zone border waystone: stepped plinth, tapered carved obelisk, stone claws holding a
+    floating rune crystal. 'ws_stone' (toon) + 'ws_glow' (emit, white: tinted per zone in game)"""
+    stone, dark = H(0x9c968a), H(0x6c675f)
+
+    def scol(p, n, pc):
+        c = mix(stone, dark, max(0.0, nz(p, 2.5, 3)) * 0.8)
+        c = mul(c, 0.82 + 0.18 * min(1.0, max(0.0, p.z) / 2.4))
+        if n.z > 0.45 and nz(p, 3.0, 7) > -0.05 and p.z < 0.75:
+            c = mix(c, mix(H(0x5f8f3a), H(0x86ad4a), nz(p, 6, 2) * 0.5 + 0.5), 0.85)
+        if p.z < 0.12:
+            c = mix(c, H(0x5a7a34), 0.6)
+        return c
+    parts = [box((1.25, 1.25, 0.28), (0, 0, 0.1), rot=(0, 0, 0.05), bevel=0.05),
+             box((0.95, 0.95, 0.26), (0, 0, 0.34), rot=(0, 0, -0.03), bevel=0.04)]
+    # obelisk: 4-sided taper, pyramidal cap
+    parts.append(lathe('obelisk', [(0.46, 0.4), (1.2, 0.37), (2.0, 0.31), (2.3, 0.29), (2.42, 0.2)], 4, phase=math.pi / 4))
+    parts.append(box((0.5, 0.5, 0.1), (0, 0, 2.28), bevel=0.02))
+    for i in range(4):  # claws holding the crystal
+        a = i * TAU / 4 + math.pi / 4
+        ca, sa = math.cos(a), math.sin(a)
+        pts = [(ca * 0.16, sa * 0.16, 2.38), (ca * 0.27, sa * 0.27, 2.6), (ca * 0.22, sa * 0.22, 2.84), (ca * 0.12, sa * 0.12, 2.95)]
+        parts.append(tube_mesh('claw', pts, [0.06, 0.055, 0.04, 0.015], 6))
+    rnd = random.Random(23)
+    for i in range(6):
+        a = rnd.uniform(0, TAU)
+        r = rnd.uniform(0.8, 1.05)
+        parts.append(blob(rnd.uniform(0.08, 0.16), (math.cos(a) * r, math.sin(a) * r, 0.04), (1.2, 1.0, 0.6), sub=1, seed=i))
+    parts.append(box((0.42, 0.12, 0.62), (0.78, -0.42, 0.26), rot=(0.25, 0.35, 0.6), bevel=0.03))
+    for o in parts:
+        paint(o, scol)
+    st = join(parts, 'ws_stone', 40)
+
+    W = (1.0, 1.0, 1.0)
+    glow = []
+    for i in range(4):  # carved runes on each face (faces sit at angles 0, 90, 180, 270)
+        a = i * TAU / 4
+        for k, z in enumerate((0.95, 1.45, 1.92)):
+            r = 0.4 - (z - 0.46) / 1.84 * 0.09  # corner radius at this height
+            glow += glyph(0, 0, z, a, r * 0.7071 + 0.012, scale=0.45, col=W, seed=i * 7 + k)
+    glow.append(crystal((0, 0, 2.58), 0.42, 0.13, col=W))
+    for i in range(4):  # glowing seam on the upper plinth step
+        a = i * TAU / 4
+        glow.append(rune((math.cos(a) * 0.48, math.sin(a) * 0.48, 0.36), a, 0.55, 0.035, col=W))
+    gl = join(glow, 'ws_glow', 30)
+    export('waystone', [st, gl])
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -4740,6 +4788,7 @@ ASSETS = {
     'hero_outfits': build_hero_outfits,
     'hero_armor': build_hero_armor,
     'hero_weapons': build_hero_weapons,
+    'waystone': build_waystone,
 }
 
 for name, fn in ASSETS.items():

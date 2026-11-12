@@ -11,6 +11,7 @@ import { VLight } from './lights.js';
 import { reefHeight, RLOC, bridgeDeck, buildReef } from './reef.js';
 import { volcanoHeight, buildVolcano, VLOC, lavaAt } from './volcano.js';
 import { frostHeight, buildFrost, floeAt, FLOC } from './frost.js';
+import { MAIN, GLADE_R, ZONES, zoneOf } from './zones.js';
 export { fbm, rng };
 
 // ---------------- key locations ----------------
@@ -82,6 +83,7 @@ export class World {
     this._water();
     this._vegetation();
     this._landmarks();
+    this._waystones();
     buildReef(this);
     buildVolcano(this);
     buildFrost(this);
@@ -523,6 +525,67 @@ export class World {
   grassColor(x, y, z, c) {
     groundColor(x, y, z, 1, c);
     return c.multiplyScalar(1.12);
+  }
+
+  // ---------- zone waystones: carved obelisks with a floating rune crystal that mark the
+  // borders between the Whispering Woods areas (crystal tinted with the colour of the area
+  // you walk into). Positions are kept on this.waystones for the world map. ----------
+  _waystones() {
+    const spots = [];
+    const ok = (x, z) => {
+      const h = heightAt(x, z);
+      if (h < 1.4) return false;
+      const sl = Math.abs(heightAt(x + 1.5, z) - heightAt(x - 1.5, z)) + Math.abs(heightAt(x, z + 1.5) - heightAt(x, z - 1.5));
+      if (sl > 1.6) return false;
+      for (const p of [LOC.workshop, LOC.camp, LOC.den, ...LOC.parts]) if (Math.hypot(x - p.x, z - p.z) < 20) return false;
+      for (const c of this.colliders) if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + 1.6) ** 2) return false;
+      return true;
+    };
+    const at = (a, r) => [MAIN.x + Math.sin(a) * r, MAIN.z - Math.cos(a) * r];
+    // walk along a border line until a free, flat spot turns up
+    const find = (a, r, da, dr) => {
+      for (let k = 0; k < 40; k++) {
+        const s = (k % 2 ? 1 : -1) * Math.ceil(k / 2);
+        const [x, z] = at(a + da * s, r + dr * s);
+        if (ok(x, z)) return [x, z];
+      }
+      return null;
+    };
+    for (const id of ['north', 'east', 'south', 'west']) {
+      // glade ring crossing: sits just inside the outer area, tinted with that area's colour
+      const a = ZONES[id].a;
+      const p = find(a + 0.06, GLADE_R + 2.5, 0.025, 0);
+      if (p) spots.push({ x: p[0], z: p[1], zone: id, face: a });
+      // radial border towards the next area clockwise, out in the woods
+      const b = a + Math.PI / 4;
+      const q = find(b, 150, 0, 4);
+      if (q) spots.push({ x: q[0], z: q[1], zone: zoneOf(q[0], 5, q[1]) || id, face: b + Math.PI / 2 });
+    }
+    this.waystones = spots;
+    const glowMat = new Map();
+    for (const w of spots) {
+      const y = heightAt(w.x, w.z);
+      this.addCollider(w.x, w.z, 0.75);
+      this.addClearing(w.x, w.z, 1.4);
+      const g = new THREE.Group();
+      g.position.set(w.x, y - 0.12, w.z);
+      g.rotation.y = -w.face + Math.PI / 4;
+      this.scene.add(g);
+      // placeholder until the model arrives
+      const ph = new THREE.Mesh(new THREE.BoxGeometry(0.7, 2.4, 0.7), toon(0x9c968a));
+      ph.position.y = 1.2; g.add(ph);
+      const col = ZONES[w.zone].col;
+      const light = new VLight(col, 2.2, 9);
+      light.position.set(0, 2.7, 0); g.add(light);
+      upgrade('waystone', g, [ph], (m) => {
+        m.traverse((o) => {
+          if (!o.isMesh || !/ws_glow/.test(o.name)) return;
+          if (!glowMat.has(col)) glowMat.set(col, new THREE.MeshBasicMaterial({ color: col, vertexColors: true, toneMapped: false }));
+          o.material = glowMat.get(col);
+        });
+      }, { outline: 0.025 });
+      this.animated.push({ update: (dt, t) => { light.intensity = 1.8 + Math.sin(t * 2 + w.x) * 0.5; } });
+    }
   }
 
   addCollider(x, z, r) {

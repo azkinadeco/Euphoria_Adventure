@@ -5,15 +5,15 @@ import { REEF } from './reef.js';
 import { VOLC } from './volcano.js';
 import { FROST } from './frost.js';
 
-const MAIN = { x: 12, z: -12, r: 215 };   // Whispering Woods island
-const GLADE_R = 80;                        // central area around Sunbeam Rock & the camp
+export const MAIN = { x: 12, z: -12, r: 215 };   // Whispering Woods island
+export const GLADE_R = 80;                        // central area around Sunbeam Rock & the camp
 
 export const ZONES = {
-  glade: { name: 'Sunbeam Glade', sub: 'Whispering Woods · Lembah Mentari' },
-  north: { name: 'Foxfire Thicket', sub: 'Whispering Woods · Belukar Ekor Sembilan' },
-  east: { name: 'Eastern Cliffs', sub: 'Whispering Woods · Tebing Timur' },
-  south: { name: 'Mossy Meadow', sub: 'Whispering Woods · Padang Lumut' },
-  west: { name: 'Hollow Grove', sub: 'Whispering Woods · Rimba Sunyi' },
+  glade: { name: 'Sunbeam Glade', sub: 'Whispering Woods · Lembah Mentari', col: 0xffd76a, a: null },
+  north: { name: 'Foxfire Thicket', sub: 'Whispering Woods · Belukar Ekor Sembilan', col: 0xff8a3a, a: 0 },
+  east: { name: 'Eastern Cliffs', sub: 'Whispering Woods · Tebing Timur', col: 0x5ec8ff, a: Math.PI / 2 },
+  south: { name: 'Mossy Meadow', sub: 'Whispering Woods · Padang Lumut', col: 0x8ef05a, a: Math.PI },
+  west: { name: 'Hollow Grove', sub: 'Whispering Woods · Rimba Sunyi', col: 0xc48bff, a: -Math.PI / 2 },
   reef: { name: 'Sunken Reef', sub: 'Karang Tenggelam' },
   volcano: { name: 'Infernal Citadel', sub: 'Benteng Membara' },
   frost: { name: 'Frostvale Expanse', sub: 'Gletser Salju Abadi' },

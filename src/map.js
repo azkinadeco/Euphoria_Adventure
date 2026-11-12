@@ -5,6 +5,7 @@ import { MINIMAP, LOC } from './world.js';
 import { RLOC } from './reef.js';
 import { VLOC } from './volcano.js';
 import { FLOC } from './frost.js';
+import { MAIN, GLADE_R, ZONES } from './zones.js';
 
 export class WorldMap {
   constructor(game) {
@@ -309,9 +310,11 @@ export class WorldMap {
       ctx.beginPath(); ctx.moveTo(0, cz); ctx.lineTo(cw, cz); ctx.stroke();
     }
 
+    this._drawZones(ctx);
+
     // Region Name Labels
     const regions = [
-      { name: 'WHISPERING WOODS', sub: 'Hutan Bisikan', x: 20, z: -20, col: '#8fe63a' },
+      { name: 'WHISPERING WOODS', sub: 'Hutan Bisikan', x: 12, z: -250, col: '#8fe63a' },
       { name: 'SUNKEN REEF', sub: 'Karang Tenggelam', x: 420, z: 40, col: '#4fb4f0' },
       { name: 'CALDERA CRATER', sub: 'Kawah Membara', x: -140, z: 310, col: '#ff7a2a' },
       { name: 'FROSTVALE GLACIER', sub: 'Gletser Salju Abadi', x: -280, z: -270, col: '#9ee8ff' },
@@ -462,5 +465,70 @@ export class WorldMap {
       ctx.fill();
       ctx.restore();
     }
+  }
+
+  /** the five Whispering Woods areas: borders, names, waystones; the area you stand in is lit up */
+  _drawZones(ctx) {
+    const ppm = (MINIMAP.N / MINIMAP.size) * this.scale;
+    const [mx, mz] = this._worldToCanvas(MAIN.x, MAIN.z);
+    const R = MAIN.r * ppm * 0.93, g = GLADE_R * ppm;
+    const cur = this.g.zoneId?.();
+    const hex = (c) => '#' + c.toString(16).padStart(6, '0');
+    // canvas angle of a zone bearing (0 = north/-z, clockwise)
+    const ang = (a) => a - Math.PI / 2;
+    ctx.save();
+    // active area tint
+    if (['glade', 'north', 'east', 'south', 'west'].includes(cur)) {
+      ctx.fillStyle = hex(ZONES[cur].col) + '2a';
+      ctx.beginPath();
+      if (cur === 'glade') ctx.arc(mx, mz, g, 0, Math.PI * 2);
+      else {
+        const a = ZONES[cur].a;
+        ctx.arc(mx, mz, R, ang(a - Math.PI / 4), ang(a + Math.PI / 4));
+        ctx.arc(mx, mz, g, ang(a + Math.PI / 4), ang(a - Math.PI / 4), true);
+        ctx.closePath();
+      }
+      ctx.fill();
+    }
+    // borders
+    ctx.strokeStyle = 'rgba(255, 244, 214, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.arc(mx, mz, g, 0, Math.PI * 2); ctx.stroke();
+    for (let k = 0; k < 4; k++) {
+      const a = ang(Math.PI / 4 + k * Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(mx + Math.cos(a) * g, mz + Math.sin(a) * g);
+      ctx.lineTo(mx + Math.cos(a) * R, mz + Math.sin(a) * R);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    // names
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.85)';
+    ctx.shadowBlur = 5;
+    const fs = Math.max(9, Math.min(14, 11 * this.scale));
+    for (const id of ['glade', 'north', 'east', 'south', 'west']) {
+      const Z = ZONES[id];
+      let x = mx, y = mz + g * 0.62;
+      if (Z.a !== null) { const r = (g + R) * 0.5; x = mx + Math.cos(ang(Z.a)) * r; y = mz + Math.sin(ang(Z.a)) * r; }
+      ctx.font = `${id === cur ? 'bold ' : ''}${fs}px "Cinzel", Georgia, sans-serif`;
+      ctx.fillStyle = hex(Z.col);
+      ctx.globalAlpha = id === cur ? 1 : 0.8;
+      ctx.fillText(Z.name.toUpperCase(), x, y);
+    }
+    ctx.globalAlpha = 1;
+    // waystones
+    for (const w of this.g.world?.waystones || []) {
+      const [x, y] = this._worldToCanvas(w.x, w.z);
+      ctx.fillStyle = hex(ZONES[w.zone].col);
+      ctx.strokeStyle = '#1b1720';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6); ctx.lineTo(x + 3.5, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 3.5, y);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
   }
 }
