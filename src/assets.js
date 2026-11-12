@@ -204,6 +204,7 @@ function whiteColors(geo) {
  * the rig's joint groups become the skeleton, so the existing animator bends the mesh smoothly.
  * Each skinned mesh is named after a material ROLE, like the kits.
  */
+/** ol: outline width, or role => width */
 export function applySkinned(name, rig, roles, old = [], { ol = 0.006 } = {}) {
   return loadKitSrc(name).then((src) => {
     if (!src || !rig.bindRest) return null;
@@ -226,8 +227,9 @@ export function applySkinned(name, rig, roles, old = [], { ol = 0.006 } = {}) {
       m.castShadow = !mat.isMeshBasicMaterial; m.receiveShadow = true;
       holder.add(m);
       used.add(mat);
-      if (ol > 0 && !mat.isMeshBasicMaterial) {
-        const line = mk(outlineMaterial(ol));
+      const w = typeof ol === 'function' ? ol(o.name.replace(/[._\d].*$/, '')) : ol;
+      if (w > 0 && !mat.isMeshBasicMaterial) {
+        const line = mk(outlineMaterial(w));
         line.userData.isOutline = true; line.raycast = () => {}; line.castShadow = false;
         holder.add(line);
       }

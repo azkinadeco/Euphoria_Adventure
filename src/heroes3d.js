@@ -1,7 +1,7 @@
 // Playable 3D models for Fidelia (Valkyrie Tidal Shield) and Mora (Chronos Astral Sister),
 // built on the shared Rig so they reuse every animation Luby has.
 import * as THREE from 'three';
-import { applyKit } from './assets.js';
+import { applyKit, applySkinned } from './assets.js';
 import { toon, part, canvasTex, animeHead } from './toon.js';
 import { Rig } from './rig.js';
 
@@ -56,10 +56,7 @@ function buildBody(rig, S) {
   const chest = grp(spine, 'chest', 0, 0.2, 0);
   const ch = add(chest, part(Sp(0.125), S.chest ?? S.skin, { ol: 0.007 }), 0, 0.04, 0); ch.scale.set(1.06, 0.95, 0.8);
   const neckM = add(chest, part(Cy(0.042, 0.05, 0.1), S.skin, { ol: 0.005 }), 0, 0.17, 0);
-  // Blender body kits (same joints, same materials) replace the primitive segments once loaded
-  applyKit('kit_b_pelvis', hips, { bottom: S.bottom }, [pelvis], { ol: 0.007 });
-  applyKit('kit_b_waist', spine, { waist: waistM.material }, [waistM], { ol: 0.006 });
-  applyKit('kit_b_chest', chest, { chest: ch.material, skin: S.skin }, [ch, neckM], { ol: 0.007 });
+  const bodyOld = [pelvis, waistM, ch, neckM]; // primitive segments, replaced by the skinned Blender body
   const head = grp(chest, 'head', 0, 0.2, 0.005);
   head.scale.setScalar(1.2);
   const skull = add(head, part(animeHead(Sp(0.12, 32, 24)), S.skin, { ol: 0.008 }), 0, 0.1, 0); skull.scale.set(1, 1.04, 0.98);
@@ -110,8 +107,7 @@ function buildBody(rig, S) {
     const faM = add(elbow, part(Cy(0.042, 0.036, 0.22), S.forearm ?? S.skin, { ol: 0.006 }), 0, -0.11, 0);
     const hand = grp(elbow, 'hand' + k, 0, -0.235, 0);
     const hm = add(hand, part(Sp(0.042, 12, 10), S.hand ?? S.skin, { ol: 0.005 }), 0, -0.03, 0); hm.scale.set(0.8, 1.1, 0.9);
-    applyKit('kit_b_upperarm', arm, { shoulder: shM.material, upper: uaM.material }, [shM, uaM], { ol: 0.006 });
-    applyKit('kit_b_forearm', elbow, { forearm: faM.material }, [ebM, faM], { ol: 0.006 });
+    bodyOld.push(shM, uaM, ebM, faM);
     applyKit('kit_b_hand', hand, { hand: hm.material }, [hm], { ol: 0.004, place: (m) => { m.scale.x = -s; } });
   }
   for (const s of [-1, 1]) {
@@ -123,10 +119,16 @@ function buildBody(rig, S) {
     const snM = add(knee, part(Cy(0.054, 0.04, 0.34), S.shin, { ol: 0.007 }), 0, -0.17, 0);
     const foot = grp(knee, 'foot' + k, 0, -0.355, 0);
     const shoe = add(foot, part(Sp(0.09, 14, 10), S.shoe, { ol: 0.007 }), 0, -0.035, 0.035); shoe.scale.set(0.62, 0.5, 1.25);
-    applyKit('kit_b_thigh', leg, { thigh: thM.material }, [thM], { ol: 0.007 });
-    applyKit('kit_b_shin', knee, { knee: knM.material, shin: S.shin }, [knM, snM], { ol: 0.007 });
+    bodyOld.push(thM, knM, snM);
     applyKit('kit_b_shoe', foot, { shoe: S.shoe }, [shoe], { ol: 0.007 });
   }
+  // one continuous skinned body (hero_body_skinned.glb): skin underneath, garment layers on top.
+  // A layer whose material is the skin is simply not drawn; only the bare body carries the outline.
+  const lay = (m) => (m && m !== S.skin ? m : undefined);
+  applySkinned('hero_body_skinned', rig, {
+    skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), upper: lay(S.upperArm ?? S.shoulder),
+    forearm: lay(S.forearm), thigh: lay(S.thigh), knee: lay(S.knee ?? S.shin), shin: lay(S.shin),
+  }, bodyOld, { ol: (r) => (r === 'skin' ? 0.007 : r === 'knee' ? 0.004 : 0) });
   return { add, Sp, Cy, chest, head, hips, spine, backOld };
 }
 

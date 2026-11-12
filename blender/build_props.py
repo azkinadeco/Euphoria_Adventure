@@ -3992,6 +3992,179 @@ def build_luby_skinned():
     print(f'[props] luby_body_skinned.glb  {tris} tris  {os.path.getsize(path) // 1024} KB')
 
 
+# ------------------------------------------------------------------ other heroes: one shared skinned body (batch 19)
+HERO_J = {'pivot': (0, 0.88, 0), 'hips': (0, 0.88, 0), 'spine': (0, 0.93, 0), 'chest': (0, 1.13, 0), 'head': (0, 1.33, 0.005)}
+for _s, _k in ((1, 'L'), (-1, 'R')):
+    HERO_J.update({'arm' + _k: (_s * 0.175, 1.23, -0.01), 'elbow' + _k: (_s * 0.175, 0.995, -0.01), 'hand' + _k: (_s * 0.175, 0.76, -0.01),
+                   'leg' + _k: (_s * 0.08, 0.83, 0), 'knee' + _k: (_s * 0.08, 0.45, 0), 'foot' + _k: (_s * 0.08, 0.095, 0)})
+
+
+def build_hero_skinned():
+    sst = lambda t: (lambda c: c * c * (3 - 2 * c))(min(1.0, max(0.0, t)))
+    TORSO = [(0.735, 0.05, 0.035, 0.04), (0.76, 0.114, 0.07, 0.082), (0.795, 0.143, 0.08, 0.099), (0.845, 0.157, 0.084, 0.106),
+             (0.895, 0.15, 0.079, 0.097), (0.95, 0.128, 0.072, 0.082), (1.0, 0.116, 0.07, 0.073), (1.05, 0.122, 0.074, 0.073),
+             (1.1, 0.134, 0.079, 0.076), (1.15, 0.145, 0.08, 0.079), (1.19, 0.152, 0.071, 0.077), (1.225, 0.143, 0.058, 0.067),
+             (1.255, 0.088, 0.05, 0.055), (1.28, 0.053, 0.045, 0.048), (1.37, 0.046, 0.041, 0.044)]
+    wrap = lambda a: math.atan2(math.sin(a), math.cos(a))
+
+    def bust(y, th):
+        b = 0.0
+        for sd in (-1, 1):
+            d = wrap(th - sd * 0.42)
+            gy = (y - 1.125) / (0.05 if y > 1.125 else 0.03)
+            b = max(b, 0.042 * math.exp(-gy * gy - (d / 0.27) ** 2))
+        return b
+
+    def torso(y, th, push=0.0):
+        rx, zf, zb = cr(TORSO, y)
+        s, c = math.sin(th), math.cos(th)
+        zr = zb + (zf - zb) * (0.5 + 0.5 * c)
+        bb = bust(y, th)
+        dip = -0.004 * math.exp(-((y - 0.97) / 0.012) ** 2 - (wrap(th) / 0.12) ** 2)
+        groove = -0.005 * math.exp(-(wrap(th - math.pi) / 0.18) ** 2) * sst((y - 0.88) / 0.05) * sst((1.22 - y) / 0.05)
+        return ((rx + push) * s + bb * s * 0.55, y, (zr + push + dip + groove) * c + bb * c)
+
+    LEG = [(0.04, 0.031, 0.033, 0.031), (0.09, 0.032, 0.034, 0.032), (0.16, 0.038, 0.038, 0.04), (0.24, 0.047, 0.045, 0.055),
+           (0.32, 0.052, 0.049, 0.064), (0.39, 0.05, 0.052, 0.052), (0.45, 0.052, 0.058, 0.05), (0.51, 0.058, 0.06, 0.055),
+           (0.59, 0.067, 0.066, 0.064), (0.67, 0.075, 0.074, 0.074), (0.75, 0.083, 0.081, 0.084), (0.82, 0.087, 0.085, 0.091),
+           (0.88, 0.075, 0.073, 0.078)]
+
+    def leg(s, y, ph, push=0.0):
+        r, rf, rb = cr(LEG, y)
+        cx = 0.068 + 0.013 * sst((y - 0.45) / 0.38)
+        a, c = math.sin(ph), math.cos(ph)
+        zr = rb + (rf - rb) * (0.5 + 0.5 * c)
+        return (s * (cx + (r + push) * a), y, (zr + push) * c)
+
+    ARM = [(0.785, 0.03), (0.82, 0.033), (0.9, 0.039), (0.95, 0.041), (0.995, 0.039), (1.04, 0.042), (1.12, 0.046), (1.2, 0.05),
+           (1.25, 0.049), (1.28, 0.038), (1.3, 0.012)]
+
+    def arm(s, y, ph, push=0.0):
+        r = cr(ARM, y)[0] + push
+        cx = s * (0.175 - 0.004 * sst((1.0 - y) / 0.2))
+        return (cx + r * math.sin(ph) * s, y, -0.01 + r * math.cos(ph) * (0.92 if y > 1.0 else 0.86))
+
+    def w_body(x, y, z):
+        side = 'L' if x > 0 else 'R'
+        h = 1 - sst((y - 0.86) / 0.11)
+        c = sst((y - 1.03) / 0.11)
+        w = {'hips': h, 'spine': max(0.0, 1 - h - c), 'chest': c}
+
+        def take(k, amt):
+            if amt <= 0:
+                return
+            for q in list(w):
+                w[q] *= 1 - amt
+            w[k] = w.get(k, 0) + amt
+        take('head', sst((y - 1.28) / 0.07) * 0.75)
+        take('leg' + side, sst((0.83 - y) / 0.08) * sst(abs(x) / 0.08) * 0.7)
+        take('arm' + side, sst((abs(x) - 0.11) / 0.06) * sst((y - 1.13) / 0.07) * 0.6)
+        return w
+
+    def w_leg(x, y, z):
+        s = 'L' if x > 0 else 'R'
+        hp = sst((y - 0.79) / 0.08) * 0.65
+        kn = sst((0.48 - y) / 0.06)
+        ft = sst((0.13 - y) / 0.04)
+        return {'hips': hp, 'leg' + s: (1 - hp) * (1 - kn), 'knee' + s: kn * (1 - ft), 'foot' + s: kn * ft}
+
+    def w_arm(x, y, z):
+        s = 'L' if x > 0 else 'R'
+        ch = sst((y - 1.19) / 0.08) * 0.55
+        el = sst((1.025 - y) / 0.07)
+        hd = sst((0.81 - y) / 0.03) * 0.5
+        return {'chest': ch, 'arm' + s: (1 - ch) * (1 - el), 'elbow' + s: el * (1 - hd), 'hand' + s: el * hd}
+
+    sh = lambda lo=0.82, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
+    R = {k: [] for k in ('skin', 'bottom', 'waist', 'chest', 'upper', 'forearm', 'thigh', 'knee', 'shin')}
+
+    def put(role, ob, wfn, pnt):
+        paint(ob, pnt)
+        weigh(ob, wfn)
+        R[role].append(ob)
+
+    # ---- bare body (always drawn)
+    tor = sheet('skin', 44, 40, lambda u, v: torso(0.735 + (1.37 - 0.735) * v, u * TAU), caps=(True, True))
+    outward(tor)
+    put('skin', tor, w_body, sh(0.9, 1.0))
+    for s in (1, -1):
+        lg = sheet('skin', 20, 34, lambda u, v, s=s: leg(s, 0.04 + 0.84 * v, u * TAU))
+        outward(lg, s * 0.08)
+        put('skin', lg, w_leg, sh(0.9, 1.0))
+        am = sheet('skin', 16, 26, lambda u, v, s=s: arm(s, 0.785 + (1.3 - 0.785) * v, u * TAU), caps=(False, True))
+        outward(am, s * 0.175, -0.01)
+        put('skin', am, w_arm, sh(0.9, 1.0))
+
+    # ---- garment layers (the game hides a layer when its material is the skin)
+    def brief(u, v):
+        th = u * TAU
+        yb = 0.752 + 0.03 * math.sin(th) ** 2
+        yt = 0.905 - 0.008 * math.cos(th)
+        return torso(yb + (yt - yb) * v, th, 0.0045)
+    bf = sheet('bottom', 40, 12, brief, caps=(True, False))
+    outward(bf)
+    put('bottom', bf, w_body, sh(0.74, 1.0))
+    ws = sheet('waist', 44, 14, lambda u, v: torso(0.84 + 0.23 * v, u * TAU, 0.003))
+    outward(ws)
+    put('waist', ws, w_body, sh(0.8, 1.0))
+
+    def top(u, v):
+        th = u * TAU
+        yt = 1.255 - 0.05 * math.exp(-(wrap(th) / 0.55) ** 2)
+        return torso(1.04 + (yt - 1.04) * v, th, 0.0045)
+    tp = sheet('chest', 44, 18, top)
+    outward(tp)
+    put('chest', tp, w_body, sh(0.78, 1.0))
+    for s in (1, -1):
+        up = sheet('upper', 16, 16, lambda u, v, s=s: arm(s, 0.985 + (1.3 - 0.985) * v, u * TAU, 0.003), caps=(False, True))
+        outward(up, s * 0.175, -0.01)
+        put('upper', up, w_arm, sh(0.8, 1.0))
+        fa = sheet('forearm', 16, 12, lambda u, v, s=s: arm(s, 0.785 + 0.22 * v, u * TAU, 0.0042 + 0.004 * (1 - v) ** 2))
+        outward(fa, s * 0.175, -0.01)
+        put('forearm', fa, w_arm, sh(0.8, 1.0))
+        th = sheet('thigh', 20, 18, lambda u, v, s=s: leg(s, 0.48 + 0.4 * v, u * TAU, 0.003))
+        outward(th, s * 0.08)
+        put('thigh', th, w_leg, sh(0.8, 1.0))
+        kn = sheet('knee', 20, 6, lambda u, v, s=s: leg(s, 0.41 + 0.11 * v, u * TAU, 0.008 * math.sin(math.pi * (0.15 + 0.7 * v)) * (0.6 + 0.4 * math.cos(u * TAU)) + 0.002))
+        outward(kn, s * 0.08)
+        put('knee', kn, w_leg, sh(0.78, 1.0))
+        sn = sheet('shin', 20, 22, lambda u, v, s=s: leg(s, 0.04 + 0.44 * v, u * TAU, 0.0042))
+        outward(sn, s * 0.08)
+        put('shin', sn, w_leg, sh(0.8, 1.0))
+
+    skinned_export('hero_body_skinned.glb', R, HERO_J, LUBY_PARENT)
+
+
+def skinned_export(fname, R, J, PARENT):
+    ad = bpy.data.armatures.new('rig')
+    rig = link(bpy.data.objects.new('rig', ad))
+    sel([rig])
+    bpy.ops.object.mode_set(mode='EDIT')
+    for nm, p in J.items():
+        b = ad.edit_bones.new(nm)
+        b.head = B(*p)
+        b.tail = B(p[0], p[1] + 0.05, p[2])
+    for c, pa in PARENT.items():
+        ad.edit_bones[c].parent = ad.edit_bones[pa]
+    bpy.ops.object.mode_set(mode='OBJECT')
+    obs = []
+    for role, parts in R.items():
+        if not parts:
+            continue
+        ob = join(parts, role, 60)
+        ob.parent = rig
+        m = ob.modifiers.new('arm', 'ARMATURE')
+        m.object = rig
+        obs.append(ob)
+    sel(obs + [rig])
+    path = os.path.join(OUT, fname)
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=True, export_apply=True, export_colors=True,
+                              export_normals=True, export_yup=True, export_materials='EXPORT', export_texcoords=False,
+                              export_skins=True, export_animations=False)
+    tris = sum(len(p.vertices) - 2 for o in obs for p in o.data.polygons)
+    print(f'[props] {fname}  {tris} tris  {os.path.getsize(path) // 1024} KB')
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -4027,6 +4200,7 @@ ASSETS = {
     'luby_body': build_luby_body_kits,
     'hair_styles': build_hair_styles,
     'luby_skinned': build_luby_skinned,
+    'hero_skinned': build_hero_skinned,
 }
 
 for name, fn in ASSETS.items():
