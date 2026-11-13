@@ -4857,7 +4857,7 @@ def build_abadonia():
         return paint(ob, fn)
 
     # ================= BEAST BODY (origin: ground under the saddle, facing +z) =================
-    fur, armor, trim, mane = [], [], [], []
+    fur, armor, trim, mane, gemB = [], [], [], [], []
     spine = [(0, 1.0, -0.95), (0, 1.07, -0.5), (0, 1.1, -0.05), (0, 1.13, 0.4), (0, 1.2, 0.72), (0, 1.24, 0.95)]
     fur.append(P(limb(spine, [0.26, 0.36, 0.36, 0.43, 0.36, 0.27], 16, 0.84, 1.0), 1, 0.55))
     fur.append(P(ell(0.3, (0, 0.98, 0.42), (0.95, 0.8, 1.0), sub=3), 2, 0.55))   # deep chest
@@ -4887,7 +4887,22 @@ def build_abadonia():
                     bulge = math.sqrt(max(0.0, 1 - (yy / ry) ** 2 - (zz / rz) ** 2))
                     pts.append((x0 + sx * (0.13 * bulge + 0.006), y0 + yy, z0 + zz))
                 trim.append(paint(limb(pts, [0.016 - 0.011 * (i / 8) for i in range(9)], 5, cap=True), WHITE))
-            trim.append(paint(ell(0.04, (x0 + sx * 0.13, y0, z0), (0.5, 1, 1)), WHITE))
+            gemB.append(paint(ell(0.05, (x0 + sx * 0.135, y0, z0), (0.45, 1, 1), sub=2), WHITE))   # violet boss gem
+            trim.append(paint(loop([(x0 + sx * 0.128, y0 + 0.062 * math.cos(k / 10 * TAU), z0 + 0.062 * math.sin(k / 10 * TAU)) for k in range(10)], 0.011, 5), WHITE))
+            surf = lambda yy, zz, lift=0.006: (x0 + sx * (0.13 * math.sqrt(max(0.0, 1 - (yy / ry) ** 2 - (zz / rz) ** 2)) + lift), y0 + yy, z0 + zz)
+            for c in range(7):  # outer ring of small hooks between the big curls
+                a0 = c * TAU / 7 + 0.4
+                pts = [surf(rr * math.cos(a0 + t * 1.3) * ry / 0.36, rr * math.sin(a0 + t * 1.3) * rz / 0.36) for t, rr in ((0.0, 0.3), (0.35, 0.275), (0.7, 0.235), (1.0, 0.2))]
+                trim.append(paint(limb(pts, [0.011, 0.01, 0.008, 0.003], 4), WHITE))
+            for c in range(12):  # rivets just inside the rim
+                a0 = c * TAU / 12
+                trim.append(paint(ell(0.014, surf(0.86 * ry * math.cos(a0), 0.86 * rz * math.sin(a0), 0.004), (0.6, 1, 1), sub=1), WHITE))
+            for c, a0 in enumerate((-0.45, 0.0, 0.45)):  # crest of spikes along the top edge
+                q = (x0 + sx * 0.05, y0 + ry * math.cos(a0), z0 + rz * math.sin(a0))
+                armor.append(P(limb([q, (q[0] + sx * 0.03, q[1] + 0.07, q[2] + 0.05 * math.sin(a0)), (q[0] + sx * 0.05, q[1] + 0.16 - 0.03 * abs(a0), q[2] + 0.1 * math.sin(a0))], [0.04, 0.026, 0.002], 5), 50 + c, 0.6))
+            # a smaller lame peeking out under the plate
+            armor.append(P(ell(1.0, (x0 - sx * 0.01, y0 - ry * 0.62, z0), (0.11, ry * 0.5, rz * 0.8), sub=2), sd + 3, 0.55))
+            trim.append(paint(limb([surf(-ry * 0.98, -rz * 0.55, -0.02), (x0 + sx * 0.1, y0 - ry * 1.1, z0), surf(-ry * 0.98, rz * 0.55, -0.02)], [0.008, 0.013, 0.008], 4), WHITE))
         # girth straps
         armor.append(P(limb([(sx * 0.02, 0.72, 0.1), (sx * 0.3, 0.86, 0.1), (sx * 0.34, 1.15, 0.1), (sx * 0.22, 1.42, 0.1)], [0.03] * 4, 6, 1.0, 2.2), 11))
     # peytral: layered chest plates under the mane, with a centre boss
@@ -4918,7 +4933,14 @@ def build_abadonia():
     for k in range(7):  # ridge of spikes down to the pommel
         z = 0.42 - k * 0.04
         mane.append(P(limb([(0, 1.5, z), (0, 1.6 - k * 0.012, z - 0.08), (0, 1.62 - k * 0.02, z - 0.2)], [0.07, 0.05, 0.004], 5), 70 + k, 0.5))
-    kit('kit_aba_body', {'fur': fur, 'armor': armor, 'trim': trim, 'mane': mane})
+    # saddle skirt flaps with a scalloped trim, and a row of studs along the cantle
+    for sx in (-1, 1):
+        armor.append(P(ell(1.0, (sx * 0.27, 1.3, -0.06), (0.06, 0.2, 0.3), sub=2), 60, 0.6))
+        trim.append(paint(limb([(sx * 0.325, 1.18, -0.34), (sx * 0.34, 1.11, -0.2), (sx * 0.335, 1.16, -0.06), (sx * 0.34, 1.11, 0.08), (sx * 0.325, 1.18, 0.22)], [0.006, 0.012, 0.009, 0.012, 0.006], 4), WHITE))
+    for k in range(7):
+        a0 = (k / 6 - 0.5) * 2.2
+        trim.append(paint(ell(0.016, (0.21 * math.sin(a0), 1.6 + 0.02 * math.cos(a0), -0.43), (1, 1, 0.6), sub=1), WHITE))
+    kit('kit_aba_body', {'fur': fur, 'armor': armor, 'trim': trim, 'mane': mane, 'gem': gemB})
 
     # ================= HEAD (origin: neck joint) =================
     fur, armor, trim, mane, horn, glow, fang = [], [], [], [], [], [], []
@@ -4981,6 +5003,12 @@ def build_abadonia():
             for v in o.data.vertices:
                 v.co.y -= 0.135
             o.data.update()
+        for sx in (-1, 1):  # swept fins on the outside of the greave + an engraved curl
+            q0, q1 = gy(0.12), gy(0.5)
+            armor.append(P(limb([(sx * 0.12, q0[1], q0[2] - 0.02), (sx * 0.2, q0[1] + 0.05, q0[2] - 0.08), (sx * 0.23, q0[1] + 0.16, q0[2] - 0.14)], [0.045, 0.03, 0.002], 5, 0.45, 1.0), 20, 0.6))
+            pts = [(sx * (0.118 + 0.012 * math.sin(t * 3.1)), q0[1] + (q1[1] - q0[1]) * t, q0[2] + 0.085 * math.cos(1.2 + t * 2.6)) for t in (0.0, 0.25, 0.5, 0.75, 1.0)]
+            trim.append(paint(limb(pts, [0.004, 0.009, 0.01, 0.008, 0.003], 4), WHITE))
+        trim.append(paint(ell(0.022, (0, gy(0.28)[1], gy(0.28)[2] + 0.142), (1, 1.3, 0.5), sub=1), WHITE))
         # paw + claws
         fy = k1[1]
         fur.append(P(ell(0.15, (0, fy - 0.04, k1[2] + 0.07), (1.0, 0.5, 1.3), sub=2), 6, 0.5))
@@ -4988,6 +5016,8 @@ def build_abadonia():
             x = (i - 1.5) * 0.068
             fur.append(P(ell(0.055, (x, fy - 0.07, k1[2] + 0.22 - abs(i - 1.5) * 0.02), (1.0, 0.8, 1.2), sub=2), 7 + i, 0.5))
             horn.append(P(limb([(x, fy - 0.07, k1[2] + 0.27), (x, fy - 0.09, k1[2] + 0.34), (x, fy - 0.125, k1[2] + 0.38)], [0.022, 0.014, 0.002], 5), 11, 0.7))
+        armor.append(P(ell(0.13, (0, fy + 0.005, k1[2] + 0.1), (1.05, 0.42, 1.2), sub=2), 15, 0.6))  # armoured paw cap
+        trim.append(paint(limb([(-0.125, fy - 0.01, k1[2] + 0.1), (-0.07, fy + 0.0, k1[2] + 0.24), (0.07, fy + 0.0, k1[2] + 0.24), (0.125, fy - 0.01, k1[2] + 0.1)], [0.006, 0.011, 0.011, 0.006], 4), WHITE))
         kit(name, {'fur': fur, 'armor': armor, 'trim': trim, 'horn': horn})
 
     leg('kit_aba_legf', [(0, 0.1, 0), (0, -0.25, 0.04), (0, -0.52, -0.02)], [(0, -0.52, -0.02), (0, -0.76, 0.0), (0, -0.9, 0.03)], [0.2, 0.16, 0.115], [0.11, 0.09, 0.1])

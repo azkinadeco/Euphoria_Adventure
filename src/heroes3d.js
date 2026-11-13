@@ -758,7 +758,7 @@ export class AbadoniaRig extends Rig {
     const M = {
       fur: toon(0x2b2538), armor: toon(0x443e52, { specStrength: 0.9, specPower: 40, specThreshold: 0.7, specColor: 0xb8a8e8 }),
       trim: toon(0x9d96b8, { specStrength: 1.0, specPower: 50, specThreshold: 0.72 }), mane: toon(0x1c1626),
-      horn: toon(0x5c5668), glow: B(0xff5a1e), fang: B(0xffb43a), tail: toon(0xa23cff),
+      horn: toon(0x5c5668), glow: B(0xff5a1e), fang: B(0xffb43a), tail: toon(0xa23cff), gem: B(0xb060ff),
     };
     // violet sheen on the black hide and plate, as in the key art (kits load after applyRim has run)
     for (const k of ['fur', 'armor', 'mane', 'horn']) { M[k].userData.rimColor = new THREE.Color(0x9a62ff); M[k].userData.rimStrength = k === 'mane' ? 1.0 : 0.75; M[k].userData.rimPower = 2.0; M[k].userData.rimCap = 9; }
