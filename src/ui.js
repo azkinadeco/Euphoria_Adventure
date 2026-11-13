@@ -35,6 +35,37 @@ export class UI {
     setTimeout(() => el.remove(), 2900);
     while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
   }
+  /**
+   * Trial-hero introduction card (new game). Resolves true when the player chooses to try her now.
+   * Works with mouse / touch and with the keyboard (Enter = try, Esc = later).
+   */
+  trialCard(def) {
+    return new Promise((resolve) => {
+      document.exitPointerLock?.();
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,4,14,.72);padding:16px;font-family:inherit';
+      const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      const btn = 'border:0;border-radius:10px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer;';
+      el.innerHTML = `<div style="display:flex;gap:18px;max-width:640px;width:100%;background:linear-gradient(160deg,#1a1230,#0c0a16);border:1px solid ${def.color};border-radius:16px;padding:18px;box-shadow:0 0 40px ${def.color}55;color:#f2ecff;flex-wrap:wrap">
+        <img src="${def.portrait}" alt="" style="width:170px;max-height:240px;object-fit:contain;flex:0 0 auto;margin:auto">
+        <div style="flex:1 1 260px;min-width:0">
+          <div style="font-size:11px;letter-spacing:.18em;color:${def.color};font-weight:700">HERO TRIAL</div>
+          <div style="font-size:26px;font-weight:800;line-height:1.1;margin:2px 0">${esc(def.name)}</div>
+          <div style="font-size:11px;letter-spacing:.12em;opacity:.75;margin-bottom:10px">${esc(def.title)} · ${esc(def.element)} · ${esc(def.role)}</div>
+          <div style="font-size:13px;line-height:1.45;display:grid;gap:6px;margin-bottom:14px">${def.kit.slice(0, 3).map((k) => `<div>${esc(k)}</div>`).join('')}</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button data-a="try" style="${btn}background:${def.color};color:#fff">Coba sekarang</button>
+            <button data-a="later" style="${btn}background:#2a2440;color:#d8d0f0">Nanti</button>
+          </div>
+          <div style="font-size:11px;opacity:.6;margin-top:10px">Dia ada di daftar party (kanan). Ganti hero kapan saja lewat tombol angka atau ketuk namanya.</div>
+        </div></div>`;
+      const done = (v) => { window.removeEventListener('keydown', key, true); el.remove(); resolve(v); };
+      const key = (e) => { if (e.key === 'Enter') { e.stopPropagation(); done(true); } else if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+      el.addEventListener('click', (e) => { const a = e.target.closest('button')?.dataset.a; if (a) done(a === 'try'); });
+      window.addEventListener('keydown', key, true);
+      document.body.appendChild(el);
+    });
+  }
   voice(key) { const H = this.game.player.hero; if (H.voice[key]) this.toast(H.name + ': “' + H.voice[key] + '”'); }
 
   // ---------------- party ----------------

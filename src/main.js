@@ -876,6 +876,12 @@ class Game {
       this.player.placeAt(new THREE.Vector3(LOC.workshop.x - 4, 0, LOC.workshop.z - 3), 0.6);
       this.player.dead = false;
       await this.ui.dialog(SCRIPTS.prologue);
+      // introduce the trial hero; "try now" puts her on the field straight away
+      const trial = this.player.members.find((m) => m.def.trial);
+      if (trial && await this.ui.trialCard(trial.def)) {
+        this.player.action = null;
+        if (this.player.switchTo(this.player.members.indexOf(trial), true)) this.ui.toast(trial.def.name + ': \u201c' + trial.def.voice.swap + '\u201d');
+      }
       this.ui.toast(this.input.touch ? 'Joystick untuk bergerak · geser layar untuk kamera' : 'Klik layar untuk mengunci kamera · WASD bergerak', '');
       this.ui.toast('Ikuti penanda kuning ◆ untuk quest', '');
       this.save();
