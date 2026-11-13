@@ -4824,9 +4824,9 @@ def build_abadonia():
         out.append(Q[-1]); rad.append(radii[-1])
         return [tuple(q) for q in out], rad
 
-    def lock(pts, radii, sides=7, seed=0, lo=0.5):
+    def lock(pts, radii, sides=6, seed=0, lo=0.5):
         """a fur / flame lock: smooth, darker at the root, with a sheen band part-way down"""
-        pts, radii = spl(pts, radii)
+        pts, radii = spl(pts, radii, 2)
         ob = limb(pts, radii, sides, 1.0, 1.0)
         S = [Vector(B(*q)) for q in pts]
         m = len(S) - 1
@@ -4895,7 +4895,7 @@ def build_abadonia():
             p1 = (sa * rr * 1.22, 1.22 + ca * rr * 1.22 + 0.03 * ca, zc - ln * 0.3 * jl)
             p2 = (sa * rr * 1.3 + jw * 0.06, 1.22 + ca * rr * 1.24 - droop * 0.5, zc - ln * 0.7 * jl)
             tip = (sa * rr * 1.16 + jw * 0.12, 1.22 + ca * rr * 1.1 - droop + 0.05 * ca, zc - ln * 1.15 * jl)
-            mane.append(lock([root, p1, p2, tip], [0.1, 0.115, 0.08, 0.005], 7, row * 20 + k))
+            mane.append(lock([root, p1, p2, tip], [0.1, 0.115, 0.08, 0.005], 6, row * 20 + k))
     for k in range(7):  # ridge of spikes down to the pommel
         z = 0.42 - k * 0.04
         mane.append(P(limb([(0, 1.5, z), (0, 1.6 - k * 0.012, z - 0.08), (0, 1.62 - k * 0.02, z - 0.2)], [0.07, 0.05, 0.004], 5), 70 + k, 0.5))

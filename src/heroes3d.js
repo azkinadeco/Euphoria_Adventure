@@ -733,7 +733,8 @@ export class AbadoniaRig extends Rig {
   _build() {
     this.style = 'axe';
     const B = (c) => new THREE.MeshBasicMaterial({ color: c });
-    const skin = toon(0xffefe8), taupe = toon(0x76645c), hairC = 0xeee2c4;
+    // glistening skin as in the key art: a small sharp highlight
+    const skin = toon(0xffefe8, { specStrength: 0.42, specPower: 70, specThreshold: 0.8, specColor: 0xffffff }), taupe = toon(0x76645c), hairC = 0xeee2c4;
     const H = buildBody(this, {
       skin, bottom: taupe, chest: skin, waist: skin, hair: toon(hairC), hair2: toon(0xf8f0d8), hairColor: hairC, hairLen: 1.05, hairStyle: 'wavy',
       thigh: skin, knee: skin, shin: skin, shoe: skin, upperArm: skin, forearm: skin, hand: skin,
