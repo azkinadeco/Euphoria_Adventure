@@ -208,7 +208,7 @@ function buildBody(rig, S) {
   // one continuous skinned body (hero_body_skinned.glb): skin underneath, garment layers on top.
   // A layer whose material is the skin is simply not drawn; only the bare body carries the outline.
   const lay = (m) => (m && m !== S.skin ? m : undefined);
-  applySkinned('hero_body_skinned', rig, {
+  applySkinned(S.bodyKit ?? 'hero_body_skinned', rig, {
     skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), upper: lay(S.upperArm ?? S.shoulder),
     forearm: lay(S.forearm), thigh: lay(S.thigh), knee: lay(S.knee ?? S.shin), shin: lay(S.shin),
   }, bodyOld, { ol: (r) => (r === 'skin' ? 0.007 : r === 'knee' ? 0.004 : 0) });
@@ -736,7 +736,7 @@ export class AbadoniaRig extends Rig {
     // glistening skin as in the key art: a small sharp highlight
     const skin = toon(0xffefe8, { specStrength: 0.42, specPower: 70, specThreshold: 0.8, specColor: 0xffffff }), taupe = toon(0x76645c), hairC = 0xeee2c4;
     const H = buildBody(this, {
-      skin, bottom: taupe, chest: skin, waist: skin, hair: toon(hairC), hair2: toon(0xf8f0d8), hairColor: hairC, hairLen: 1.05, hairStyle: 'wavy',
+      skin, bottom: taupe, chest: skin, waist: skin, hair: toon(hairC), hair2: toon(0xf8f0d8), hairColor: hairC, hairLen: 1.05, hairStyle: 'wavy', bodyKit: 'aba_body_skinned',
       thigh: skin, knee: skin, shin: skin, shoe: skin, upperArm: skin, forearm: skin, hand: skin,
       face: faces({ iris: ['#5a0814', '#d82a3c', '#ffa0a0'], lash: '#3a2a2a', brow: '#cbb98a', browShape: 'worried', mouth: 'open', blush: 0.85, lip: '#c0485a' }),
     });

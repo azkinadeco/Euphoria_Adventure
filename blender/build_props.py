@@ -4031,12 +4031,19 @@ for _s, _k in ((1, 'L'), (-1, 'R')):
                    'leg' + _k: (_s * 0.08, 0.83, 0), 'knee' + _k: (_s * 0.08, 0.45, 0), 'foot' + _k: (_s * 0.08, 0.095, 0)})
 
 
-def build_hero_skinned():
+def build_hero_skinned(fname='hero_body_skinned.glb', curvy=None):
+    """curvy: {bust, waist, hip, thigh} multipliers for a hero-specific figure on the same joints / roles"""
     sst = lambda t: (lambda c: c * c * (3 - 2 * c))(min(1.0, max(0.0, t)))
+    CV = {'bust': 1.0, 'waist': 1.0, 'hip': 1.0, 'thigh': 1.0, 'keep': None, **(curvy or {})}
     TORSO = [(0.735, 0.05, 0.035, 0.04), (0.76, 0.114, 0.07, 0.082), (0.795, 0.143, 0.08, 0.099), (0.845, 0.157, 0.084, 0.106),
              (0.895, 0.15, 0.079, 0.097), (0.95, 0.128, 0.072, 0.082), (1.0, 0.116, 0.07, 0.073), (1.05, 0.122, 0.074, 0.073),
              (1.1, 0.134, 0.079, 0.076), (1.15, 0.145, 0.08, 0.079), (1.19, 0.152, 0.071, 0.077), (1.225, 0.143, 0.058, 0.067),
              (1.255, 0.088, 0.05, 0.055), (1.28, 0.053, 0.045, 0.048), (1.37, 0.046, 0.041, 0.044)]
+    # figure: scale the hip band up, the waist band in (smooth bumps so the silhouette stays continuous)
+    bump = lambda y, c, w: math.exp(-((y - c) / w) ** 2)
+    TORSO = [(y, rx * (1 + (CV['hip'] - 1) * bump(y, 0.845, 0.06) + (CV['waist'] - 1) * bump(y, 1.0, 0.07)),
+              zf * (1 + (CV['hip'] - 1) * 0.5 * bump(y, 0.845, 0.06) + (CV['waist'] - 1) * 0.6 * bump(y, 1.0, 0.07)),
+              zb * (1 + (CV['hip'] - 1) * 1.1 * bump(y, 0.82, 0.06) + (CV['waist'] - 1) * 0.6 * bump(y, 1.0, 0.07))) for y, rx, zf, zb in TORSO]
     wrap = lambda a: math.atan2(math.sin(a), math.cos(a))
 
     def bust(y, th):
@@ -4044,7 +4051,7 @@ def build_hero_skinned():
         for sd in (-1, 1):
             d = wrap(th - sd * 0.42)
             gy = (y - 1.125) / (0.05 if y > 1.125 else 0.03)
-            b = max(b, 0.042 * math.exp(-gy * gy - (d / 0.27) ** 2))
+            b = max(b, 0.042 * CV['bust'] * math.exp(-gy * gy - (d / (0.27 * CV['bust'] ** 0.4)) ** 2))
         return b
 
     def torso(y, th, push=0.0):
@@ -4063,6 +4070,8 @@ def build_hero_skinned():
 
     def leg(s, y, ph, push=0.0):
         r, rf, rb = cr(LEG, y)
+        tk = 1 + (CV['thigh'] - 1) * sst((y - 0.46) / 0.2)
+        r, rf, rb = r * tk, rf * tk, rb * tk
         cx = 0.068 + 0.013 * sst((y - 0.45) / 0.38)
         a, c = math.sin(ph), math.cos(ph)
         zr = rb + (rf - rb) * (0.5 + 0.5 * c)
@@ -4164,7 +4173,17 @@ def build_hero_skinned():
         outward(sn, s * 0.08)
         put('shin', sn, w_leg, sh(0.8, 1.0))
 
-    skinned_export('hero_body_skinned.glb', R, HERO_J, LUBY_PARENT)
+    if CV.get('keep'):  # a hero that never wears the other layers ships only what she uses
+        for k in list(R):
+            if k not in CV['keep']:
+                for ob in R.pop(k):
+                    bpy.data.objects.remove(ob, do_unlink=True)
+    skinned_export(fname, R, HERO_J, LUBY_PARENT)
+
+
+def build_aba_body():
+    """Abadonia's own figure (key art): fuller bust, hips and thighs, a narrow waist"""
+    build_hero_skinned('aba_body_skinned.glb', {'bust': 1.5, 'waist': 0.88, 'hip': 1.1, 'thigh': 1.13, 'keep': ('skin', 'bottom')})
 
 
 def skinned_export(fname, R, J, PARENT, uv=False):
@@ -4998,11 +5017,11 @@ def build_abadonia():
     # ================= BIKINI TOP (chest joint space): two cloth cups, under-band, neck strings =================
     bra = []
     for sx in (-1, 1):
-        bra.append(P(ell(0.074, (sx * 0.06, 0.028, 0.076), (1.0, 0.92, 0.82), sub=3), 1, 0.78))
+        bra.append(P(ell(0.086, (sx * 0.066, 0.01, 0.088), (1.0, 0.86, 0.86), sub=3), 1, 0.78))
         bra.append(P(limb([(sx * 0.075, 0.085, 0.09), (sx * 0.06, 0.15, 0.05), (sx * 0.03, 0.19, -0.02)], [0.006, 0.005, 0.004], 5), 2, 0.8))
     bra.append(P(limb([(0.118 * math.sin(k / 18 * TAU), -0.022, 0.094 * math.cos(k / 18 * TAU) - 0.004) for k in range(18)] + [(0, -0.022, 0.09), (0.04, -0.022, 0.085)],
                       [0.011] * 20, 6, 1.0, 1.0, cap=False), 3, 0.78))
-    bra.append(P(ell(0.02, (0, 0.02, 0.118), (1.2, 0.8, 0.6), sub=1), 4, 0.8))
+    bra.append(P(ell(0.022, (0, 0.0, 0.132), (1.2, 0.8, 0.6), sub=1), 4, 0.8))
     kit('kit_aba_bra', {'bra': bra})
 
     # ================= CROWN (head space: skull centre y 0.1) =================
@@ -5130,6 +5149,7 @@ ASSETS = {
     'hero_weapons': build_hero_weapons,
     'waystone': build_waystone,
     'abadonia': build_abadonia,
+    'aba_body': build_aba_body,
 }
 
 for name, fn in ASSETS.items():
