@@ -277,6 +277,7 @@ export class FideliaRig extends Rig {
     void blade;
     add(sword, new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.08, 4), toon(0x9ee0ff)), 0, 0.875, 0);
     this.sword = sword;
+    this.trails = [[sword, [0, 0.12, 0], [0, 0.92, 0]]];
     weapon('kit_w_fidsword', sword, { fsGrip: sword.children[0].material, fsGuard: pearl, fsBlade: blade.material });
     // scallop shield on left forearm
     const shield = part(Sp(0.24, 16, 8, 0, Math.PI * 2, 0, 1.0), shell, { ol: 0.01 });
@@ -362,6 +363,7 @@ export class ScyllaRig extends Rig {
     add(this.j.head, part(Sp(0.03, 8, 6), purple, { ol: 0.004 }), 0.1, 0.18, 0.04);
     // giant abyss scythe
     const sc = new THREE.Group();
+    this.trails = [[sc, [0, 1.15, 0], [0.92, 0.66, 0]]];
     this.j.handR.add(sc);
     sc.position.set(0, -0.04, 0); sc.rotation.x = Math.PI / 2 - 0.2;
     add(sc, part(Cy(0.025, 0.025, 2.0, 8), toon(0x1c1824), { ol: 0.005 }), 0, 0.2, 0);
@@ -408,6 +410,7 @@ export class EropatraRig extends Rig {
     outfit({ eroSkirt: skM, eroGold: gold, eroCape: capeM }, [sk, hem, panel, cape]);
     // Anubis staff
     const st = new THREE.Group(); this.j.handR.add(st);
+    this.trails = [[st, [0, 0.55, 0], [0, 1.15, 0]]];
     st.position.set(0, -0.04, 0); st.rotation.x = Math.PI / 2 - 0.15;
     add(st, part(Cy(0.022, 0.022, 1.7, 8), gold, { ol: 0.004 }), 0, 0.1, 0);
     const jack = add(st, part(new THREE.BoxGeometry(0.1, 0.16, 0.2), black, { ol: 0.005 }), 0, 1.0, 0.04);
@@ -472,6 +475,7 @@ export class ValeriaRig extends Rig {
     const ah = add(head, part(new THREE.ConeGeometry(0.012, 0.12, 4), dark, { ol: 0 }), 0, 0.27, 0.02); ah.rotation.z = 0.5; // ahoge
     // greatsword with an icy edge
     const sw = new THREE.Group(); this.j.handR.add(sw);
+    this.trails = [[sw, [0, 0.2, 0], [0, 1.2, 0]]];
     sw.position.set(0, -0.04, 0); sw.rotation.x = Math.PI / 2 + 0.2;
     add(sw, part(new THREE.BoxGeometry(0.05, 0.22, 0.05), dark, { ol: 0.004 }), 0, 0.02, 0);
     add(sw, part(new THREE.BoxGeometry(0.28, 0.05, 0.07), gold, { ol: 0.004 }), 0, 0.14, 0);
@@ -638,6 +642,7 @@ export class CommanderRig extends Rig {
     };
     this.bladeR = makeBlade(this.j.handR, 0xffaa00, 0xffd700);
     this.bladeL = makeBlade(this.j.handL, 0x44bbff, 0x77ddff);
+    this.trails = [[this.bladeR, [0, 0.35, 0], [0, 1.5, 0]], [this.bladeL, [0, 0.35, 0], [0, 1.5, 0]]];
   }
   update(dt, st) {
     super.update(dt, st);
@@ -682,6 +687,7 @@ export class KaliRig extends Rig {
     };
     const steel = toon(c ? 0x6a4a9a : 0xdfe6f0, { emissive: c ? 0x4a0a6a : 0x2a3a4a, emissiveIntensity: c ? 1.2 : 0.35 });
     const kat = blade(steel); this.j.handR.add(kat);
+    this.trails = [[kat, [0, 0.16, 0], [0, 1.05, 0]]];
     kat.position.set(0, -0.05, 0.02); kat.rotation.x = Math.PI / 2 + 0.15;
     // a halo of floating swords behind her back
     this.halo = new THREE.Group(); this.root.add(this.halo);

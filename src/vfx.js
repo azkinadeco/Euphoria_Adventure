@@ -95,6 +95,75 @@ export class VFX {
     this.items.push({ obj: c, t: 0, life, update: (it, k) => { m.opacity = o0 * (1 - k); c.scale.set(1 + k, fx ? h * (0.7 + 0.3 * Math.min(1, k * 5)) : 1, 1 + k); if (fx) c.rotation.y = k * 2.5; } });
   }
 
+  /**
+   * Weapon trail: a glowing ribbon swept out by a blade. Call feed(base, tip, on, dt, color) every
+   * frame with the blade's two world-space ends; it fades by itself when `on` goes false.
+   */
+  trail(N = 22, life = 0.2) {
+    const pos = new Float32Array(N * 6), col = new Float32Array(N * 6), idx = [];
+    for (let i = 0; i < N - 1; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(idx);
+    const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    mesh.frustumCulled = false; mesh.visible = false; mesh.userData.noZone = true;
+    this.scene.add(mesh);
+    const S = []; // newest first: { b, t, age }
+    const c = new THREE.Color();
+    return {
+      mesh,
+      clear() { S.length = 0; mesh.visible = false; },
+      feed(base, tip, on, dt, color) {
+        for (const q of S) q.age += dt;
+        while (S.length && S[S.length - 1].age > life) S.pop();
+        if (on) {
+          const last = S[0];
+          if (last && last.t.distanceToSquared(tip) > 9) S.length = 0; // teleported (dash, swap): no streak across the map
+          // in-between samples keep fast swings round instead of polygonal
+          if (last && last.t.distanceToSquared(tip) > 0.04) S.unshift({ b: last.b.clone().lerp(base, 0.5), t: last.t.clone().lerp(tip, 0.5), age: dt * 0.5 });
+          S.unshift({ b: base.clone(), t: tip.clone(), age: 0 });
+          if (S.length > N) S.length = N;
+        }
+        mesh.visible = S.length > 1;
+        if (!mesh.visible) return;
+        c.set(color);
+        for (let i = 0; i < N; i++) {
+          const q = S[Math.min(i, S.length - 1)], k = i < S.length ? Math.max(0, 1 - q.age / life) : 0, o = i * 6;
+          pos[o] = q.b.x; pos[o + 1] = q.b.y; pos[o + 2] = q.b.z; pos[o + 3] = q.t.x; pos[o + 4] = q.t.y; pos[o + 5] = q.t.z;
+          const kb = k * k * 0.12, kt = k * k * 1.1;
+          col[o] = c.r * kb; col[o + 1] = c.g * kb; col[o + 2] = c.b * kb;
+          col[o + 3] = (c.r * 0.6 + 0.4) * kt; col[o + 4] = (c.g * 0.6 + 0.4) * kt; col[o + 5] = (c.b * 0.6 + 0.4) * kt;
+        }
+        g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;
+      },
+    };
+  }
+
+  /** elemental magic circle under a hero as a skill / burst goes off: spinning rune rings, a rising glow and motes */
+  castCircle(pos, color = 0xb8ff4a, radius = 1.6, life = 0.9) {
+    const grp = new THREE.Group();
+    const rune = this.geo.rune_ring;
+    const mk = (geo, op) => new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, vertexColors: geo === rune }));
+    const outer = mk(rune || new THREE.RingGeometry(0.93, 1, 48), 0.95), inner = mk(rune || new THREE.RingGeometry(0.9, 1, 6), 0.8);
+    const disc = mk(new THREE.RingGeometry(0.05, 0.98, 40), 0.1), star = mk(new THREE.RingGeometry(0.5, 0.56, 4), 0.7), star2 = mk(new THREE.RingGeometry(0.5, 0.56, 4), 0.7);
+    const glow = mk(new THREE.CylinderGeometry(0.98, 0.98, 1, 28, 1, true), 0.06);
+    for (const m of [outer, inner, disc, star, star2]) m.rotation.x = -Math.PI / 2;
+    inner.scale.setScalar(0.62); star2.rotation.z = Math.PI / 4; glow.position.y = 0.5;
+    grp.add(outer, inner, disc, star, star2, glow);
+    grp.position.copy(pos); grp.position.y += 0.08;
+    this.scene.add(grp);
+    this.particles(pos.clone().setY(pos.y + 0.2), Math.round(10 * radius), color, { speed: 1.2 * radius, up: 4.5, life: life * 0.8, grav: -2, spread: radius * 0.7 });
+    const ops = [outer, inner, disc, star, star2, glow].map((m) => m.material.opacity);
+    this.items.push({ obj: grp, t: 0, life, update: (it, k) => {
+      const grow = 1 - Math.pow(1 - Math.min(1, k * 4), 3), fade = k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4;
+      grp.scale.set(radius * grow, 1, radius * grow);
+      outer.rotation.z = it.t * 1.6; inner.rotation.z = -it.t * 2.4; star.rotation.z = it.t * 0.9; star2.rotation.z = Math.PI / 4 - it.t * 0.9;
+      glow.scale.y = 0.3 + 1.2 * k; glow.position.y = glow.scale.y / 2;
+      [outer, inner, disc, star, star2, glow].forEach((m, i) => { m.material.opacity = ops[i] * fade; });
+    } });
+  }
+
   /** ground warning circle (enemy attacks). returns handle with .done */
   telegraph(pos, radius, dur, color = 0xff3355) {
     const grp = new THREE.Group();

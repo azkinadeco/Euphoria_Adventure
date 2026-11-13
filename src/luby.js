@@ -141,7 +141,7 @@ function stockingTextures() {
 }
 
 export class Luby extends Rig {
-  constructor() { super('Luby'); this._skin(); }
+  constructor() { super('Luby'); this._skin(); this.trails = [[this.j.handR, [0, 0.02, 0], [0, -0.2, 0.05]], [this.j.handL, [0, 0.02, 0], [0, -0.2, 0.05]]]; }
 
   _build() {
     const M = this.mats;

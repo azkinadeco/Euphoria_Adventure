@@ -9,6 +9,8 @@ import { WEAPON_BY_ID } from './gacha.js';
 import { applyRim } from './toon.js';
 import { boostGlow } from './graphics.js';
 
+const _tb = new THREE.Vector3(), _tt = new THREE.Vector3();
+
 const MELEE = [
   null,
   { dur: 0.42, hit: 0.3, mult: 0.62, range: 2.4, cone: 0.15, knock: 3 },
@@ -442,6 +444,24 @@ export class Player {
       actionT: this.action === 'plunge' ? 0.5 : this.actionDur ? this.actionT / this.actionDur : 0, combo: this.action === 'ambush' || this.action === 'judgement' ? 3 : this.combo,
       hurtT: this.hurtT, flipT: this.flipT, swim: this.swimming, glide: this.gliding,
     });
+    this._trails(dt);
+  }
+
+  /** glowing ribbons behind the weapon (or Luby's claws) while a swing is in the air */
+  _trails(dt) {
+    const G = this.game, refs = this.luby.trails || [], a = this.action;
+    if (!this._tr) this._tr = [G.vfx.trail(), G.vfx.trail()];
+    if (this._trRig !== this.luby) { this._trRig = this.luby; this._tr.forEach((t) => t.clear()); }
+    const tn = this.actionDur ? this.actionT / this.actionDur : 0;
+    const on = !this.dead && ((a === 'attack' && tn > 0.16 && tn < 0.62) || ((a === 'ambush' || a === 'judgement') && tn > 0.1 && tn < 0.7)
+      || (a === 'charged' && !this.actionData?.mage) || a === 'fang' || a === 'plunge' || (a === 'burst' && refs.length && this.luby.style !== 'claw' && tn > 0.45 && tn < 0.75));
+    if (on) this.root.updateMatrixWorld(true);
+    this._tr.forEach((t, i) => {
+      const r = refs[i];
+      if (!r) { t.feed(_tb, _tt, false, dt, 0xffffff); return; }
+      if (on) { _tb.fromArray(r[1]); _tt.fromArray(r[2]); r[0].localToWorld(_tb); r[0].localToWorld(_tt); }
+      t.feed(_tb, _tt, on, dt, this.hero.color);
+    });
   }
 
   // ---------------- normal attack ----------------
@@ -559,6 +579,7 @@ export class Player {
       const c = e ? e.pos.clone() : this.pos.clone().add(new THREE.Vector3(Math.sin(this.facing) * 7, 0, Math.cos(this.facing) * 7));
       this.startAction('cast', 0.6, { skill: true, center: c });
     }
+    G.vfx.castCircle(this.pos, H.color, 1.5, 0.8);
     this.cd.skill = H.skillCD * (1 - this.m.getArtifactBonus().cdr);
     this.speedNow = 0;
     if (Math.random() < 0.4) G.ui.voice('skill');
@@ -578,6 +599,7 @@ export class Player {
     if ((this.m.getArtifactBonus().setCounts.celestial || 0) >= 4) this.celestialT = 12;
     this.iframes = 1.1;
     this.speedNow = 0;
+    G.vfx.castCircle(this.pos, H.color, 2.6, 1.4); G.vfx.castCircle(this.pos, 0xffffff, 1.3, 1.0);
     G.burstCinematic(H);
     sfx.burst();
   }
