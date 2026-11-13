@@ -4939,17 +4939,27 @@ def build_abadonia():
     sp = lambda t: (0.2 * math.sin(t * 3.3 + 0.3) * t, L * t, 0.06 * math.sin(t * 2.2) * t)
     pts = [sp(i / 10) for i in range(11)]
     rad = [0.05 + 0.2 * math.sin(math.pi * (i / 10) ** 0.75) ** 1.15 * (1 - 0.25 * i / 10) for i in range(10)] + [0.004]
-    parts.append(limb(pts, rad, 12, 1.0, 0.36))
-    for (t0, sd, ln) in ((0.3, 1, 0.34), (0.45, -1, 0.42), (0.62, 1, 0.4), (0.74, -1, 0.34), (0.85, 1, 0.24)):
+    parts.append(limb(pts, rad, 12, 1.0, 0.58))
+    for (t0, sd, ln) in ((0.22, -1, 0.3), (0.3, 1, 0.34), (0.45, -1, 0.42), (0.55, 1, 0.3), (0.62, 1, 0.4), (0.74, -1, 0.34), (0.85, 1, 0.24)):
         x0, y0, z0 = sp(t0)
         parts.append(limb([(x0 + sd * 0.08, y0, z0), (x0 + sd * 0.23, y0 + ln * 0.42, z0 + 0.02), (x0 + sd * 0.2, y0 + ln * 0.78, z0), (x0 + sd * 0.3, y0 + ln, z0 - 0.02)],
-                          [0.1, 0.075, 0.045, 0.003], 8, 1.0, 0.36))
+                          [0.1, 0.075, 0.045, 0.003], 8, 1.0, 0.55))
 
     def flame(p, n, pc):  # fur-black core, violet fire along the edges and towards the tip
         t = min(1.0, max(0.0, p.z / L))
         k = 0.07 + 0.93 * min(1.0, max(0.0, 0.22 * t + 1.25 * abs(n.x) ** 1.6 + max(0.0, t - 0.72) * 2.6 - 0.25 * (1 - t) ** 2))
         return (k, k, k)
     kit('kit_aba_tail', {'tail': [paint(o, flame) for o in parts]})
+
+    # ================= BIKINI TOP (chest joint space): two cloth cups, under-band, neck strings =================
+    bra = []
+    for sx in (-1, 1):
+        bra.append(P(ell(0.074, (sx * 0.06, 0.028, 0.076), (1.0, 0.92, 0.82), sub=3), 1, 0.78))
+        bra.append(P(limb([(sx * 0.075, 0.085, 0.09), (sx * 0.06, 0.15, 0.05), (sx * 0.03, 0.19, -0.02)], [0.006, 0.005, 0.004], 5), 2, 0.8))
+    bra.append(P(limb([(0.118 * math.sin(k / 18 * TAU), -0.022, 0.094 * math.cos(k / 18 * TAU) - 0.004) for k in range(18)] + [(0, -0.022, 0.09), (0.04, -0.022, 0.085)],
+                      [0.011] * 20, 6, 1.0, 1.0, cap=False), 3, 0.78))
+    bra.append(P(ell(0.02, (0, 0.02, 0.118), (1.2, 0.8, 0.6), sub=1), 4, 0.8))
+    kit('kit_aba_bra', {'bra': bra})
 
     # ================= CROWN (head space: skull centre y 0.1) =================
     band, gem = [], []

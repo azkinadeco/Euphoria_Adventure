@@ -740,7 +740,7 @@ export class AbadoniaRig extends Rig {
       face: faces({ iris: ['#5a0814', '#d82a3c', '#ffa0a0'], lash: '#3a2a2a', brow: '#cbb98a', browShape: 'worried', mouth: 'open', blush: 0.85, lip: '#c0485a' }),
     });
     const kits = [];
-    H.armor.chest({ fidBust: taupe }, []);
+    kits.push(applyKit('kit_aba_bra', H.chest, { bra: taupe }, [], { ol: 0.004, crease: 1.2 }));
     kits.push(applyKit('kit_aba_crown', H.head, { crown: toon(0x1c1622), gem: B(0xff4a2a) }, [], { ol: 0.005 }));
     // demon-eye battle axe, carried upright like a standard
     const ax = new THREE.Group(); this.j.handR.add(ax);
