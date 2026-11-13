@@ -92,6 +92,7 @@ export function toon(color, opts = {}) {
     sssColor = 0xffa080,
     sssStrength = 0.0,
     isFace = false,
+    net = null, // [cell, line width 0..0.5, top y]: fishnet / stocking cut on a hero's legs (rig-space)
     shadeMix = 0, // 0 = world look (ramp only); characters get coloured cel shadows via charaLook()
     ...rest
   } = opts;
@@ -135,6 +136,18 @@ export function toon(color, opts = {}) {
     shader.uniforms.uShadeTint = { value: mat.userData.shadeTint };
     shader.uniforms.uShadeParams = { value: mat.userData.shadeParams };
     _shaders.set(mat, shader);
+    if (net) {
+      // leg wear drawn over the skin layer: holes of a diamond mesh are discarded, and so is
+      // everything above the stocking top. Uses the bind-pose position, so it sticks while animating.
+      shader.uniforms.uNet = { value: new THREE.Vector3(net[0], net[1], net[2]) };
+      shader.vertexShader = 'varying vec3 vBindP;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBindP = position;');
+      shader.fragmentShader = 'varying vec3 vBindP;\nuniform vec3 uNet;\n' + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        if (vBindP.y > uNet.z) discard;
+        if (uNet.x > 0.0 && vBindP.y < uNet.z - 0.022) {
+          float nU = atan(vBindP.z, abs(vBindP.x) - 0.08) * 0.06 / uNet.x, nV = vBindP.y / uNet.x;
+          if (max(abs(fract(nU + nV) - 0.5), abs(fract(nU - nV) - 0.5)) < 0.5 - uNet.y) discard;
+        }`);
+    }
 
     shader.fragmentShader = `
       uniform vec3 uRimCol;
@@ -232,7 +245,7 @@ export function toon(color, opts = {}) {
   // would split identical shaders into separate programs, so only keep a key someone set explicitly
   const origKey = Object.prototype.hasOwnProperty.call(mat, 'customProgramCacheKey') ? mat.customProgramCacheKey.bind(mat) : () => '';
   // spec/face/rim are uniforms (flatShading is already part of three's own key): one program per variant
-  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel';
+  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '');
 
   return mat;
 }

@@ -346,7 +346,7 @@ export class ScyllaRig extends Rig {
   constructor() { super('Scylla'); }
   _build() {
     this.style = 'scythe';
-    const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x3a3444), silver = toon(0xe9e9f2);
+    const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x221c2a, { net: [0.024, 0.14, 0.76] }), silver = toon(0xe9e9f2);
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: skin, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy',
       thigh: net, knee: net, shin: net, shoe: black, upperArm: skin, forearm: black, hand: black,
@@ -425,10 +425,10 @@ export class RumiRig extends Rig {
   constructor() { super('Rumi'); }
   _build() {
     this.style = 'cstaff';
-    const skin = toon(0xf2c8a4), black = toon(0x1a1418), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
+    const skin = toon(0xf2c8a4), black = toon(0x1a1418), stock = toon(0x1c161c, { net: [0, 0, 0.62] }), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy',
-      thigh: black, knee: black, shin: black, shoe: red, upperArm: skin, forearm: black, hand: black,
+      thigh: stock, knee: stock, shin: stock, shoe: red, upperArm: skin, forearm: black, hand: black,
       face: faces({ iris: ['#4a1408', '#c85a28', '#ffc890'], lash: '#2a1a10', brow: '#b8923a', shape: 'droopy', mouth: 'smile', lip: '#c04848' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit } = H;
@@ -456,7 +456,7 @@ export class ValeriaRig extends Rig {
   constructor() { super('Valeria'); }
   _build() {
     this.style = 'great';
-    const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0xa9824a), top = toon(0xf2e8d8);
+    const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0xb08a50, { net: [0.026, 0.14, 0.7] }), top = toon(0xf2e8d8);
     const H = buildBody(this, {
       skin, bottom: gold, chest: top, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight',
       thigh: net, knee: net, shin: net, shoe: gold, upperArm: skin, forearm: gold, hand: skin,
