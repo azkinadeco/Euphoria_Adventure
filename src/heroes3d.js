@@ -346,10 +346,10 @@ export class ScyllaRig extends Rig {
   constructor() { super('Scylla'); }
   _build() {
     this.style = 'scythe';
-    const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x221c2a, { net: [0.024, 0.14, 0.76] }), silver = toon(0xe9e9f2);
+    const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x221c2a, { net: [0.024, 0.14, 0.76] }), netArm = toon(0x221c2a, { net: [0.022, 0.14, 9, 0.175] }), netMid = toon(0x221c2a, { net: [0.024, 0.14, 9, 0] }), silver = toon(0xe9e9f2);
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: skin, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy',
-      thigh: net, knee: net, shin: net, shoe: black, upperArm: skin, forearm: black, hand: black,
+      skin, bottom: black, chest: black, waist: netMid, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy',
+      thigh: net, knee: net, shin: net, shoe: black, upperArm: netArm, shoulder: skin, forearm: black, hand: black,
       face: faces({ iris: ['#2a1050', '#8a5ae0', '#e0c8ff'], lash: '#2a2430', brow: '#b4b4c6', browShape: 'firm', shape: 'sharp', mouth: 'flat', blush: 0.2, lip: '#b05070' }),
     });
     const { add, Sp, Cy, chest, hips, outfit } = H;
@@ -745,7 +745,7 @@ export class AbadoniaRig extends Rig {
     // demon-eye battle axe, carried upright like a standard
     const ax = new THREE.Group(); this.j.handR.add(ax);
     ax.position.set(0, -0.04, 0); ax.rotation.x = Math.PI / 2 - 0.15;
-    kits.push(applyKit('kit_aba_axe', ax, { axShaft: toon(0x2a1a4a), axMetal: toon(0x6a6478), axHead: toon(0x1c1724), axAura: B(0x9a3cff), axEye: B(0xff6a1a), axPupil: B(0x1a0505) }, [], { ol: 0.006 }));
+    kits.push(applyKit('kit_aba_axe', ax, { axShaft: toon(0x2a1a4a), axMetal: toon(0x6a6478), axHead: toon(0x2c2636, { rimColor: 0x9a62ff, rimStrength: 0.9, rimPower: 2.0 }), axAura: B(0x9a3cff), axEye: B(0xff6a1a), axPupil: B(0x1a0505) }, [], { ol: 0.006 }));
     this.trails = [[ax, [0, 0.95, 0], [0, 1.72, 0]]];
     // the abyss shield hovers at her left hand, wreathed in its own fire
     const sh = this.shield = new THREE.Group();
@@ -755,9 +755,12 @@ export class AbadoniaRig extends Rig {
     const beast = this.beast = new THREE.Group(); this.root.add(beast);
     beast.scale.setScalar(AbadoniaRig.BEAST);
     const M = {
-      fur: toon(0x2b2538), armor: toon(0x3d3848, { shininess: 40 }), trim: toon(0x8f88a6, { shininess: 60 }), mane: toon(0x1c1626),
+      fur: toon(0x2b2538), armor: toon(0x443e52, { specStrength: 0.9, specPower: 40, specThreshold: 0.7, specColor: 0xb8a8e8 }),
+      trim: toon(0x9d96b8, { specStrength: 1.0, specPower: 50, specThreshold: 0.72 }), mane: toon(0x1c1626),
       horn: toon(0x5c5668), glow: B(0xff5a1e), fang: B(0xffb43a), tail: toon(0xa23cff),
     };
+    // violet sheen on the black hide and plate, as in the key art (kits load after applyRim has run)
+    for (const k of ['fur', 'armor', 'mane', 'horn']) { M[k].userData.rimColor = new THREE.Color(0x9a62ff); M[k].userData.rimStrength = k === 'mane' ? 1.0 : 0.75; M[k].userData.rimPower = 2.0; M[k].userData.rimCap = 9; }
     kits.push(applyKit('kit_aba_body', beast, M, [], { ol: 0.012, crease: 1.0 }));
     const head = this.bHead = new THREE.Group(); head.position.set(0, 1.24, 0.92); beast.add(head);
     kits.push(applyKit('kit_aba_head', head, M, [], { ol: 0.01, crease: 1.0 }));
@@ -777,7 +780,7 @@ export class AbadoniaRig extends Rig {
       kits.push(applyKit('kit_aba_tail', roll, M, [], { ol: 0.01, crease: 1.2 }));
       this.bTails.push({ g, yaw, elev });
     }
-    sh.position.set(0.7, 1.25, 0.3); sh.rotation.set(0, 0.5, -0.1); sh.scale.setScalar(1.12);
+    sh.position.set(0.63, 1.2, 0.24); sh.rotation.set(0.06, 0.55, -0.16); sh.scale.setScalar(1.12);
     Promise.all(kits).then(() => charaLook(this.root, [skin]));
   }
   update(dt, st) {
@@ -788,8 +791,8 @@ export class AbadoniaRig extends Rig {
     j.legR.rotation.set(-1.5, 0, -1.2); j.kneeR.rotation.set(1.35, 0, 0); j.footR.rotation.set(0.5, 0, 0);
     j.legL.rotation.set(-1.5, 0, -0.95); j.kneeL.rotation.set(1.15, 0, 0); j.footL.rotation.set(0.4, 0, 0);
     j.hips.position.y = 0;
-    if (!a && !st.dead) { j.armL.rotation.set(-0.5, 0, 1.05); j.elbowL.rotation.set(-0.35, 0, 0); }
-    this.shield.position.y = 1.25 + Math.sin(t * 1.6) * 0.03;
+    if (!a && !st.dead) { j.armL.rotation.set(-0.55, 0, 1.15); j.elbowL.rotation.set(-0.2, 0, 0); } // hand on the shield grip
+    this.shield.position.y = 1.2 + Math.sin(t * 1.6) * 0.012;
     this.shield.rotation.y = 0.5 + Math.sin(t * 0.9) * 0.06 + (a === 'attack' ? -0.5 : 0);
     // beast: diagonal walk, bounding gallop on the charge, rears up for the burst
     const b = this.beast, L = this.bLegs;

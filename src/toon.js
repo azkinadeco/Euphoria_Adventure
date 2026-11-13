@@ -92,7 +92,7 @@ export function toon(color, opts = {}) {
     sssColor = 0xffa080,
     sssStrength = 0.0,
     isFace = false,
-    net = null, // [cell, line width 0..0.5, top y]: fishnet / stocking cut on a hero's legs (rig-space)
+    net = null, // [cell, line width 0..0.5, top y, axis x = 0.08, bottom y]: fishnet / stocking cut on a limb (rig-space)
     shadeMix = 0, // 0 = world look (ramp only); characters get coloured cel shadows via charaLook()
     ...rest
   } = opts;
@@ -140,11 +140,12 @@ export function toon(color, opts = {}) {
       // leg wear drawn over the skin layer: holes of a diamond mesh are discarded, and so is
       // everything above the stocking top. Uses the bind-pose position, so it sticks while animating.
       shader.uniforms.uNet = { value: new THREE.Vector3(net[0], net[1], net[2]) };
+      shader.uniforms.uNetAx = { value: new THREE.Vector2(net[3] ?? 0.08, net[4] ?? -9) };
       shader.vertexShader = 'varying vec3 vBindP;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBindP = position;');
-      shader.fragmentShader = 'varying vec3 vBindP;\nuniform vec3 uNet;\n' + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-        if (vBindP.y > uNet.z) discard;
+      shader.fragmentShader = 'varying vec3 vBindP;\nuniform vec3 uNet;\nuniform vec2 uNetAx;\n' + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        if (vBindP.y > uNet.z || vBindP.y < uNetAx.y) discard;
         if (uNet.x > 0.0 && vBindP.y < uNet.z - 0.022) {
-          float nU = atan(vBindP.z, abs(vBindP.x) - 0.08) * 0.06 / uNet.x, nV = vBindP.y / uNet.x;
+          float nU = atan(vBindP.z, abs(vBindP.x) - uNetAx.x) * 0.06 / uNet.x, nV = vBindP.y / uNet.x;
           if (max(abs(fract(nU + nV) - 0.5), abs(fract(nU - nV) - 0.5)) < 0.5 - uNet.y) discard;
         }`);
     }

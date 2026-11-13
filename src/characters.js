@@ -142,8 +142,8 @@ export function makeNPC({ skin = 0xffe2cf, hair, hair2, outfit, accent, cape, ex
   }
   const bang = part(S(0.11), M.hair, { ol: 0.005 }); bang.scale.set(1.05, 0.45, 0.6); bang.position.set(0, 0.16, 0.06); head.add(bang);
   // same skull size as the heroes -> reuse the hero hair kits (shifted to this skull)
-  applyKit('kit_b_hair', head, { hair: M.hair, side: longHair.material, hair2: M.hair2 }, [hr, bang], { ol: 0.006, crease: 1.2, place: (m) => { m.position.y = -0.04; } });
-  applyKit('kit_b_hairlong', head, { side: longHair.material }, [longHair], { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, 0.125, 0); m.scale.set(1, 0.85, 1); } });
+  applyKit('kit_hs_straight_front', head, { hair: M.hair, side: longHair.material, hair2: M.hair2 }, [hr, bang], { ol: 0.006, crease: 1.2, place: (m) => { m.position.y = -0.04; } });
+  applyKit('kit_hs_straight_back', head, { side: longHair.material }, [longHair], { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, 0.06, 0); m.scale.set(1, 0.6, 1); } });
   if (cape) {
     const c = part(new THREE.CylinderGeometry(0.2, 0.42, 1.1, 14, 1, true, Math.PI * 0.55, Math.PI * 0.9), toon(cape, { side: THREE.DoubleSide }), { ol: 0.008 });
     c.position.set(0, 0.7, -0.02); body.add(c);

@@ -4848,6 +4848,17 @@ def build_abadonia():
             trim.append(paint(ell(0.04, (x0 + sx * 0.13, y0, z0), (0.5, 1, 1)), WHITE))
         # girth straps
         armor.append(P(limb([(sx * 0.02, 0.72, 0.1), (sx * 0.3, 0.86, 0.1), (sx * 0.34, 1.15, 0.1), (sx * 0.22, 1.42, 0.1)], [0.03] * 4, 6, 1.0, 2.2), 11))
+    # peytral: layered chest plates under the mane, with a centre boss
+    for i, (y, z, r) in enumerate(((1.0, 0.8, 0.26), (0.86, 0.74, 0.23), (0.74, 0.66, 0.19))):
+        armor.append(P(ell(r, (0, y, z), (1.15, 0.62, 0.55), sub=3), 30 + i, 0.6))
+        trim.append(paint(limb([(-r * 1.1, y - r * 0.3, z + 0.02), (-r * 0.6, y - r * 0.55, z + r * 0.42), (0, y - r * 0.64, z + r * 0.55), (r * 0.6, y - r * 0.55, z + r * 0.42), (r * 1.1, y - r * 0.3, z + 0.02)],
+                               [0.006, 0.014, 0.017, 0.014, 0.006], 5), WHITE))
+    trim.append(paint(ell(0.05, (0, 0.98, 0.95), (1, 1, 0.6), sub=2), WHITE))
+    for sx in (-1, 1):  # overlapping lames along the flank between the big plates
+        for i in range(4):
+            z = 0.12 - i * 0.16
+            armor.append(P(ell(0.16, (sx * 0.3, 1.02 - 0.02 * i, z), (0.32, 1.25, 0.75), sub=2), 40 + i, 0.6))
+            trim.append(paint(limb([(sx * 0.345, 1.2 - 0.02 * i, z - 0.1), (sx * 0.355, 1.02 - 0.02 * i, z - 0.125), (sx * 0.33, 0.84 - 0.02 * i, z - 0.1)], [0.006, 0.011, 0.006], 5), WHITE))
     # mane: layered spikes round the neck and shoulders, swept back
     mane.append(P(ell(0.4, (0, 1.24, 0.62), (1.0, 1.02, 0.85), sub=3, amp=0.16, seed=5), 19, 0.5))  # shaggy ruff under the locks
     for row, (zc, rr, ln, n) in enumerate(((0.86, 0.3, 0.26, 13), (0.66, 0.4, 0.32, 15), (0.46, 0.43, 0.3, 13))):
@@ -4894,6 +4905,10 @@ def build_abadonia():
             rad.append((0.085 - 0.07 * t) * (1 + 0.1 * (i % 2)))
         horn.append(P(limb(pts, rad, 8), 12, 0.55))
     glow.append(paint(ell(0.115, (0, -0.165, 0.38), (0.95, 0.5, 1.1), sub=2), lambda p, n, pc: (0.85, 0.85, 0.85)))  # furnace mouth
+    for sx in (-1, 1):  # molten cracks running from the eyes down the cheeks and along the lips
+        glow.append(paint(limb([(sx * 0.13, 0.0, 0.385), (sx * 0.17, -0.06, 0.36), (sx * 0.15, -0.12, 0.4), (sx * 0.19, -0.17, 0.33)], [0.012, 0.009, 0.008, 0.002], 4), lambda p, n, pc: (0.7, 0.7, 0.7)))
+        glow.append(paint(limb([(sx * 0.03, -0.115, 0.545), (sx * 0.1, -0.125, 0.5), (sx * 0.15, -0.14, 0.4), (sx * 0.17, -0.17, 0.28)], [0.01, 0.012, 0.011, 0.003], 4), lambda p, n, pc: (0.9, 0.9, 0.9)))
+        glow.append(paint(limb([(sx * 0.05, 0.1, 0.4), (sx * 0.03, 0.17, 0.33), (sx * 0.06, 0.24, 0.2)], [0.007, 0.006, 0.002], 4), lambda p, n, pc: (0.6, 0.6, 0.6)))
     for k in range(13):  # cheek ruff
         a = (k / 12 - 0.5) * 4.6
         jl = 0.8 + rnd.random() * 0.5
@@ -4973,11 +4988,11 @@ def build_abadonia():
         q = cr(a)
         band.append(P(limb([q, (q[0] * 1.05, q[1] + h * 0.5, q[2] * 1.05), (q[0] * 1.12, q[1] + h, q[2] * 1.12)], [0.026, 0.017, 0.002], 5), 3 + k, 0.6))
     for sx in (-1, 1):  # swept demon horns
-        pts = [(sx * 0.125, 0.21, 0.0), (sx * 0.2, 0.26, -0.01), (sx * 0.23, 0.34, 0.0), (sx * 0.2, 0.4, 0.02), (sx * 0.15, 0.42, 0.04)]
-        band.append(P(limb(pts, [0.034, 0.03, 0.024, 0.014, 0.002], 7), 14, 0.55))
+        pts = [(sx * 0.125, 0.21, 0.0), (sx * 0.22, 0.26, -0.01), (sx * 0.27, 0.36, 0.0), (sx * 0.24, 0.46, 0.02), (sx * 0.17, 0.5, 0.05)]
+        band.append(P(limb(pts, [0.04, 0.036, 0.028, 0.016, 0.002], 7), 14, 0.55))
     band.append(P(fan([(-0.07, 0.2), (-0.045, 0.3), (0.0, 0.27), (0.045, 0.3), (0.07, 0.2), (0.0, 0.15)], 0.02, 0.118), 16, 0.6))  # front plate
-    fl = [(0.0, 0.34), (0.018, 0.29), (0.045, 0.31), (0.036, 0.25), (0.05, 0.21), (0.0, 0.175), (-0.05, 0.21), (-0.036, 0.25), (-0.045, 0.31), (-0.018, 0.29)]
-    gem.append(paint(fan(fl, 0.022, 0.142, (0, 0.235)), lambda p, n, pc: (lambda k: (k, k, k))(0.5 + 0.5 * min(1.0, max(0.0, 1 - abs(p.x) / 0.05) * (1.2 - (p.z - 0.175) / 0.2)))))
+    fl = [(0.0, 0.41), (0.024, 0.32), (0.062, 0.36), (0.048, 0.27), (0.066, 0.215), (0.0, 0.17), (-0.066, 0.215), (-0.048, 0.27), (-0.062, 0.36), (-0.024, 0.32)]
+    gem.append(paint(fan(fl, 0.03, 0.146, (0, 0.25)), lambda p, n, pc: (lambda k: (k, k, k))(0.5 + 0.5 * min(1.0, max(0.0, 1 - abs(p.x) / 0.066) * (1.25 - (p.z - 0.17) / 0.24)))))
     kit('kit_aba_crown', {'crown': band, 'gem': gem})
 
     # ================= DEMON-EYE BATTLE AXE (hand space, shaft along +y) =================
@@ -5030,11 +5045,13 @@ def build_abadonia():
     rim.append(paint(limb([(x * 1.02, y, z) for x, y, z in edge] + [(edge[0][0] * 1.02, edge[0][1], edge[0][2])], [0.03] * 63, 6, cap=False), WHITE))
     Z = lambda x, y: 0.07 * math.cos(min(1.0, abs(x) / max(hw(y), 0.01)) * math.pi / 2) + 0.03 * math.sin((y - H0) / (H1 - H0) * math.pi) + 0.022
     cl = lambda pts, r: paint(limb([(x, y, Z(x, y)) for x, y in pts], r, 6, 1.0, 0.6), WHITE)
-    crest.append(cl([(0, 0.52), (0, 0.3), (0, 0.0), (0, -0.3), (0, -0.62)], [0.012, 0.03, 0.022, 0.014, 0.004]))
+    crest.append(cl([(0, 0.54), (0, 0.36), (0, 0.06), (0, -0.3), (0, -0.66)], [0.016, 0.05, 0.04, 0.024, 0.005]))
+    crest.append(paint(loop([(0.095 * math.sin(k / 12 * TAU), 0.22 + 0.14 * math.cos(k / 12 * TAU), Z(0, 0.22) + 0.008) for k in range(12)], 0.017), WHITE))
     for sx in (-1, 1):
-        crest.append(cl([(0, 0.34), (sx * 0.11, 0.42), (sx * 0.2, 0.36), (sx * 0.26, 0.44)], [0.022, 0.02, 0.014, 0.003]))
-        crest.append(cl([(0, 0.12), (sx * 0.1, 0.06), (sx * 0.2, 0.12), (sx * 0.25, 0.04)], [0.018, 0.016, 0.011, 0.003]))
-        crest.append(cl([(0, 0.0), (sx * 0.07, -0.1), (sx * 0.06, -0.2)], [0.014, 0.012, 0.003]))
+        crest.append(cl([(sx * 0.08, 0.32), (sx * 0.15, 0.42), (sx * 0.24, 0.38), (sx * 0.3, 0.47)], [0.034, 0.03, 0.022, 0.004]))
+        crest.append(cl([(sx * 0.08, 0.14), (sx * 0.15, 0.05), (sx * 0.24, 0.12), (sx * 0.28, 0.02)], [0.03, 0.026, 0.018, 0.004]))
+        crest.append(cl([(0, -0.02), (sx * 0.09, -0.08), (sx * 0.16, -0.05), (sx * 0.2, -0.14)], [0.026, 0.02, 0.014, 0.003]))
+        crest.append(cl([(0, -0.26), (sx * 0.07, -0.34), (sx * 0.05, -0.46)], [0.02, 0.015, 0.003]))
         eyeS.append(paint(ell(0.05, (sx * 0.1, -0.16, Z(sx * 0.1, -0.16) - 0.02), (1.4, 0.7, 0.3), sub=2), WHITE))
     gemS.append(paint(fan([(0, 0.34), (0.065, 0.25), (0.045, 0.14), (0, 0.1), (-0.045, 0.14), (-0.065, 0.25)], 0.035, Z(0, 0.22) + 0.005),
                       lambda p, n, pc: (lambda k: (k, k, k))(0.55 + 0.45 * max(0.0, -n.y))))
