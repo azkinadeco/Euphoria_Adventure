@@ -107,6 +107,7 @@ export class Player {
     this.coolT = 0; this.heatTick = 0; this.lavaTick = 0;
     this.commanderBuffT = 0;
     this.addMember('luby');
+    this.addMember('abadonia'); // trial hero: playable from the very start
 
     this.pos = new THREE.Vector3();
     this.vel = new THREE.Vector3();
@@ -487,7 +488,7 @@ export class Player {
       const A = CAST[this.combo];
       this.startAction('cast', A.dur, { ...A, isAttack: true, target: e });
     } else {
-      const A = (id === 'fidelia' || id === 'valeria' || id === 'commander' || id === 'kali' ? SWORD : id === 'scylla' ? SCYTHE : MELEE)[this.combo];
+      const A = (id === 'fidelia' || id === 'valeria' || id === 'commander' || id === 'kali' || id === 'abadonia' ? SWORD : id === 'scylla' ? SCYTHE : MELEE)[this.combo];
       this.startAction('attack', A.dur, A);
     }
     this.speedNow = 0;
@@ -563,6 +564,16 @@ export class Player {
     } else if (H.id === 'kali') {
       const e = this.nearestEnemy(14); if (e) this.faceToward(e.pos);
       this.startAction('cast', 0.7, { bladeRain: true });
+    } else if (H.id === 'abadonia') { // Abyssal Pounce: the lion bounds through the enemy line
+      const e = this.nearestEnemy(12);
+      if (e) this.faceToward(e.pos);
+      const to = this.pos.clone().add(new THREE.Vector3(Math.sin(this.facing) * 9, 0, Math.cos(this.facing) * 9));
+      if (G.world.groundAt(to.x, to.z) < -1.2) to.copy(this.pos.clone().add(new THREE.Vector3(Math.sin(this.facing) * 3, 0, Math.cos(this.facing) * 3)));
+      this.startAction('fang', 0.5, { from: this.pos.clone(), to, hit: new Set(), element: 'DARK', mult: 2.4, color: 0xa050ff });
+      this.m.shield = Math.max(this.m.shield, this.m.maxHp * 0.15);
+      this.m.shieldT = 8.0;
+      this.iframes = 0.5;
+      sfx.dash();
     } else if (H.id === 'commander') {
       const e = this.nearestEnemy(12);
       if (e) this.faceToward(e.pos);
@@ -593,7 +604,7 @@ export class Player {
     const e = this.nearestEnemy(14);
     if (e) this.faceToward(e.pos);
     const center = e ? e.pos.clone() : this.pos.clone().add(new THREE.Vector3(Math.sin(this.facing) * 5, 0, Math.cos(this.facing) * 5));
-    this.startAction('burst', { mora: 1.4, scylla: 1.5, eropatra: 1.5, rumi: 1.3, glytta: 1.5, valeria: 1.2, gemora: 1.6, micca: 1.5, commander: 1.6, kali: 1.7 }[H.id] || 1.0, { center });
+    this.startAction('burst', { mora: 1.4, scylla: 1.5, eropatra: 1.5, rumi: 1.3, glytta: 1.5, valeria: 1.2, gemora: 1.6, micca: 1.5, commander: 1.6, kali: 1.7, abadonia: 1.5 }[H.id] || 1.0, { center });
     this.energy = 0;
     this.cd.burst = H.burstCD;
     if ((this.m.getArtifactBonus().setCounts.celestial || 0) >= 4) this.celestialT = 12;
@@ -967,6 +978,22 @@ export class Player {
         }
         this.commanderBuffT = 12.0;
         G.ui.toast('🌟 Genesis Nova: Party ATK +25% & Crit +15% (12 dtk)!', 'gold big');
+      }
+      if (H.id === 'abadonia' && !this._hitDone && t > 0.5) { // Nine-Tail Abyss Inferno
+        this._hitDone = true;
+        G.vfx.shockwave(this.pos, 10, 0xa050ff, 0.9); G.vfx.shockwave(this.pos, 6, 0xff5a1e, 0.6);
+        for (let k = 0; k < 9; k++) {
+          const ang = (k / 9) * Math.PI * 2, r = 3 + (k % 3) * 2.2;
+          const p = this.pos.clone().add(new THREE.Vector3(Math.cos(ang) * r, 0, Math.sin(ang) * r));
+          p.y = G.world.groundAt(p.x, p.z);
+          G.vfx.pillar(p, k % 2 ? 0xa050ff : 0x6a1ee0, 7, 0.8);
+        }
+        G.vfx.particles(this.pos.clone().setY(this.pos.y + 1.2), 90, 0xc080ff, { speed: 12, up: 7, life: 1.0 });
+        G.shake(0.55); sfx.heavy();
+        for (const e of G.enemies) {
+          if (e.dead || e.dormant) continue;
+          if (Math.hypot(e.pos.x - this.pos.x, e.pos.z - this.pos.z) < 10 + e.radius) G.dealDamage(e, this.atk * 4.0, { element: 'DARK', knock: 14, stun: 1.0, poise: 40 });
+        }
       }
       if (H.id === 'luby' && !this._hitDone && t > 0.45) { this._hitDone = true; G.startStorm(D.center); }
       if (H.id === 'kali') { // Pedang ke-101: a hundred swords, then the hundred-and-first

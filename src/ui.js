@@ -45,7 +45,7 @@ export class UI {
       const el = document.createElement('div');
       el.className = 'pm';
       el.style.setProperty('--c', m.def.color);
-      el.innerHTML = `<span class="key">${i + 1}</span><div class="pinfo"><div class="pname"><span>${m.def.name}</span><span style="color:${ELEMENT_COLOR[m.def.element]}">✦</span></div><div class="pbar"><div></div></div><div class="pen"><div></div></div></div><div class="pimg"><img src="${m.def.portrait}" alt=""></div>`;
+      el.innerHTML = `<span class="key">${i + 1}</span><div class="pinfo"><div class="pname"><span>${m.def.name}${m.def.trial ? ' <small style="font-size:.62em;padding:1px 4px;border-radius:4px;background:#a050ff;color:#fff;vertical-align:middle">TRIAL</small>' : ''}</span><span style="color:${ELEMENT_COLOR[m.def.element]}">✦</span></div><div class="pbar"><div></div></div><div class="pen"><div></div></div></div><div class="pimg"><img src="${m.def.portrait}" alt=""></div>`;
       const sw = (e) => { e.preventDefault(); e.stopPropagation(); this.game.input.events.push('sw' + i); };
       el.addEventListener('touchstart', sw, { passive: false });
       el.addEventListener('mousedown', sw);

@@ -4784,6 +4784,255 @@ def build_waystone():
     export('waystone', [st, gl])
 
 
+# ------------------------------------------------------------------ Abadonia: abyss lion queen (rider kits + armoured beast)
+def build_abadonia():
+    """New hero made from the user's key art / turntable video: a rider on an armoured black lion with
+    nine violet flame tails, a demon-eye battle axe, a great kite shield and a horned flame crown.
+    Kits are split by moving part (body, head, front leg, hind leg, tail) so the game can animate them."""
+    rnd = random.Random(21)
+    M = lambda seed=0, lo=0.66: grey(lo, 1.0, seed, 3.0, 0.85)
+    P = lambda ob, seed=0, lo=0.66: paint(ob, M(seed, lo))
+
+    def loop(pts, r, sides=6):
+        pts = list(pts)
+        return limb(pts + [pts[0], pts[1]], [r] * (len(pts) + 2), sides, cap=False)
+
+    def fan(outline, th, zc=0.0, centre=None):
+        """flat plate with a raised centre ridge on both faces; outline = [(x, y)] in three.js XY"""
+        n = len(outline)
+        cx = centre[0] if centre else sum(q[0] for q in outline) / n
+        cy = centre[1] if centre else sum(q[1] for q in outline) / n
+        verts = [B(x, y, zc) for x, y in outline] + [B(cx, cy, zc + th), B(cx, cy, zc - th)]
+        faces = []
+        for i in range(n):
+            j = (i + 1) % n
+            faces += [(i, j, n), (j, i, n + 1)]
+        ob = mesh('fan', verts, faces)
+        fix_normals(ob)
+        return ob
+
+    def mirror(pts):
+        return [(-x, y) for x, y in reversed(pts)]
+
+    # ================= BEAST BODY (origin: ground under the saddle, facing +z) =================
+    fur, armor, trim, mane = [], [], [], []
+    spine = [(0, 1.0, -0.95), (0, 1.07, -0.5), (0, 1.1, -0.05), (0, 1.13, 0.4), (0, 1.2, 0.72), (0, 1.24, 0.95)]
+    fur.append(P(limb(spine, [0.26, 0.36, 0.36, 0.43, 0.36, 0.27], 16, 0.84, 1.0), 1, 0.55))
+    fur.append(P(ell(0.3, (0, 0.98, 0.42), (0.95, 0.8, 1.0), sub=3), 2, 0.55))   # deep chest
+    fur.append(P(ell(0.3, (0, 1.02, -0.62), (1.0, 0.95, 1.0), sub=3), 3, 0.55))  # haunches
+    # saddle: seat, pommel and cantle
+    armor.append(P(ell(0.3, (0, 1.44, -0.06), (0.95, 0.24, 1.25), sub=3), 4))
+    armor.append(P(ell(0.13, (0, 1.52, 0.3), (1.3, 0.9, 0.5), sub=2), 5))
+    armor.append(P(ell(0.16, (0, 1.53, -0.42), (1.5, 1.0, 0.45), sub=2), 6))
+    trim.append(paint(loop([(0.285 * math.sin(k / 20 * TAU), 1.44, -0.06 + 0.375 * math.cos(k / 20 * TAU)) for k in range(20)], 0.016), WHITE))
+    for sx in (-1, 1):
+        # barding: shoulder and hip plates with raised rims and filigree curls
+        for (y0, z0, ry, rz, sd) in ((1.06, 0.44, 0.36, 0.34, 7), (1.0, -0.6, 0.38, 0.36, 9)):
+            x0 = sx * 0.3
+            armor.append(P(ell(1.0, (x0, y0, z0), (0.13, ry, rz), sub=3), sd, 0.6))
+            ring_pts = []
+            for k in range(22):
+                a = k / 22 * TAU
+                ring_pts.append((x0 + sx * 0.035, y0 + ry * 0.97 * math.cos(a), z0 + rz * 0.97 * math.sin(a)))
+            trim.append(paint(loop(ring_pts, 0.02), WHITE))
+            for c in range(3):  # filigree: three hooked curls
+                pts = []
+                for i in range(9):
+                    t = i / 8
+                    a = c * TAU / 3 + t * 3.6
+                    rr = 0.045 + 0.2 * t
+                    yy, zz = rr * math.cos(a), rr * math.sin(a)
+                    bulge = math.sqrt(max(0.0, 1 - (yy / ry) ** 2 - (zz / rz) ** 2))
+                    pts.append((x0 + sx * (0.13 * bulge + 0.006), y0 + yy, z0 + zz))
+                trim.append(paint(limb(pts, [0.016 - 0.011 * (i / 8) for i in range(9)], 5, cap=True), WHITE))
+            trim.append(paint(ell(0.04, (x0 + sx * 0.13, y0, z0), (0.5, 1, 1)), WHITE))
+        # girth straps
+        armor.append(P(limb([(sx * 0.02, 0.72, 0.1), (sx * 0.3, 0.86, 0.1), (sx * 0.34, 1.15, 0.1), (sx * 0.22, 1.42, 0.1)], [0.03] * 4, 6, 1.0, 2.2), 11))
+    # mane: layered spikes round the neck and shoulders, swept back
+    mane.append(P(ell(0.4, (0, 1.24, 0.62), (1.0, 1.02, 0.85), sub=3, amp=0.16, seed=5), 19, 0.5))  # shaggy ruff under the locks
+    for row, (zc, rr, ln, n) in enumerate(((0.86, 0.3, 0.26, 13), (0.66, 0.4, 0.32, 15), (0.46, 0.43, 0.3, 13))):
+        for k in range(n):
+            a = (k / (n - 1) - 0.5) * 4.4
+            jx, jl = rnd.random() - 0.5, 0.75 + rnd.random() * 0.5
+            rx, ry_ = math.sin(a) * rr * 0.9, math.cos(a) * rr
+            root = (rx, 1.2 + ry_, zc)
+            mid = (rx * 1.22, 1.2 + ry_ * 1.2 + 0.02, zc - ln * 0.5 * jl)
+            tip = (rx * 1.2 + jx * 0.06, 1.2 + ry_ * 1.16 - 0.03, zc - ln * 1.25 * jl)
+            mane.append(P(limb([root, mid, tip], [0.12, 0.1, 0.006], 6, 1.0, 1.0), 20 + k + row * 20, 0.5))
+    for k in range(7):  # ridge of spikes down to the pommel
+        z = 0.42 - k * 0.04
+        mane.append(P(limb([(0, 1.5, z), (0, 1.6 - k * 0.012, z - 0.08), (0, 1.62 - k * 0.02, z - 0.2)], [0.07, 0.05, 0.004], 5), 70 + k, 0.5))
+    kit('kit_aba_body', {'fur': fur, 'armor': armor, 'trim': trim, 'mane': mane})
+
+    # ================= HEAD (origin: neck joint) =================
+    fur, armor, trim, mane, horn, glow, fang = [], [], [], [], [], [], []
+    fur.append(P(ell(0.25, (0, 0.03, 0.14), (1.0, 0.92, 1.08), sub=3), 1, 0.55))
+    fur.append(P(ell(0.16, (0, -0.07, 0.4), (1.0, 0.72, 1.15), sub=3), 2, 0.55))      # muzzle
+    fur.append(P(ell(0.06, (0, -0.03, 0.57), (1.2, 0.7, 0.8), sub=2), 3, 0.4))        # nose
+    fur.append(P(ell(0.125, (0, -0.235, 0.33), (0.95, 0.4, 1.15), sub=2), 4, 0.5))    # dropped jaw: a snarl
+    for sx in (-1, 1):
+        fur.append(P(limb([(sx * 0.17, 0.2, 0.02), (sx * 0.23, 0.33, -0.02), (sx * 0.2, 0.4, -0.04)], [0.07, 0.05, 0.004], 6, 1.0, 0.5), 5))  # ear
+        fur.append(P(ell(0.07, (sx * 0.1, -0.08, 0.47), (1.0, 0.8, 1.0), sub=2), 6, 0.5))  # whisker pads
+    # skull plate with a centre crest and brow ridges
+    armor.append(P(ell(0.2, (0, 0.14, 0.2), (1.05, 0.5, 1.0), sub=3), 7, 0.6))
+    armor.append(P(limb([(0, 0.2, 0.36), (0, 0.27, 0.16), (0, 0.24, -0.06)], [0.03, 0.05, 0.02], 6, 0.5, 1.0), 8))
+    for sx in (-1, 1):
+        armor.append(P(limb([(sx * 0.03, 0.1, 0.4), (sx * 0.12, 0.13, 0.34), (sx * 0.22, 0.12, 0.22)], [0.03, 0.04, 0.02], 6), 9))
+        trim.append(paint(limb([(sx * 0.04, 0.2, 0.37), (sx * 0.15, 0.22, 0.26), (sx * 0.2, 0.2, 0.1)], [0.012, 0.014, 0.008], 5), WHITE))
+        # eyes of molten light + trailing embers, fangs, glowing gums
+        glow.append(paint(ell(0.055, (sx * 0.115, 0.03, 0.37), (1.5, 0.62, 0.7), sub=2), WHITE))
+        glow.append(paint(limb([(sx * 0.15, 0.04, 0.36), (sx * 0.25, 0.09, 0.27), (sx * 0.36, 0.17, 0.12)], [0.03, 0.02, 0.002], 5), lambda p, n, pc: (0.8, 0.8, 0.8)))
+        fang.append(paint(limb([(sx * 0.075, -0.1, 0.5), (sx * 0.082, -0.22, 0.52), (sx * 0.078, -0.33, 0.5)], [0.026, 0.02, 0.003], 6),
+                          lambda p, n, pc: (lambda k: (k, k, k))(0.55 + 0.45 * min(1.0, max(0.0, (p.z + 0.33) / 0.23)))))
+        fang.append(paint(limb([(sx * 0.06, -0.2, 0.44), (sx * 0.062, -0.13, 0.46)], [0.014, 0.002], 5), WHITE))
+        # ram horns: one and a quarter turns, ridged
+        pts, rad = [], []
+        for i in range(15):
+            t = i / 14
+            a = -0.4 + t * 4.2
+            pts.append((sx * (0.25 + 0.2 * t + 0.03 * math.sin(a)), 0.12 + 0.19 * math.cos(a) - 0.04 * t, 0.02 - 0.2 * math.sin(a) + 0.08 * t))
+            rad.append((0.085 - 0.07 * t) * (1 + 0.1 * (i % 2)))
+        horn.append(P(limb(pts, rad, 8), 12, 0.55))
+    glow.append(paint(ell(0.115, (0, -0.165, 0.38), (0.95, 0.5, 1.1), sub=2), lambda p, n, pc: (0.85, 0.85, 0.85)))  # furnace mouth
+    for k in range(13):  # cheek ruff
+        a = (k / 12 - 0.5) * 4.6
+        jl = 0.8 + rnd.random() * 0.5
+        rx, ry_ = math.sin(a) * 0.22, math.cos(a) * 0.2
+        mane.append(P(limb([(rx, 0.04 + ry_, 0.02), (rx * 1.45, 0.04 + ry_ * 1.4, -0.12 * jl), (rx * 1.7, 0.06 + ry_ * 1.55, -0.3 * jl)], [0.075, 0.06, 0.004], 6), 30 + k, 0.5))
+    kit('kit_aba_head', {'fur': fur, 'armor': armor, 'trim': trim, 'mane': mane, 'horn': horn, 'glow': glow, 'fang': fang})
+
+    # ================= LEGS (origin: shoulder / hip joint, foot at y -0.98) =================
+    def leg(name, up, lo, r_up, r_lo):
+        fur, armor, trim, horn = [], [], [], []
+        fur.append(P(limb(up, r_up, 12, 0.85, 1.0), 1, 0.55))
+        fur.append(P(limb(lo, r_lo, 10), 2, 0.55))
+        k0, k1 = lo[0], lo[-1]
+        # greave: flared plate over the shin, knee cop, bands
+        gy = lambda t: (k0[0] + (k1[0] - k0[0]) * t, k0[1] + (k1[1] - k0[1]) * t, k0[2] + (k1[2] - k0[2]) * t)
+        armor.append(P(limb([gy(0.02), gy(0.3), gy(0.62), gy(0.82)], [0.15, 0.135, 0.125, 0.14], 10, 1.0, 1.0), 3, 0.6))
+        armor.append(P(ell(0.12, (k0[0], k0[1] + 0.02, k0[2] + 0.09), (1.0, 1.15, 0.7), sub=2), 4, 0.6))
+        armor.append(P(limb([(0, k0[1] + 0.02, k0[2] + 0.17), (0, k0[1] + 0.16, k0[2] + 0.2)], [0.035, 0.003], 5), 5))
+        for t in (0.05, 0.45, 0.82):
+            q = gy(t)
+            rr = 0.152 if t != 0.45 else 0.134
+            trim.append(paint(loop([(q[0] + rr * math.sin(k / 14 * TAU), q[1], q[2] + rr * math.cos(k / 14 * TAU)) for k in range(14)], 0.014), WHITE))
+        trim.append(paint(limb([gy(0.1), gy(0.4), gy(0.78)], [0.012, 0.016, 0.01], 5, 1.0, 1.0), WHITE))
+        for o in trim[-1:]:
+            for v in o.data.vertices:
+                v.co.y -= 0.135
+            o.data.update()
+        # paw + claws
+        fy = k1[1]
+        fur.append(P(ell(0.15, (0, fy - 0.04, k1[2] + 0.07), (1.0, 0.5, 1.3), sub=2), 6, 0.5))
+        for i in range(4):
+            x = (i - 1.5) * 0.068
+            fur.append(P(ell(0.055, (x, fy - 0.07, k1[2] + 0.22 - abs(i - 1.5) * 0.02), (1.0, 0.8, 1.2), sub=2), 7 + i, 0.5))
+            horn.append(P(limb([(x, fy - 0.07, k1[2] + 0.27), (x, fy - 0.09, k1[2] + 0.34), (x, fy - 0.125, k1[2] + 0.38)], [0.022, 0.014, 0.002], 5), 11, 0.7))
+        kit(name, {'fur': fur, 'armor': armor, 'trim': trim, 'horn': horn})
+
+    leg('kit_aba_legf', [(0, 0.1, 0), (0, -0.25, 0.04), (0, -0.52, -0.02)], [(0, -0.52, -0.02), (0, -0.76, 0.0), (0, -0.9, 0.03)], [0.2, 0.16, 0.115], [0.11, 0.09, 0.1])
+    leg('kit_aba_legh', [(0, 0.12, 0.02), (0, -0.22, 0.12), (0, -0.5, -0.1)], [(0, -0.5, -0.1), (0, -0.75, -0.04), (0, -0.9, 0.02)], [0.24, 0.19, 0.115], [0.11, 0.09, 0.1])
+
+    # ================= FLAME TAIL (origin: root, grows along +y; the game fans nine of them) =================
+    L = 1.75
+    parts = []
+    sp = lambda t: (0.2 * math.sin(t * 3.3 + 0.3) * t, L * t, 0.06 * math.sin(t * 2.2) * t)
+    pts = [sp(i / 10) for i in range(11)]
+    rad = [0.05 + 0.2 * math.sin(math.pi * (i / 10) ** 0.75) ** 1.15 * (1 - 0.25 * i / 10) for i in range(10)] + [0.004]
+    parts.append(limb(pts, rad, 12, 1.0, 0.36))
+    for (t0, sd, ln) in ((0.3, 1, 0.34), (0.45, -1, 0.42), (0.62, 1, 0.4), (0.74, -1, 0.34), (0.85, 1, 0.24)):
+        x0, y0, z0 = sp(t0)
+        parts.append(limb([(x0 + sd * 0.08, y0, z0), (x0 + sd * 0.23, y0 + ln * 0.42, z0 + 0.02), (x0 + sd * 0.2, y0 + ln * 0.78, z0), (x0 + sd * 0.3, y0 + ln, z0 - 0.02)],
+                          [0.1, 0.075, 0.045, 0.003], 8, 1.0, 0.36))
+
+    def flame(p, n, pc):  # fur-black core, violet fire along the edges and towards the tip
+        t = min(1.0, max(0.0, p.z / L))
+        k = 0.07 + 0.93 * min(1.0, max(0.0, 0.22 * t + 1.25 * abs(n.x) ** 1.6 + max(0.0, t - 0.72) * 2.6 - 0.25 * (1 - t) ** 2))
+        return (k, k, k)
+    kit('kit_aba_tail', {'tail': [paint(o, flame) for o in parts]})
+
+    # ================= CROWN (head space: skull centre y 0.1) =================
+    band, gem = [], []
+    cr = lambda a, r=0.136, y=0.2: (r * math.sin(a), y + 0.02 * math.cos(a), r * math.cos(a) - 0.012)
+    band.append(P(limb([cr(k / 20 * TAU) for k in range(20)] + [cr(0), cr(TAU / 20)], [0.02] * 22, 6, cap=False), 1, 0.6))
+    for k in range(9):  # jagged points; taller at the front
+        a = (k / 9) * TAU + 0.35
+        if abs(math.sin(a / 2)) < 0.12:
+            continue
+        h = 0.07 + 0.05 * max(0.0, math.cos(a))
+        q = cr(a)
+        band.append(P(limb([q, (q[0] * 1.05, q[1] + h * 0.5, q[2] * 1.05), (q[0] * 1.12, q[1] + h, q[2] * 1.12)], [0.026, 0.017, 0.002], 5), 3 + k, 0.6))
+    for sx in (-1, 1):  # swept demon horns
+        pts = [(sx * 0.125, 0.21, 0.0), (sx * 0.2, 0.26, -0.01), (sx * 0.23, 0.34, 0.0), (sx * 0.2, 0.4, 0.02), (sx * 0.15, 0.42, 0.04)]
+        band.append(P(limb(pts, [0.034, 0.03, 0.024, 0.014, 0.002], 7), 14, 0.55))
+    band.append(P(fan([(-0.07, 0.2), (-0.045, 0.3), (0.0, 0.27), (0.045, 0.3), (0.07, 0.2), (0.0, 0.15)], 0.02, 0.118), 16, 0.6))  # front plate
+    fl = [(0.0, 0.34), (0.018, 0.29), (0.045, 0.31), (0.036, 0.25), (0.05, 0.21), (0.0, 0.175), (-0.05, 0.21), (-0.036, 0.25), (-0.045, 0.31), (-0.018, 0.29)]
+    gem.append(paint(fan(fl, 0.022, 0.142, (0, 0.235)), lambda p, n, pc: (lambda k: (k, k, k))(0.5 + 0.5 * min(1.0, max(0.0, 1 - abs(p.x) / 0.05) * (1.2 - (p.z - 0.175) / 0.2)))))
+    kit('kit_aba_crown', {'crown': band, 'gem': gem})
+
+    # ================= DEMON-EYE BATTLE AXE (hand space, shaft along +y) =================
+    shaft, metal, head, aura, eye, pupil = [], [], [], [], [], []
+    shaft.append(P(limb([(0, -0.85, 0), (0, 0.95, 0)], [0.021, 0.021], 8), 1, 0.6))
+    for y, r in ((-0.85, 0.034), (-0.42, 0.03), (0.08, 0.03), (0.52, 0.032), (0.9, 0.038)):
+        metal.append(P(limb([(0, y - 0.035, 0), (0, y, 0), (0, y + 0.035, 0)], [r * 0.8, r, r * 0.8], 8), 2))
+    metal.append(P(limb([(0, -0.88, 0), (0, -0.98, 0)], [0.03, 0.002], 6), 3))
+    half = [(0.03, 1.3), (0.1, 1.42), (0.2, 1.46), (0.3, 1.52), (0.36, 1.66), (0.42, 1.48), (0.44, 1.26), (0.4, 1.06), (0.33, 0.9), (0.36, 0.76),
+            (0.26, 0.86), (0.19, 0.8), (0.21, 0.94), (0.12, 0.98), (0.03, 0.96)]
+    for sd in (1, -1):
+        ol = [(sd * x, y) for x, y in half]
+        if sd < 0:
+            ol.reverse()
+        head.append(P(fan(ol, 0.05, 0.0, (sd * 0.2, 1.18)), 5, 0.5))
+        gl = [(sd * (x * 1.12 + 0.012), 1.2 + (y - 1.2) * 1.1) for x, y in half]
+        if sd < 0:
+            gl.reverse()
+        aura.append(paint(fan(gl, 0.012, 0.0, (sd * 0.2, 1.18)), lambda p, n, pc: (lambda k: (k, k, k))(min(1.0, 0.25 + 1.6 * max(0.0, abs(p.x) - 0.12)))))
+    head.append(P(limb([(0, 0.9, 0), (0, 1.2, 0), (0, 1.5, 0)], [0.06, 0.095, 0.05], 8, 1.0, 0.8), 6, 0.5))
+    head.append(P(limb([(0, 1.48, 0), (0, 1.62, 0), (0, 1.82, 0)], [0.045, 0.03, 0.002], 6, 1.0, 0.6), 7, 0.5))  # top spike
+    for sd in (1, -1):
+        head.append(P(limb([(sd * 0.06, 1.45, 0), (sd * 0.1, 1.55, 0), (sd * 0.11, 1.7, 0)], [0.03, 0.02, 0.002], 5, 1.0, 0.6), 8, 0.5))
+    for zs in (1, -1):  # the eye looks out of both faces
+        eye.append(paint(ell(0.075, (0, 1.2, zs * 0.062), (0.85, 1.25, 0.35), sub=3), lambda p, n, pc: (lambda k: (k, k, k))(1.0 - 0.6 * min(1.0, ((p.x / 0.064) ** 2 + ((p.z - 1.2) / 0.094) ** 2)))))
+        pupil.append(paint(ell(0.03, (0, 1.2, zs * 0.085), (0.32, 1.9, 0.25), sub=2), WHITE))
+        metal.append(P(loop([(0.075 * math.sin(k / 14 * TAU), 1.2 + 0.105 * math.cos(k / 14 * TAU), zs * 0.058) for k in range(14)], 0.012), 9))
+    kit('kit_aba_axe', {'axShaft': shaft, 'axMetal': metal, 'axHead': head, 'axAura': aura, 'axEye': eye, 'axPupil': pupil})
+
+    # ================= ABYSS KITE SHIELD (origin: grip behind the centre, face towards +z) =================
+    H0, H1 = -0.78, 0.6
+
+    def hw(y):  # half width: pointed crown, broad shoulders, long taper to the foot
+        if y > 0.42:
+            return 0.33 * (1 - ((y - 0.42) / 0.18) ** 1.6) + 0.02
+        return 0.35 * max(0.0, (y - H0) / (0.42 - H0)) ** 0.72
+    sf = lambda u, v, dz=0.0: ((u * 2 - 1) * max(hw(H0 + (H1 - H0) * v), 0.003), H0 + (H1 - H0) * v, 0.07 * math.cos((u * 2 - 1) * math.pi / 2) + 0.03 * math.sin(v * math.pi) + dz)
+    face = sheet('kite', 18, 30, sf, closed=False)
+    modify(face, 'SOLIDIFY', thickness=0.04, offset=-1)
+    fix_normals(face)
+
+    def swirl(p, n, pc):  # churning violet flames on a near-black field
+        x, y = p.x, p.z
+        f = math.sin(x * 21 + 3.2 * math.sin(y * 7.0) + y * 4) * math.sin(y * 13 + 2.6 * math.sin(x * 9.0))
+        k = 0.1 + 0.9 * max(0.0, f) ** 1.3
+        return (k, k, k)
+    faceP = paint(face, swirl)
+    rim, crest, gemS, eyeS = [], [], [], []
+    edge = [sf(0, j / 30, 0.012) for j in range(31)] + [sf(1, 1 - j / 30, 0.012) for j in range(31)]
+    rim.append(paint(limb([(x * 1.02, y, z) for x, y, z in edge] + [(edge[0][0] * 1.02, edge[0][1], edge[0][2])], [0.03] * 63, 6, cap=False), WHITE))
+    Z = lambda x, y: 0.07 * math.cos(min(1.0, abs(x) / max(hw(y), 0.01)) * math.pi / 2) + 0.03 * math.sin((y - H0) / (H1 - H0) * math.pi) + 0.022
+    cl = lambda pts, r: paint(limb([(x, y, Z(x, y)) for x, y in pts], r, 6, 1.0, 0.6), WHITE)
+    crest.append(cl([(0, 0.52), (0, 0.3), (0, 0.0), (0, -0.3), (0, -0.62)], [0.012, 0.03, 0.022, 0.014, 0.004]))
+    for sx in (-1, 1):
+        crest.append(cl([(0, 0.34), (sx * 0.11, 0.42), (sx * 0.2, 0.36), (sx * 0.26, 0.44)], [0.022, 0.02, 0.014, 0.003]))
+        crest.append(cl([(0, 0.12), (sx * 0.1, 0.06), (sx * 0.2, 0.12), (sx * 0.25, 0.04)], [0.018, 0.016, 0.011, 0.003]))
+        crest.append(cl([(0, 0.0), (sx * 0.07, -0.1), (sx * 0.06, -0.2)], [0.014, 0.012, 0.003]))
+        eyeS.append(paint(ell(0.05, (sx * 0.1, -0.16, Z(sx * 0.1, -0.16) - 0.02), (1.4, 0.7, 0.3), sub=2), WHITE))
+    gemS.append(paint(fan([(0, 0.34), (0.065, 0.25), (0.045, 0.14), (0, 0.1), (-0.045, 0.14), (-0.065, 0.25)], 0.035, Z(0, 0.22) + 0.005),
+                      lambda p, n, pc: (lambda k: (k, k, k))(0.55 + 0.45 * max(0.0, -n.y))))
+    grip = [P(limb([(-0.1, 0.0, -0.03), (0, 0.0, -0.07), (0.1, 0.0, -0.03)], [0.016] * 3, 6), 3)]
+    kit('kit_aba_shield', {'shFace': [faceP], 'shRim': rim + crest + grip, 'shGem': gemS, 'shEye': eyeS})
+
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -4824,6 +5073,7 @@ ASSETS = {
     'hero_armor': build_hero_armor,
     'hero_weapons': build_hero_weapons,
     'waystone': build_waystone,
+    'abadonia': build_abadonia,
 }
 
 for name, fn in ASSETS.items():

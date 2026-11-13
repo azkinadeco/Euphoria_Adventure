@@ -2,7 +2,7 @@
 // built on the shared Rig so they reuse every animation Luby has.
 import * as THREE from 'three';
 import { applyKit, applySkinned } from './assets.js';
-import { toon, part, canvasTex, animeHead } from './toon.js';
+import { toon, part, canvasTex, animeHead, charaLook, damp } from './toon.js';
 import { Rig } from './rig.js';
 
 /**
@@ -713,3 +713,103 @@ export class KaliRig extends Rig {
     if (this.aura) this.aura.rotation.z += dt;
   }
 }
+
+/**
+ * Abadonia · Abyss Lion Queen. A rider side-saddle on an armoured black lion with nine violet flame
+ * tails (Blender kits kit_aba_*, split by moving part). The rider is a normal hero body, so she keeps
+ * every shared animation; this class seats her and animates the beast under her.
+ */
+export class AbadoniaRig extends Rig {
+  constructor() {
+    super('Abadonia');
+    // seat the rider only now: the skinned body binds against the standing rest pose captured by Rig
+    const seat = this.seat = new THREE.Group();
+    // the lion is drawn at 0.8 so the rider reads as large as in the key art; the seat undoes that scale for her
+    const k = AbadoniaRig.BEAST;
+    seat.scale.setScalar(1 / k); seat.position.set(0, 1.63 - 0.88 / k, -0.1); seat.rotation.y = -0.28;
+    this.beast.add(seat); seat.add(this.j.pivot);
+    seat.add(this.shield);
+  }
+  _build() {
+    this.style = 'axe';
+    const B = (c) => new THREE.MeshBasicMaterial({ color: c });
+    const skin = toon(0xffefe8), taupe = toon(0x76645c), hairC = 0xeee2c4;
+    const H = buildBody(this, {
+      skin, bottom: taupe, chest: skin, waist: skin, hair: toon(hairC), hair2: toon(0xf8f0d8), hairColor: hairC, hairLen: 1.05, hairStyle: 'wavy',
+      thigh: skin, knee: skin, shin: skin, shoe: skin, upperArm: skin, forearm: skin, hand: skin,
+      face: faces({ iris: ['#5a0814', '#d82a3c', '#ffa0a0'], lash: '#3a2a2a', brow: '#cbb98a', browShape: 'worried', mouth: 'open', blush: 0.85, lip: '#c0485a' }),
+    });
+    const kits = [];
+    H.armor.chest({ fidBust: taupe }, []);
+    kits.push(applyKit('kit_aba_crown', H.head, { crown: toon(0x1c1622), gem: B(0xff4a2a) }, [], { ol: 0.005 }));
+    // demon-eye battle axe, carried upright like a standard
+    const ax = new THREE.Group(); this.j.handR.add(ax);
+    ax.position.set(0, -0.04, 0); ax.rotation.x = Math.PI / 2 - 0.15;
+    kits.push(applyKit('kit_aba_axe', ax, { axShaft: toon(0x2a1a4a), axMetal: toon(0x6a6478), axHead: toon(0x1c1724), axAura: B(0x9a3cff), axEye: B(0xff6a1a), axPupil: B(0x1a0505) }, [], { ol: 0.006 }));
+    this.trails = [[ax, [0, 0.95, 0], [0, 1.72, 0]]];
+    // the abyss shield hovers at her left hand, wreathed in its own fire
+    const sh = this.shield = new THREE.Group();
+    kits.push(applyKit('kit_aba_shield', sh, { shFace: toon(0x8a3cf0, { emissive: 0x3a0e90, emissiveIntensity: 0.12 }), shRim: toon(0x8a84a0), shGem: B(0xff2a3a), shEye: B(0xb060ff) }, [], { ol: 0.008 }));
+
+    // ---- the lion ----
+    const beast = this.beast = new THREE.Group(); this.root.add(beast);
+    beast.scale.setScalar(AbadoniaRig.BEAST);
+    const M = {
+      fur: toon(0x2b2538), armor: toon(0x3d3848, { shininess: 40 }), trim: toon(0x8f88a6, { shininess: 60 }), mane: toon(0x1c1626),
+      horn: toon(0x5c5668), glow: B(0xff5a1e), fang: B(0xffb43a), tail: toon(0xa23cff),
+    };
+    kits.push(applyKit('kit_aba_body', beast, M, [], { ol: 0.012, crease: 1.0 }));
+    const head = this.bHead = new THREE.Group(); head.position.set(0, 1.24, 0.92); beast.add(head);
+    kits.push(applyKit('kit_aba_head', head, M, [], { ol: 0.01, crease: 1.0 }));
+    this.bLegs = [[0.27, 0.5, 'f'], [-0.27, 0.5, 'f'], [0.27, -0.62, 'h'], [-0.27, -0.62, 'h']].map(([x, z, k]) => {
+      const g = new THREE.Group(); g.position.set(x, 0.98, z); beast.add(g);
+      kits.push(applyKit('kit_aba_leg' + k, g, M, [], { ol: 0.01 }));
+      return g;
+    });
+    // nine tails: a fan of flat flame ribbons, each rolled a little differently
+    this.bTails = [];
+    for (let i = 0; i < 9; i++) {
+      const g = new THREE.Group(); g.position.set(0, 1.08, -0.95); g.rotation.order = 'YXZ';
+      const yaw = (i - 4) * 0.3, elev = 0.12 + 0.8 * Math.abs(Math.sin(i * 2.1 + 0.6)), sc = 0.78 + 0.3 * Math.abs(Math.cos(i * 1.7));
+      g.rotation.set(-(Math.PI / 2 - elev), yaw, 0);
+      const roll = new THREE.Group(); roll.rotation.y = Math.PI / 2 + (i % 2 ? 0.55 : -0.55); roll.scale.setScalar(sc); g.add(roll);
+      beast.add(g);
+      kits.push(applyKit('kit_aba_tail', roll, M, [], { ol: 0.01, crease: 1.2 }));
+      this.bTails.push({ g, yaw, elev });
+    }
+    sh.position.set(0.7, 1.25, 0.3); sh.rotation.set(0, 0.5, -0.1); sh.scale.setScalar(1.12);
+    Promise.all(kits).then(() => charaLook(this.root, [skin]));
+  }
+  update(dt, st) {
+    super.update(dt, { ...st, sprint: false, flipT: 0, swim: false });
+    const j = this.j, t = this.time, sp = st.speed || 0, a = st.action, moving = sp > 0.3 && st.grounded;
+    // rider: side-saddle, legs to her right; shield arm reaching for the hovering shield
+    j.pivot.rotation.x = 0; j.pivot.rotation.z = st.dead ? 0.35 : 0;
+    j.legR.rotation.set(-1.5, 0, -1.2); j.kneeR.rotation.set(1.35, 0, 0); j.footR.rotation.set(0.5, 0, 0);
+    j.legL.rotation.set(-1.5, 0, -0.95); j.kneeL.rotation.set(1.15, 0, 0); j.footL.rotation.set(0.4, 0, 0);
+    j.hips.position.y = 0;
+    if (!a && !st.dead) { j.armL.rotation.set(-0.5, 0, 1.05); j.elbowL.rotation.set(-0.35, 0, 0); }
+    this.shield.position.y = 1.25 + Math.sin(t * 1.6) * 0.03;
+    this.shield.rotation.y = 0.5 + Math.sin(t * 0.9) * 0.06 + (a === 'attack' ? -0.5 : 0);
+    // beast: diagonal walk, bounding gallop on the charge, rears up for the burst
+    const b = this.beast, L = this.bLegs;
+    const amp = moving ? Math.min(sp / 5.5, 1.4) : 0;
+    const gallop = a === 'fang' || a === 'dash';
+    const ph = gallop ? t * 20 : this.phase, sw = st.dead ? 0 : gallop ? 0.85 : 0.55 * Math.min(amp, 1.2);
+    const fold = st.dead ? 1.25 : 0;
+    const tg = gallop ? [Math.sin(ph), Math.sin(ph + 0.4), -Math.sin(ph), -Math.sin(ph + 0.4)] : [Math.sin(ph), -Math.sin(ph), -Math.sin(ph), Math.sin(ph)];
+    L.forEach((g, i) => { g.rotation.x = damp(g.rotation.x, tg[i] * sw + (i < 2 ? -fold : fold), 16, dt); });
+    const rear = a === 'burst' ? Math.sin(Math.min(1, (st.actionT || 0) / 0.6) * Math.PI) : 0;
+    const lunge = a === 'attack' ? Math.sin(Math.min(1, (st.actionT || 0) * 1.6) * Math.PI) : 0;
+    b.position.y = damp(b.position.y, (moving ? Math.abs(Math.cos(ph)) * 0.05 * amp : Math.sin(t * 1.8) * 0.012) - (st.dead ? 0.5 : 0) + (gallop ? Math.abs(Math.sin(ph)) * 0.12 : 0), 10, dt);
+    b.rotation.x = damp(b.rotation.x, -0.42 * rear + 0.07 * lunge + (gallop ? Math.sin(ph) * 0.08 : 0), 10, dt);
+    b.position.z = damp(b.position.z, 0.18 * lunge, 12, dt);
+    this.bHead.rotation.set(damp(this.bHead.rotation.x, -0.45 * rear + (moving ? 0.1 : Math.sin(t * 1.1) * 0.05) - 0.2 * lunge, 8, dt), Math.sin(t * 0.7) * (moving ? 0.06 : 0.2), 0);
+    this.bTails.forEach((o, i) => {
+      const w = Math.sin(t * (moving ? 3.2 : 1.6) + i * 0.9);
+      o.g.rotation.y = o.yaw + w * 0.09;
+      o.g.rotation.x = -(Math.PI / 2 - o.elev - Math.sin(t * 1.3 + i * 1.7) * 0.07 + (moving ? 0.22 * Math.min(amp, 1) : 0) - rear * 0.3);
+    });
+  }
+}
+AbadoniaRig.BEAST = 0.8;

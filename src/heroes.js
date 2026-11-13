@@ -1,6 +1,6 @@
 // Playable hero roster (data from Euphoria Online: character_database.json, profiles.json, voice_lines.json, db.gd).
 import { Luby } from './luby.js';
-import { FideliaRig, MoraRig, ScyllaRig, EropatraRig, RumiRig, ValeriaRig, GlyttaRig, GemoraRig, MiccaRig, CommanderRig, KaliRig } from './heroes3d.js';
+import { FideliaRig, MoraRig, ScyllaRig, EropatraRig, RumiRig, ValeriaRig, GlyttaRig, GemoraRig, MiccaRig, CommanderRig, KaliRig, AbadoniaRig } from './heroes3d.js';
 
 export const ELEMENT_COLOR = { WIND: '#8fe63a', WATER: '#4fb4f0', LIGHT: '#f5c542', DARK: '#b06bff', FIRE: '#ff7a2a', ICE: '#9ee8ff', LIGHTNING: '#c07aff', CHAOS: '#ff5ca8' };
 
@@ -173,7 +173,21 @@ export const HEROES = {
     ],
     voice: { greet: 'Terima kasih telah membangunkanku. Mulai saat ini, kita berjuang bersama!', skill: 'Tebasan Bintang!', burst: 'Genesis Nova — Terangilah kegelapan!', hurt: 'Cuma goresan!', ko: 'Lindungi… Euphoria…', swap: 'Komandan siap di garda depan!' },
   },
+  abadonia: {
+    id: 'abadonia', name: 'Abadonia', title: 'ABYSS LION QUEEN', element: 'DARK', role: 'WARRIOR', color: '#a050ff', trial: true,
+    portrait: 'assets/portraits/abadonia.png', make: () => new AbadoniaRig(),
+    hpMul: 1.4, atkMul: 1.3, defMul: 1.3, skillCD: 8, burstCD: 18, burstCost: 70, icons: { e: '🦁', q: '🔥' },
+    skillName: 'Abyssal Pounce', burstName: 'Nine-Tail Abyss Inferno',
+    profile: { birthday: '13 November', height: '168 cm', likes: 'Singa jurangnya, api ungu, tempat tinggi', dislikes: 'Dibilang pemalu', hobby: 'Menyisir sembilan ekor tunggangannya' },
+    kit: [
+      'Serangan biasa — 3 ayunan kapak Mata Iblis dari atas tunggangan (fisik), ayunan ke-3 membelah dari atas.',
+      'E · Abyssal Pounce — singa jurang menerkam menembus barisan musuh, 240% ATK DARK + knockback, perisai 15% Max HP.',
+      'Q · Nine-Tail Abyss Inferno — singa mengaum dan sembilan ekor api meledak: 400% ATK DARK ke semua musuh di sekitar + stun.',
+      'Pasif · Mounted — menunggang singa berzirah: HP & DEF tinggi.',
+    ],
+    voice: { greet: 'J-jangan menatap begitu… singaku jadi gelisah.', skill: 'Terkam mereka!', burst: 'Sembilan ekor jurang — bakar semuanya!', hurt: 'Kyaa!', ko: 'Maaf… singaku…', swap: 'A-Abadonia… siap bertarung.' },
+  },
 };
 export const CHAOS_ELEMENTS = ['WATER', 'FIRE', 'ICE', 'LIGHTNING', 'WIND', 'LIGHT'];
 export const chaosEl = () => CHAOS_ELEMENTS[Math.floor(Math.random() * CHAOS_ELEMENTS.length)];
-export const PARTY_ORDER = ['luby', 'fidelia', 'mora', 'scylla', 'eropatra', 'rumi', 'valeria', 'glytta', 'gemora', 'micca', 'commander', 'kali'];
+export const PARTY_ORDER = ['luby', 'fidelia', 'mora', 'scylla', 'eropatra', 'rumi', 'valeria', 'glytta', 'gemora', 'micca', 'commander', 'kali', 'abadonia'];

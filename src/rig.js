@@ -53,7 +53,7 @@ export class Rig {
     // weapon stance: how this hero carries what is in her hands
     const style = this.style || 'claw';
     const blade = style === 'sword' || style === 'great' || style === 'dual';
-    const pole = style === 'scythe' || style === 'staff' || style === 'cstaff';
+    const pole = style === 'scythe' || style === 'staff' || style === 'cstaff' || style === 'axe';
     const sway = Math.sin(this.time * 0.55);
     set('hips', 0, 0, sway * 0.025); set('spine', 0, 0, -sway * 0.03); // slow weight shift
     if (blade) { // low guard: blade pointing down along the arm
@@ -230,7 +230,7 @@ export class Rig {
       set('armR', -1.45, 0, -1.2); set('elbowR', -0.15); set('handR', pole ? 1.4 : blade ? 1.1 : 0);
       if (style === 'dual' || style === 'claw') { set('armL', -1.45, 0, 1.2); set('elbowL', -0.15); set('handL', blade ? 1.1 : 0); } else { set('armL', -0.9, 0, 0.9); set('elbowL', -0.7); }
       set('spine', 0.18); set('head', -0.1); set('legL', -0.3, 0, 0.14); set('kneeL', 0.45); set('legR', 0.2, 0, -0.14); set('kneeR', 0.3); hipsY = 0.74;
-    } else if (a === 'burst' && (blade || style === 'scythe' || style === 'staff')) {
+    } else if (a === 'burst' && (blade || style === 'scythe' || style === 'staff' || style === 'axe')) {
       // weapon raised to the sky, then brought down on the enemy
       k = 20;
       const up = ss(seg(0, 0.34)), hit = ss(seg(0.5, 0.68)), two = style === 'great' || style === 'scythe';
