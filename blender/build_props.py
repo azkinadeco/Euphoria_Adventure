@@ -4269,7 +4269,7 @@ def build_hero_outfits():
                        [0.006] * 7, 5, cap=False)
             put(role, rim, w_skirt(ytop, ybot, k), shade(0.95, 1.0))
 
-    def cape(role, ytop, ybot, rtop, rbot, a_top, a_bot, zc=-0.02, folds=0.025, nu=28, nv=24, uv=False, collar=True):
+    def cape(role, ytop, ybot, rtop, rbot, a_top, a_bot, zc=-0.02, folds=0.025, nu=28, nv=24, uv=False, collar=True, pnt=None):
         def fn(u, v):
             # v = 0 at the hem
             t = 1 - v
@@ -4286,7 +4286,7 @@ def build_hero_outfits():
         if uv:
             sheet_uv(ob, nu, nv)
         modify(ob, 'SOLIDIFY', thickness=0.008, offset=-1)
-        paint(ob, shade(0.82, 1.0))
+        paint(ob, pnt or shade(0.82, 1.0))
 
         def w(x, y, z):
             t = (ytop - y) / (ytop - ybot)
@@ -4312,30 +4312,33 @@ def build_hero_outfits():
     skirt('scySkirt', 0.835, 0.745, 0.19, 0.24, ruff(20, 0.016), lambda th: 0.008 * math.sin(th * 20), k=0.8)
     skirt('scyLace', 0.8, 0.735, 0.235, 0.25, ruff(20, 0.016), lambda th: 0.008 * math.sin(th * 20), nv=3, k=0.8,
           pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.7 + 0.3 * (0.5 + 0.5 * math.sin(math.atan2(p.x, -p.y) * 60))))
-    # ---- Rumi: pleated mini skirt with a slit
-    pleat = lambda th, v: 0.016 * (0.3 + v) * (abs(math.sin(th * 9)) - 0.5)
-    skirt('rumSkirt', 0.91, 0.64, 0.158, 0.255, pleat, lambda th: 0.012 * math.cos(th), k=0.8,
-          pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.7 + 0.3 * (0.5 + 0.5 * math.cos(math.atan2(p.x, -p.y) * 18))))
-    # ---- Eropatra: long draped skirt, gold hem band + front panel
-    drape = lambda th, v: 0.02 * v * math.sin(th * 7 + 0.4) + 0.008 * v * math.sin(th * 13)
-    skirt('eroSkirt', 0.905, 0.27, 0.162, 0.3, drape, lambda th: -0.02 * math.cos(th), nu=72, nv=26, k=0.6)
-    hem = sheet('eroGold', 72, 2, lambda u, v: (lambda th: (lambda r: (lambda xz: (xz[0], 0.27 - 0.02 * math.cos(th) + 0.035 * v, xz[1]))(ring(r, th)))(0.3 + drape(th, 1.0) + 0.006))(u * TAU))
+    # ---- Rumi: tight strapless mini dress (key art), a little flare at the hem
+    skirt('rumSkirt', 0.91, 0.7, 0.158, 0.2, lambda th, v: 0.004 * v * math.sin(th * 6), lambda th: 0.008 * math.cos(th), k=0.85,
+          pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.78 + 0.22 * (0.5 + 0.5 * n.z)))
+    # ---- Eropatra: short pleated linen skirt (key art), gold hem band + hanging front tab
+    EB, ER = 0.6, 0.262
+    drape = lambda th, v: 0.014 * (0.25 + v) * (abs(math.sin(th * 12)) - 0.5)
+    skirt('eroSkirt', 0.905, EB, 0.162, ER, drape, lambda th: -0.012 * math.cos(th), nu=96, nv=12, k=0.8,
+          pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.74 + 0.26 * abs(math.sin(math.atan2(p.x, -p.y) * 12))))
+    hem = sheet('eroGold', 96, 2, lambda u, v: (lambda th: (lambda r: (lambda xz: (xz[0], EB - 0.012 * math.cos(th) + 0.028 * v, xz[1]))(ring(r, th)))(ER + drape(th, 1.0) + 0.005))(u * TAU))
     outward(hem, 0, -0.01)
-    put('eroGold', hem, w_skirt(0.905, 0.27, 0.6), shade(0.85, 1.0), 0.008)
+    put('eroGold', hem, w_skirt(0.905, EB, 0.8), shade(0.85, 1.0), 0.008)
 
     def panel(u, v):
-        y = 0.86 + (0.31 - 0.86) * v
-        t = (0.905 - y) / (0.905 - 0.27)
-        r = 0.162 + (0.3 - 0.162) * t ** 0.85 + 0.009
-        th = (u - 0.5) * (0.42 - 0.12 * t)
+        y = 0.87 + (0.47 - 0.87) * v
+        t = min(1.0, (0.905 - y) / (0.905 - EB))
+        r = 0.162 + (ER - 0.162) * t ** 0.85 + 0.014
+        th = (u - 0.5) * (0.4 - 0.1 * t) * (1 - 0.5 * max(0.0, v - 0.8) / 0.2)
         x, z = ring(r, th)
         return (x, y, z)
     pn = sheet('eroGold', 6, 14, panel, closed=False)
-    put('eroGold', pn, w_skirt(0.905, 0.27, 0.6), lambda p, n, pc: (lambda q: (q, q, q))(0.8 + 0.2 * (0.5 + 0.5 * math.sin(p.z * 120))), 0.006)
+    put('eroGold', pn, w_skirt(0.905, 0.47, 0.8), lambda p, n, pc: (lambda q: (q, q, q))(0.8 + 0.2 * (0.5 + 0.5 * math.sin(p.z * 120))), 0.006)
     # ---- capes (rig joints capeA / capeB flutter them)
     cape('moraCape', 1.25, 0.2, 0.2, 0.44, 0.3 * math.pi, 0.42 * math.pi, uv=True)
     cape('eroCape', 1.25, 0.05, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi)
-    cape('rumCape', 1.25, 0.24, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi, folds=0.03)
+    # black outside, the material's crimson only on the lining
+    cape('rumCape', 1.25, 0.24, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi, folds=0.03,
+         pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.1 if n.x * p.x + n.y * (p.y - 0.02) > 0 else 0.6 + 0.4 * (0.5 + 0.5 * n.z)))
     cape('cmdCape', 1.2, 0.2, 0.19, 0.3, 0.26 * math.pi, 0.3 * math.pi, folds=0.02)
 
     skinned_export('hero_outfits.glb', R, HERO_JC, HERO_PC, uv=True)

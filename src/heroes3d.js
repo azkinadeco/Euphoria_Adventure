@@ -453,10 +453,10 @@ export class ValeriaRig extends Rig {
   constructor() { super('Valeria'); }
   _build() {
     this.style = 'great';
-    const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0x4a3a2a);
+    const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0xa9824a), top = toon(0xf2e8d8);
     const H = buildBody(this, {
-      skin, bottom: gold, chest: gold, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight',
-      thigh: net, knee: gold, shin: net, shoe: gold, upperArm: skin, forearm: gold, hand: skin,
+      skin, bottom: gold, chest: top, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight',
+      thigh: net, knee: net, shin: net, shoe: gold, upperArm: skin, forearm: gold, hand: skin,
       face: faces({ iris: ['#123a7a', '#3f8ff0', '#c8ecff'], lash: '#1a120e', brow: '#2a1e18', browShape: 'worried', mouth: 'open', blush: 0.7, lip: '#a03040' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit } = H;
