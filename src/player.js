@@ -438,7 +438,7 @@ export class Player {
     this.sprinting = sprinting && this.speedNow > 6.5;
     this.luby.update(dt, {
       speed: this.speedNow, sprint: this.sprinting, grounded: this.grounded || this.action === 'pounce', vy: this.vy,
-      action: this.action === 'ambush' || this.action === 'judgement' ? 'attack' : this.action === 'fang' ? 'dash' : this.action === 'plunge' ? 'pounce' : this.action === 'charged' ? (this.actionData?.mage ? 'cast' : 'burst') : this.action,
+      action: this.action === 'ambush' || this.action === 'judgement' ? 'attack' : this.action === 'plunge' ? 'pounce' : this.action === 'charged' ? (this.actionData?.mage ? 'cast' : 'spin') : this.action,
       actionT: this.action === 'plunge' ? 0.5 : this.actionDur ? this.actionT / this.actionDur : 0, combo: this.action === 'ambush' || this.action === 'judgement' ? 3 : this.combo,
       hurtT: this.hurtT, flipT: this.flipT, swim: this.swimming, glide: this.gliding,
     });

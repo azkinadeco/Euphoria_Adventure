@@ -169,7 +169,7 @@ function buildBody(rig, S) {
   // backOld is returned so a rig can add its own primitive tails for the kit to replace
   const backOld = [longH];
   applyKit(hs ? `kit_hs_${hs}_back` : 'kit_b_hairlong', head, { side: longH.material, tie: S.tie ?? S.hair2 ?? S.hair }, backOld,
-    { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, hs === 'twin' ? 0.19 : 0.1, 0); m.scale.set(1, hairL, 1); } });
+    { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, hs === 'twin' ? 0.19 : 0.1, 0); m.scale.set(1, hairL, 1); } }).then((m) => { rig.hairBack = m; });
   // glossy anime hair: a cel highlight in a lighter tint of the hair colour
   for (const m of new Set([S.hair, S.hair2 ?? S.hair, sides.material, longH.material])) {
     const u = m.userData;
@@ -227,6 +227,7 @@ function buildBody(rig, S) {
 export class FideliaRig extends Rig {
   constructor() { super('Fidelia'); }
   _build() {
+    this.style = 'sword';
     const skin = toon(0xffe4d4), shell = toon(0xf4eef8, { flatShading: true }), pearl = toon(0xe6dcf2), blue = toon(0x7fc4ec);
     const hairC = 0xcfe6f6;
     const H = buildBody(this, {
@@ -293,6 +294,7 @@ export class FideliaRig extends Rig {
 export class MoraRig extends Rig {
   constructor() { super('Mora'); this.orbT = 0; }
   _build() {
+    this.style = 'caster';
     const skin = toon(0xffe6d8), suit = toon(0xf6f4fa), purple = toon(0x8a3fb0), gold = toon(0xf0c35a);
     const starTex = canvasTex(256, 128, (g, w, h) => {
       g.fillStyle = '#7a35a6'; g.fillRect(0, 0, w, h);
@@ -342,6 +344,7 @@ export class MoraRig extends Rig {
 export class ScyllaRig extends Rig {
   constructor() { super('Scylla'); }
   _build() {
+    this.style = 'scythe';
     const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x3a3444), silver = toon(0xe9e9f2);
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: skin, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy',
@@ -374,6 +377,7 @@ export class ScyllaRig extends Rig {
 export class EropatraRig extends Rig {
   constructor() { super('Eropatra'); }
   _build() {
+    this.style = 'staff';
     const skin = toon(0xf4cba6), gold = toon(0xf0c35a, { emissive: 0x3a2400 }), white = toon(0xf8f4ea), black = toon(0x15121a);
     const H = buildBody(this, {
       skin, bottom: white, chest: gold, waist: skin, hair: black, hair2: black, hairColor: 0x15121a, hairLen: 0.95, hairStyle: 'hime',
@@ -417,6 +421,7 @@ export class EropatraRig extends Rig {
 export class RumiRig extends Rig {
   constructor() { super('Rumi'); }
   _build() {
+    this.style = 'cstaff';
     const skin = toon(0xf2c8a4), black = toon(0x1a1418), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy',
@@ -447,6 +452,7 @@ export class RumiRig extends Rig {
 export class ValeriaRig extends Rig {
   constructor() { super('Valeria'); }
   _build() {
+    this.style = 'great';
     const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0x4a3a2a);
     const H = buildBody(this, {
       skin, bottom: gold, chest: gold, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight',
@@ -485,6 +491,7 @@ export class ValeriaRig extends Rig {
 export class GlyttaRig extends Rig {
   constructor() { super('Glytta'); }
   _build() {
+    this.style = 'caster';
     const skin = toon(0xe8dcd8), dark = toon(0x1a1a24, { flatShading: true }), teal = toon(0x3fd0c8, { emissive: 0x0a4a48, emissiveIntensity: 0.9 }), white = toon(0xf2f2f6);
     const H = buildBody(this, {
       skin, bottom: dark, chest: dark, waist: skin, hair: white, hair2: toon(0xdde4f0), hairColor: 0xf2f2f6, hairLen: 0.9, hairStyle: 'wild',
@@ -515,6 +522,7 @@ export class GlyttaRig extends Rig {
 export class GemoraRig extends Rig {
   constructor() { super('Gemora'); }
   _build() {
+    this.style = 'caster';
     const skin = toon(0xf4dcd8), black = toon(0x16121e), purple = toon(0x9a5ad8, { emissive: 0x3a1a6a, emissiveIntensity: 0.8 }), hairC = 0x8a4ad0;
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: skin, hair: toon(hairC), hair2: toon(0xb07ae8), hairColor: hairC, hairLen: 1.05, hairStyle: 'straight',
@@ -542,6 +550,7 @@ export class GemoraRig extends Rig {
 export class MiccaRig extends Rig {
   constructor() { super('Micca'); this.bt = 0; }
   _build() {
+    this.style = 'caster';
     const skin = toon(0xffe2d4), brown = toon(0x5a3a2a), horn = toon(0xe8d8b0, { flatShading: true }), gold = toon(0xf0c35a), hairC = 0xdfe2ea;
     const H = buildBody(this, {
       skin, bottom: brown, chest: brown, waist: skin, hair: toon(hairC), hair2: toon(0xc8ccd8), hairColor: hairC, hairLen: 0.85, hairStyle: 'twin', tie: gold,
@@ -586,6 +595,7 @@ export class MiccaRig extends Rig {
 export class CommanderRig extends Rig {
   constructor() { super('Commander'); this.bt = 0; }
   _build() {
+    this.style = 'dual';
     const skin = toon(0xffe6d6), coat = toon(0x1a243a, { flatShading: true }), gold = toon(0xffd700, { emissive: 0x664400, emissiveIntensity: 0.5 });
     const hairC = 0xf5d882;
     const H = buildBody(this, {
@@ -643,6 +653,7 @@ export class CommanderRig extends Rig {
 export class KaliRig extends Rig {
   constructor(corrupt = false) { super(corrupt ? 'KaliCorrupt' : 'Kali', corrupt); this.bt = 0; }
   _build() {
+    this.style = 'sword';
     const c = this.root.name === 'KaliCorrupt';
     const skin = toon(c ? 0xd8c8d8 : 0xf8e0d2), shirt = toon(c ? 0x3a3050 : 0xf4f2f0), black = toon(0x16141c);
     const hairC = c ? 0x9a90b0 : 0xeadcae, hair = toon(hairC), hair2 = toon(c ? 0x7a6a98 : 0xf6ecc8);
