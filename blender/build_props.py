@@ -4811,8 +4811,31 @@ def build_abadonia():
         fix_normals(ob)
         return ob
 
-    def mirror(pts):
-        return [(-x, y) for x, y in reversed(pts)]
+    def spl(pts, radii, n=3):
+        """Catmull-Rom resample (three.js points) -> smooth curved locks"""
+        Q = [Vector(q) for q in pts]
+        out, rad = [], []
+        for i in range(len(Q) - 1):
+            p0, p1, p2, p3 = Q[max(i - 1, 0)], Q[i], Q[i + 1], Q[min(i + 2, len(Q) - 1)]
+            for j in range(n):
+                t = j / n
+                out.append(0.5 * ((2 * p1) + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t ** 3))
+                rad.append(radii[i] + (radii[i + 1] - radii[i]) * (t * t * (3 - 2 * t)))
+        out.append(Q[-1]); rad.append(radii[-1])
+        return [tuple(q) for q in out], rad
+
+    def lock(pts, radii, sides=7, seed=0, lo=0.5):
+        """a fur / flame lock: smooth, darker at the root, with a sheen band part-way down"""
+        pts, radii = spl(pts, radii)
+        ob = limb(pts, radii, sides, 1.0, 1.0)
+        S = [Vector(B(*q)) for q in pts]
+        m = len(S) - 1
+
+        def fn(p, n, pc):
+            t = min(range(m + 1), key=lambda q: (S[q] - p).length_squared) / m
+            k = lo + (1 - lo) * (0.35 + 0.65 * max(0.0, 1 - abs(t - 0.45) / 0.3)) * (0.75 + 0.25 * max(0.0, n.z))
+            return (k, k, k)
+        return paint(ob, fn)
 
     # ================= BEAST BODY (origin: ground under the saddle, facing +z) =================
     fur, armor, trim, mane = [], [], [], []
@@ -4860,16 +4883,19 @@ def build_abadonia():
             armor.append(P(ell(0.16, (sx * 0.3, 1.02 - 0.02 * i, z), (0.32, 1.25, 0.75), sub=2), 40 + i, 0.6))
             trim.append(paint(limb([(sx * 0.345, 1.2 - 0.02 * i, z - 0.1), (sx * 0.355, 1.02 - 0.02 * i, z - 0.125), (sx * 0.33, 0.84 - 0.02 * i, z - 0.1)], [0.006, 0.011, 0.006], 5), WHITE))
     # mane: layered spikes round the neck and shoulders, swept back
-    mane.append(P(ell(0.4, (0, 1.24, 0.62), (1.0, 1.02, 0.85), sub=3, amp=0.16, seed=5), 19, 0.5))  # shaggy ruff under the locks
-    for row, (zc, rr, ln, n) in enumerate(((0.86, 0.3, 0.26, 13), (0.66, 0.4, 0.32, 15), (0.46, 0.43, 0.3, 13))):
+    mane.append(P(ell(0.39, (0, 1.24, 0.62), (1.0, 1.02, 0.85), sub=3, amp=0.08, seed=5), 19, 0.5))  # ruff under the locks
+    # mane: four tiers of thick wavy locks; they rise on top, droop at the sides and sweep back
+    for row, (zc, rr, ln, n) in enumerate(((0.93, 0.27, 0.3, 12), (0.76, 0.36, 0.42, 14), (0.58, 0.42, 0.5, 15), (0.4, 0.44, 0.46, 13))):
         for k in range(n):
-            a = (k / (n - 1) - 0.5) * 4.4
-            jx, jl = rnd.random() - 0.5, 0.75 + rnd.random() * 0.5
-            rx, ry_ = math.sin(a) * rr * 0.9, math.cos(a) * rr
-            root = (rx, 1.2 + ry_, zc)
-            mid = (rx * 1.22, 1.2 + ry_ * 1.2 + 0.02, zc - ln * 0.5 * jl)
-            tip = (rx * 1.2 + jx * 0.06, 1.2 + ry_ * 1.16 - 0.03, zc - ln * 1.25 * jl)
-            mane.append(P(limb([root, mid, tip], [0.12, 0.1, 0.006], 6, 1.0, 1.0), 20 + k + row * 20, 0.5))
+            a = (k / (n - 1) - 0.5) * 4.7 + (0.1 if row % 2 else -0.1)
+            jl, jw = 0.8 + rnd.random() * 0.45, (rnd.random() - 0.5)
+            sa, ca = math.sin(a), math.cos(a)
+            droop = 0.16 * (1 - ca) * ln / 0.4          # side locks hang, top locks stand
+            root = (sa * rr * 0.86, 1.22 + ca * rr * 0.9, zc)
+            p1 = (sa * rr * 1.22, 1.22 + ca * rr * 1.22 + 0.03 * ca, zc - ln * 0.3 * jl)
+            p2 = (sa * rr * 1.3 + jw * 0.06, 1.22 + ca * rr * 1.24 - droop * 0.5, zc - ln * 0.7 * jl)
+            tip = (sa * rr * 1.16 + jw * 0.12, 1.22 + ca * rr * 1.1 - droop + 0.05 * ca, zc - ln * 1.15 * jl)
+            mane.append(lock([root, p1, p2, tip], [0.1, 0.115, 0.08, 0.005], 7, row * 20 + k))
     for k in range(7):  # ridge of spikes down to the pommel
         z = 0.42 - k * 0.04
         mane.append(P(limb([(0, 1.5, z), (0, 1.6 - k * 0.012, z - 0.08), (0, 1.62 - k * 0.02, z - 0.2)], [0.07, 0.05, 0.004], 5), 70 + k, 0.5))
@@ -4913,7 +4939,7 @@ def build_abadonia():
         a = (k / 12 - 0.5) * 4.6
         jl = 0.8 + rnd.random() * 0.5
         rx, ry_ = math.sin(a) * 0.22, math.cos(a) * 0.2
-        mane.append(P(limb([(rx, 0.04 + ry_, 0.02), (rx * 1.45, 0.04 + ry_ * 1.4, -0.12 * jl), (rx * 1.7, 0.06 + ry_ * 1.55, -0.3 * jl)], [0.075, 0.06, 0.004], 6), 30 + k, 0.5))
+        mane.append(lock([(rx, 0.04 + ry_, 0.02), (rx * 1.45, 0.04 + ry_ * 1.4, -0.1 * jl), (rx * 1.6, 0.03 + ry_ * 1.45, -0.24 * jl), (rx * 1.5, 0.0 + ry_ * 1.3, -0.36 * jl)], [0.07, 0.075, 0.05, 0.004], 6, 30 + k))
     kit('kit_aba_head', {'fur': fur, 'armor': armor, 'trim': trim, 'mane': mane, 'horn': horn, 'glow': glow, 'fang': fang})
 
     # ================= LEGS (origin: shoulder / hip joint, foot at y -0.98) =================
@@ -4951,14 +4977,17 @@ def build_abadonia():
     # ================= FLAME TAIL (origin: root, grows along +y; the game fans nine of them) =================
     L = 1.75
     parts = []
-    sp = lambda t: (0.2 * math.sin(t * 3.3 + 0.3) * t, L * t, 0.06 * math.sin(t * 2.2) * t)
-    pts = [sp(i / 10) for i in range(11)]
-    rad = [0.05 + 0.2 * math.sin(math.pi * (i / 10) ** 0.75) ** 1.15 * (1 - 0.25 * i / 10) for i in range(10)] + [0.004]
-    parts.append(limb(pts, rad, 12, 1.0, 0.58))
-    for (t0, sd, ln) in ((0.22, -1, 0.3), (0.3, 1, 0.34), (0.45, -1, 0.42), (0.55, 1, 0.3), (0.62, 1, 0.4), (0.74, -1, 0.34), (0.85, 1, 0.24)):
+    sp = lambda t: (0.2 * math.sin(t * 3.3 + 0.3) * t + 0.5 * max(0.0, t - 0.78) ** 1.6 * 3.0, L * (t - 0.9 * max(0.0, t - 0.86) ** 1.5), 0.06 * math.sin(t * 2.2) * t)
+    pts = [sp(i / 12) for i in range(13)]
+    rad = [0.05 + 0.21 * math.sin(math.pi * (i / 12) ** 0.75) ** 1.15 * (1 - 0.25 * i / 12) for i in range(12)] + [0.004]
+    mp, mr = spl(pts, rad, 2)
+    parts.append(limb(mp, mr, 12, 1.0, 0.58))
+    for (t0, sd, ln) in ((0.16, 1, 0.26), (0.24, -1, 0.34), (0.33, 1, 0.4), (0.44, -1, 0.46), (0.53, 1, 0.42), (0.62, -1, 0.4), (0.7, 1, 0.34), (0.79, -1, 0.26)):
         x0, y0, z0 = sp(t0)
-        parts.append(limb([(x0 + sd * 0.08, y0, z0), (x0 + sd * 0.23, y0 + ln * 0.42, z0 + 0.02), (x0 + sd * 0.2, y0 + ln * 0.78, z0), (x0 + sd * 0.3, y0 + ln, z0 - 0.02)],
-                          [0.1, 0.075, 0.045, 0.003], 8, 1.0, 0.55))
+        # each lobe peels off the plume, bellies out and hooks back in at the tip
+        lp, lr = spl([(x0 + sd * 0.05, y0 - 0.02, z0), (x0 + sd * 0.2, y0 + ln * 0.3, z0 + 0.02), (x0 + sd * 0.31, y0 + ln * 0.68, z0 + 0.01), (x0 + sd * 0.25, y0 + ln * 0.98, z0 - 0.01), (x0 + sd * 0.14, y0 + ln * 1.1, z0 - 0.02)],
+                     [0.09, 0.1, 0.07, 0.035, 0.003], 3)
+        parts.append(limb(lp, lr, 8, 1.0, 0.55))
 
     def flame(p, n, pc):  # fur-black core, violet fire along the edges and towards the tip
         t = min(1.0, max(0.0, p.z / L))

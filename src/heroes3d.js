@@ -775,7 +775,7 @@ export class AbadoniaRig extends Rig {
       const g = new THREE.Group(); g.position.set(0, 1.08, -0.95); g.rotation.order = 'YXZ';
       const yaw = (i - 4) * 0.3, elev = 0.12 + 0.8 * Math.abs(Math.sin(i * 2.1 + 0.6)), sc = 0.78 + 0.3 * Math.abs(Math.cos(i * 1.7));
       g.rotation.set(-(Math.PI / 2 - elev), yaw, 0);
-      const roll = new THREE.Group(); roll.rotation.y = Math.PI / 2 + (i % 2 ? 0.55 : -0.55); roll.scale.setScalar(sc); g.add(roll);
+      const roll = new THREE.Group(); roll.rotation.y = Math.PI / 2 + (i % 2 ? 0.55 : -0.55); roll.scale.set(i % 2 ? -sc : sc, sc, sc); g.add(roll); // mirrored every other tail: the curls fan both ways
       beast.add(g);
       kits.push(applyKit('kit_aba_tail', roll, M, [], { ol: 0.01, crease: 1.2 }));
       this.bTails.push({ g, yaw, elev });
