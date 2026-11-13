@@ -3379,11 +3379,43 @@ def build_hair_styles():
             if z3 > 0.02 and y3 < 0.17:
                 v.co.y = -(z3 - 0.11 * min(1.0, (0.17 - y3) / 0.06))
         c.data.update()
-        return paint(c, sh(0.75, 1.0, 1))
 
-    def strand(pts, radii, sides=6, flat=0.5, seed=0, blunt=False):
-        st = limb(pts, radii, sides, 1.0, flat, cap=True)
-        return paint(st, sh(0.7 if not blunt else 0.75, 1.0, seed))
+        def fn(p, n, pc):  # painted "angel ring": a bright band round the crown, darker nape
+            y = p.z
+            ring = max(0.0, 1 - abs(y - 0.208) / 0.02) * (0.75 + 0.25 * math.sin(math.atan2(p.x, -p.y) * 9))
+            k = 0.82 + 0.18 * ring - 0.1 * max(0.0, (0.12 - y) / 0.12)
+            return (k, k, k)
+        return paint(c, fn)
+
+    def spline(pts, radii, n):
+        """Catmull-Rom resample: soft curved locks instead of straight wedges"""
+        P = [Vector(q) for q in pts]
+        out, rad = [], []
+        for i in range(len(P) - 1):
+            p0, p1, p2, p3 = P[max(i - 1, 0)], P[i], P[i + 1], P[min(i + 2, len(P) - 1)]
+            for j in range(n):
+                t = j / n
+                out.append(0.5 * ((2 * p1) + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t ** 3))
+                rad.append(radii[i] + (radii[i + 1] - radii[i]) * (t * t * (3 - 2 * t)))
+        out.append(P[-1]); rad.append(radii[-1])
+        return [tuple(q) for q in out], rad
+
+    def strand(pts, radii, sides=6, flat=0.5, seed=0, blunt=False, hl=0.3):
+        pts, radii = spline(pts, radii, 3 if len(pts) < 5 else 2)
+        st = limb(pts, radii, max(sides, 8), 1.0, flat, cap=True)
+        S = [Vector(B(*q)) for q in pts]
+        m = len(S) - 1
+        jit = 0.03 * math.sin(seed * 2.7)
+
+        def fn(p, n, pc):  # root-to-tip gradient with a highlight band, darker underside
+            i = min(range(m + 1), key=lambda q: (S[q] - p).length_squared)
+            t = i / m
+            band = max(0.0, 1 - abs(t - hl) / 0.16)
+            k = 0.84 + 0.16 * band - (0.0 if blunt else 0.12) * max(0.0, (t - 0.6) / 0.4) + jit
+            k *= 0.9 + 0.1 * min(1.0, max(0.0, n.z + 0.9))
+            k = min(1.0, max(0.6, k))
+            return (k, k, k)
+        return paint(st, fn)
 
     def sides_ring(n=9, spread=3.4, drop=0.02, out=1.0):
         res = []
@@ -3409,7 +3441,7 @@ def build_hair_styles():
                 pts.append((sx_ * r + ox, -t + oy, sz_ * (r - 0.02 * t) - 0.04 + oz))
                 w = 0.05 + 0.012 * math.sin(t * math.pi)
                 rad.append(w * (1 - 0.15 * t) if blunt else w * (1 - t) ** 0.7 + 0.004)
-            out.append(strand(pts, rad, 6, flat, 40 + k, blunt))
+            out.append(strand(pts, rad, 6, flat, 40 + k, blunt, 0.16))
         kit(name, {'side': out})
 
     # ---------- HIME: blunt fringe + long straight side locks + straight blunt back (Eropatra)
