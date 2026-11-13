@@ -13,12 +13,21 @@ const C = {
   stocking: 0x17181d, white: 0xf4f4f0, glow: 0xb8ff4a,
 };
 
-function faceTexture() {
+function faceTexture(closed = false) {
   return canvasTex(512, 512, (g) => {
     g.scale(2, 2); const w = 256, h = 256; // drawn at 256, rasterised at 512 for crisp eyes
     g.clearRect(0, 0, w, h);
     const eye = (cx, flip) => {
       const cy = 130;
+      if (closed) { // blink frame: a happy curved lash line
+        g.strokeStyle = '#120c14'; g.lineCap = 'round'; g.lineWidth = 7;
+        g.beginPath(); g.moveTo(cx - flip * 28, cy + 4); g.quadraticCurveTo(cx, cy + 18, cx + flip * 29, cy - 2); g.stroke();
+        g.lineWidth = 4;
+        for (const k of [0.6, 0.85, 1.05]) { g.beginPath(); g.moveTo(cx + flip * 27 * k, cy + 9 - k * 8); g.lineTo(cx + flip * (27 * k + 6), cy + 15 - k * 9); g.stroke(); }
+        g.strokeStyle = '#141018'; g.lineWidth = 4.5;
+        g.beginPath(); g.moveTo(cx - flip * 18, cy - 54); g.quadraticCurveTo(cx, cy - 52, cx + flip * 22, cy - 44); g.stroke();
+        return;
+      }
       // sclera with a soft lid shadow
       g.fillStyle = '#ffffff';
       g.beginPath(); g.ellipse(cx, cy, 27, 33, 0, 0, Math.PI * 2); g.fill();
@@ -151,7 +160,8 @@ export class Luby extends Rig {
     M.stocking = animeCloth(0xffffff, { map: st.map, emissiveMap: st.emi, emissive: 0x9cff3a, emissiveIntensity: 0.9 });
     M.stockK = toon(C.stocking);
     M.stockK.userData.rimColor = new THREE.Color(0xffffff); M.stockK.userData.rimStrength = 0.45; // kit loads after applyRim runs
-    M.face = toon(0xffffff, { map: faceTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
+    this.faceTex = { open: faceTexture(), closed: faceTexture(true) };
+    M.face = toon(0xffffff, { map: this.faceTex.open, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
 
     const j = this.j;
     const add = (parent, obj, x = 0, y = 0, z = 0) => { obj.position.set(x, y, z); parent.add(obj); return obj; };
@@ -221,7 +231,8 @@ export class Luby extends Rig {
     applyKit('kit_luby_choker', chest, { dark: M.dark, glow: M.glow }, [], { ol: 0.004, place: (m) => { m.position.y = -0.014; m.scale.set(0.96, 1, 0.96); } });
     const head = grp(chest, 'head', 0, 0.19, 0.005);
     head.scale.setScalar(1.12); // ~6.5 heads tall (was a chibi-ish 1.22)
-    const skull = add(head, part(animeHead(S(0.12, 32, 24)), M.skin, { ol: 0.008 }), 0, 0.1, 0);
+    M.skinFace = toon(C.skin, { isFace: true });
+    const skull = add(head, part(animeHead(S(0.12, 32, 24)), M.skinFace, { ol: 0.008 }), 0, 0.1, 0);
     skull.scale.set(1, 1.04, 0.98);
     const face = add(skull, new THREE.Mesh(animeHead(S(0.1206, 32, 20, Math.PI / 2 - 0.8, 1.6, Math.PI / 2 - 0.7, 1.3)), M.face));
     face.renderOrder = 2;
@@ -251,7 +262,7 @@ export class Luby extends Rig {
       hairOld.push(l);
     }
     // same skull as the heroes -> the shared Blender hair kit fits (lime streak on the 3rd bang)
-    applyKit('kit_b_hair', head, { hair: M.hair, hair2: M.hairLime } /* back locks hidden: the hood covers them */, hairOld, { ol: 0.006 });
+    applyKit('kit_b_hair', head, { hair: M.hair, hair2: M.hairLime } /* back locks hidden: the hood covers them */, hairOld, { ol: 0.006, crease: 1.2 });
 
     // ---------- cat hood ----------
     const hoodG = grp(head, 'hood', 0, 0.112, -0.012);

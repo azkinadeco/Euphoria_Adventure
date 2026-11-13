@@ -5,40 +5,106 @@ import { applyKit, applySkinned } from './assets.js';
 import { toon, part, canvasTex, animeHead } from './toon.js';
 import { Rig } from './rig.js';
 
-function softFace({ iris = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], lash = '#2a2238', mouth = 'smile', brow = 'soft' } = {}) {
-  return canvasTex(512, 512, (g) => {
-    g.scale(2, 2); const w = 256, h = 256; // drawn at 256, rasterised at 512 for crisp eyes
-    g.clearRect(0, 0, w, h);
-    const eye = (cx, flip) => {
+/**
+ * Painted anime face (eyes, brows, blush, nose, mouth) matched to each hero's key art.
+ * iris: [upper shade, body, lower glow]; shape: round | sharp (raised outer corner) | droopy.
+ * `closed` draws the same face with the eyes shut (blink frame).
+ */
+function softFace(o = {}, closed = false) {
+  const {
+    iris = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], lash = '#2a2238', brow = lash, browShape = 'soft', shape = 'round',
+    mouth = 'smile', blush = 0.38, lip = '#b8485e', liner = null, slit = false, shadow = 'rgba(150,90,110,0.5)',
+  } = o;
+  const TAU = Math.PI * 2;
+  return canvasTex(768, 768, (g) => {
+    g.scale(3, 3);
+    g.clearRect(0, 0, 256, 256);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    const tilt = shape === 'sharp' ? 6 : shape === 'droopy' ? -4 : 2; // how far the outer corner rises
+    const ew = 26, eh = shape === 'sharp' ? 27 : 31;
+    const eye = (cx, f) => {
       const cy = 134;
-      g.fillStyle = '#fff'; g.beginPath(); g.ellipse(cx, cy, 24, 29, 0, 0, Math.PI * 2); g.fill();
-      const gr = g.createLinearGradient(0, cy - 26, 0, cy + 26);
-      gr.addColorStop(0, iris[0]); gr.addColorStop(0.55, iris[1]); gr.addColorStop(1, iris[2]);
-      g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy + 3, 19, 25, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = 'rgba(10,10,30,.85)'; g.beginPath(); g.ellipse(cx, cy + 4, 9, 12, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#fff';
-      g.beginPath(); g.arc(cx - flip * 6, cy - 7, 6, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.arc(cx + flip * 7, cy + 12, 2.5, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = lash; g.lineCap = 'round'; g.lineWidth = 6;
-      g.beginPath(); g.moveTo(cx - flip * 25, cy - 10); g.quadraticCurveTo(cx, cy - 34, cx + flip * 25, cy - 16); g.stroke();
-      g.lineWidth = 4; g.beginPath(); g.moveTo(cx + flip * 25, cy - 16); g.lineTo(cx + flip * 31, cy - 12); g.stroke();
-      g.lineWidth = 3.5;
+      const lid = () => { // upper lash line, inner corner -> outer corner
+        g.beginPath(); g.moveTo(cx - f * (ew + 1), cy - 6 + tilt * 0.5);
+        g.bezierCurveTo(cx - f * ew * 0.7, cy - eh - 7, cx + f * ew * 0.45, cy - eh - 6, cx + f * (ew + 3), cy - 13 - tilt);
+      };
+      if (closed) {
+        g.strokeStyle = lash; g.lineWidth = 6.5;
+        g.beginPath(); g.moveTo(cx - f * (ew + 1), cy + 4); g.quadraticCurveTo(cx, cy + 17, cx + f * (ew + 3), cy + 3 - tilt); g.stroke();
+        g.lineWidth = 3.5;
+        for (const k of [0.55, 0.8, 1.02]) { g.beginPath(); g.moveTo(cx + f * ew * k, cy + 9 - k * 6 - tilt * k); g.lineTo(cx + f * (ew * k + 6), cy + 15 - k * 7 - tilt * k); g.stroke(); }
+      } else {
+        g.save();
+        g.beginPath(); g.ellipse(cx, cy, ew, eh, 0, 0, TAU); g.clip();
+        g.fillStyle = '#fffdfb'; g.fillRect(cx - 40, cy - 40, 80, 80);
+        const ix = cx + f * 1.5, iy = cy + 3, ih = eh - 3;
+        g.fillStyle = iris[0]; g.beginPath(); g.ellipse(ix, iy, 20.5, ih, 0, 0, TAU); g.fill();
+        const gr = g.createLinearGradient(0, iy - ih, 0, iy + ih);
+        gr.addColorStop(0, iris[0]); gr.addColorStop(0.42, iris[1]); gr.addColorStop(0.86, iris[2]); gr.addColorStop(1, '#ffffff');
+        g.fillStyle = gr; g.beginPath(); g.ellipse(ix, iy + 1, 17.5, ih - 3, 0, 0, TAU); g.fill();
+        // pupil + the dark upper half every anime iris has
+        g.fillStyle = 'rgba(12,10,26,0.86)'; g.beginPath(); g.ellipse(ix, iy + 2, slit ? 4.5 : 8, slit ? ih * 0.6 : 11, 0, 0, TAU); g.fill();
+        const up = g.createLinearGradient(0, iy - ih, 0, iy + 2);
+        up.addColorStop(0, 'rgba(10,8,30,0.62)'); up.addColorStop(1, 'rgba(10,8,30,0)');
+        g.fillStyle = up; g.beginPath(); g.ellipse(ix, iy, 20.5, ih, 0, 0, TAU); g.fill();
+        // bright lower crescent
+        g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 3;
+        g.beginPath(); g.ellipse(ix, iy + 1, 12, ih - 9, 0, 0.25 * Math.PI, 0.75 * Math.PI); g.stroke();
+        // lid shadow over the white
+        const sh = g.createLinearGradient(0, cy - eh, 0, cy - eh * 0.2);
+        sh.addColorStop(0, shadow); sh.addColorStop(1, 'rgba(150,90,110,0)');
+        g.fillStyle = sh; g.fillRect(cx - 40, cy - 40, 80, 40);
+        g.restore();
+        // highlights
+        g.fillStyle = '#fff';
+        g.beginPath(); g.ellipse(cx - f * 7, cy - 10, 7, 5.5, -0.5 * f, 0, TAU); g.fill();
+        g.beginPath(); g.arc(cx + f * 8, cy + 14, 3, 0, TAU); g.fill();
+        // lashes: thick upper line, outer wing, fine lower line, lid crease
+        g.strokeStyle = lash; g.lineWidth = 7.5; lid(); g.stroke();
+        g.lineWidth = 4.5;
+        g.beginPath(); g.moveTo(cx + f * (ew + 1), cy - 13 - tilt); g.lineTo(cx + f * (ew + 10), cy - 19 - tilt * 1.6); g.stroke();
+        g.beginPath(); g.moveTo(cx + f * (ew + 1), cy - 9 - tilt); g.lineTo(cx + f * (ew + 8), cy - 9 - tilt); g.stroke();
+        g.lineWidth = 2.2;
+        g.beginPath(); g.moveTo(cx - f * 12, cy + eh - 2); g.quadraticCurveTo(cx + f * 6, cy + eh + 2, cx + f * (ew - 2), cy + eh - 12 - tilt * 0.3); g.stroke();
+        g.strokeStyle = 'rgba(120,60,60,0.5)'; g.lineWidth = 1.6;
+        g.beginPath(); g.moveTo(cx - f * 20, cy - eh - 4); g.quadraticCurveTo(cx, cy - eh - 13, cx + f * 22, cy - eh - 6 - tilt * 0.5); g.stroke();
+        if (liner) { // kohl wing (Eropatra)
+          g.strokeStyle = liner; g.lineWidth = 4;
+          g.beginPath(); g.moveTo(cx + f * (ew - 2), cy + eh - 12); g.lineTo(cx + f * (ew + 15), cy + 2 - tilt); g.stroke();
+        }
+      }
+      g.strokeStyle = brow; g.lineWidth = 3.6;
       g.beginPath();
-      if (brow === 'soft') { g.moveTo(cx - flip * 18, cy - 44); g.quadraticCurveTo(cx, cy - 50, cx + flip * 18, cy - 44); }
-      else { g.moveTo(cx - flip * 18, cy - 40); g.lineTo(cx + flip * 18, cy - 48); }
+      const by = cy - eh - 20;
+      if (browShape === 'soft') { g.moveTo(cx - f * 18, by + 2); g.quadraticCurveTo(cx, by - 5, cx + f * 21, by + 1); }
+      else if (browShape === 'worried') { g.moveTo(cx - f * 18, by - 4); g.quadraticCurveTo(cx, by - 3, cx + f * 21, by + 4); }
+      else { g.moveTo(cx - f * 18, by + 5); g.quadraticCurveTo(cx, by - 1, cx + f * 22, by - 4); }
       g.stroke();
     };
     eye(128 - 58, -1); eye(128 + 58, 1);
-    g.fillStyle = 'rgba(255,130,150,0.38)';
-    g.beginPath(); g.ellipse(128 - 72, 178, 18, 7, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(128 + 72, 178, 18, 7, 0, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#8a3040'; g.lineWidth = 3; g.lineCap = 'round';
+    for (const s of [-1, 1]) { // soft round blush
+      const bl = g.createRadialGradient(128 + s * 74, 180, 1, 128 + s * 74, 180, 22);
+      bl.addColorStop(0, `rgba(255,120,130,${blush})`); bl.addColorStop(1, 'rgba(255,120,130,0)');
+      g.fillStyle = bl; g.fillRect(128 + s * 74 - 24, 160, 48, 40);
+    }
+    g.strokeStyle = 'rgba(190,105,95,0.6)'; g.lineWidth = 1.8; // nose: a tick of shadow
+    g.beginPath(); g.moveTo(129, 180); g.lineTo(131, 185); g.stroke();
+    g.strokeStyle = lip; g.lineWidth = 2.6;
     g.beginPath();
-    if (mouth === 'smile') { g.moveTo(114, 206); g.quadraticCurveTo(128, 216, 142, 206); }
-    else { g.moveTo(116, 210); g.lineTo(140, 208); }
-    g.stroke();
+    if (mouth === 'smile') { g.moveTo(115, 207); g.quadraticCurveTo(128, 215, 141, 207); g.stroke(); }
+    else if (mouth === 'smirk') { g.moveTo(116, 210); g.quadraticCurveTo(130, 214, 143, 204); g.stroke(); }
+    else if (mouth === 'open') {
+      g.fillStyle = '#8a2a3a'; g.moveTo(117, 205); g.quadraticCurveTo(128, 222, 139, 205); g.quadraticCurveTo(128, 208, 117, 205); g.fill(); g.stroke();
+      g.fillStyle = '#ff9aa8'; g.beginPath(); g.ellipse(128, 212, 5, 2.5, 0, 0, TAU); g.fill();
+    } else { g.moveTo(118, 209); g.quadraticCurveTo(128, 211, 138, 209); g.stroke(); }
+    if (mouth !== 'open') { // lower-lip shine
+      g.strokeStyle = 'rgba(230,120,130,0.45)'; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(123, 216); g.quadraticCurveTo(128, 218, 133, 216); g.stroke();
+    }
   });
 }
+/** open + closed frames of a face; Rig.update swaps them to blink */
+const faces = (o) => ({ open: softFace(o), closed: softFace(o, true) });
 
 /** Blender weapon kit (batch 22) built in the holder's own space; the primitive parts in `old` are replaced */
 const weapon = (name, holder, roles, old = [...holder.children], ol = 0.004) => applyKit(name, holder, roles, old, { ol });
@@ -66,9 +132,12 @@ function buildBody(rig, S) {
   const capeA = grp(chest, 'capeA', 0, 0.11, -0.1);
   grp(capeA, 'capeB', 0, -0.49, -0.1);
   const head = grp(chest, 'head', 0, 0.2, 0.005);
-  head.scale.setScalar(1.2);
-  const skull = add(head, part(animeHead(Sp(0.12, 32, 24)), S.skin, { ol: 0.008 }), 0, 0.1, 0); skull.scale.set(1, 1.04, 0.98);
-  const faceMat = toon(0xffffff, { map: S.face, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
+  head.scale.setScalar(1.12); // ~6.5 heads tall
+  const skinFace = toon(S.skin.color.getHex(), { isFace: true }); // same light model as the painted face
+  const skull = add(head, part(animeHead(Sp(0.12, 32, 24)), skinFace, { ol: 0.008 }), 0, 0.1, 0); skull.scale.set(1, 1.04, 0.98);
+  const fc = S.face.open ? S.face : { open: S.face };
+  rig.faceTex = fc; rig.mats.skin = S.skin;
+  const faceMat = toon(0xffffff, { map: fc.open, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
   rig.faceMesh = add(skull, new THREE.Mesh(animeHead(Sp(0.1206, 32, 20, Math.PI / 2 - 0.8, 1.6, Math.PI / 2 - 0.7, 1.3)), faceMat));
   rig.faceMesh.renderOrder = 2;
   // hair cap + bangs
@@ -93,14 +162,20 @@ function buildBody(rig, S) {
   }
   // signature hairstyle (Blender, matching the portraits): hime / wavy / straight / wild / twin
   const hs = S.hairStyle;
-  applyKit(hs ? `kit_hs_${hs}_front` : 'kit_b_hair', head, { hair: S.hair, side: sides.material, hair2: S.hair2 ?? S.hair }, hairOld, { ol: 0.006 });
+  applyKit(hs ? `kit_hs_${hs}_front` : 'kit_b_hair', head, { hair: S.hair, side: sides.material, hair2: S.hair2 ?? S.hair }, hairOld, { ol: 0.006, crease: 1.2 });
   // long back hair flowing to the waist
   const longH = add(head, part(Cy(0.13, 0.19, S.hairLen ?? 0.62, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(S.hairColor, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, 0.1 - (S.hairLen ?? 0.62) / 2, -0.04);
   const hairL = S.hairLen ?? 0.62;
   // backOld is returned so a rig can add its own primitive tails for the kit to replace
   const backOld = [longH];
   applyKit(hs ? `kit_hs_${hs}_back` : 'kit_b_hairlong', head, { side: longH.material, tie: S.tie ?? S.hair2 ?? S.hair }, backOld,
-    { ol: 0.006, place: (m) => { m.position.set(0, hs === 'twin' ? 0.19 : 0.1, 0); m.scale.set(1, hairL, 1); } });
+    { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, hs === 'twin' ? 0.19 : 0.1, 0); m.scale.set(1, hairL, 1); } });
+  // glossy anime hair: a cel highlight in a lighter tint of the hair colour
+  for (const m of new Set([S.hair, S.hair2 ?? S.hair, sides.material, longH.material])) {
+    const u = m.userData;
+    u.specStrength = 0.5; u.specPower = 18; u.specThreshold = 0.6;
+    u.specColor = m.color.clone().lerp(new THREE.Color(0xffffff), 0.5).multiplyScalar(0.55);
+  }
   if (S.hairTip) {
     const tip = add(head, part(Cy(0.19, 0.21, 0.16, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(S.hairTip, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, 0.1 - (S.hairLen ?? 0.62) - 0.07, -0.04);
   }
@@ -157,7 +232,7 @@ export class FideliaRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: shell, chest: skin, hair: toon(hairC), hair2: toon(0xa9d4f0), hairColor: hairC, hairLen: 0.7, hairStyle: 'wavy',
       thigh: skin, knee: shell, shin: toon(0xe9eef4, { flatShading: true }), shoe: toon(0xdbe3ec, { flatShading: true }),
-      forearm: toon(0xe9eef4, { flatShading: true }), hand: toon(0xe9eef4), face: softFace({ iris: ['#164a7a', '#3f9ee0', '#c6ecff'], brow: 'firm', mouth: 'smile' }),
+      forearm: toon(0xe9eef4, { flatShading: true }), hand: toon(0xe9eef4), face: faces({ iris: ['#0f5a78', '#35b8d8', '#c8f6ff'], lash: '#2c4560', brow: '#86aecb', browShape: 'firm', mouth: 'smile', lip: '#d0607a' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit, armor } = H;
     // shell breastplate
@@ -229,7 +304,7 @@ export class MoraRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: suit, chest: suit, waist: suit, hair: toon(0xf4a8d0), hair2: toon(0xffc8e4), hairColor: 0xf4a8d0, hairTip: 0xa8c8f0, hairLen: 0.78, hairStyle: 'straight',
       thigh: suit, knee: suit, shin: suit, shoe: gold, upperArm: suit, forearm: suit, hand: skin,
-      face: softFace({ iris: ['#5a2a8a', '#b07ae0', '#ffd98a'], brow: 'soft', mouth: 'smile' }),
+      face: faces({ iris: ['#5a1f7a', '#c060c8', '#ffc8e8'], lash: '#4a2a48', brow: '#d98ab4', mouth: 'smile', lip: '#d04a70', blush: 0.46 }),
     });
     const { add, Sp, Cy, chest, head, outfit, armor } = H;
     // hood (star cloak) + cape
@@ -271,7 +346,7 @@ export class ScyllaRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: skin, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy',
       thigh: net, knee: net, shin: net, shoe: black, upperArm: skin, forearm: black, hand: black,
-      face: softFace({ iris: ['#3a0f2a', '#c0306a', '#ffb0d0'], brow: 'firm', mouth: 'flat' }),
+      face: faces({ iris: ['#2a1050', '#8a5ae0', '#e0c8ff'], lash: '#2a2430', brow: '#b4b4c6', browShape: 'firm', shape: 'sharp', mouth: 'flat', blush: 0.2, lip: '#b05070' }),
     });
     const { add, Sp, Cy, chest, hips, outfit } = H;
     // corset lines + skirt
@@ -299,11 +374,11 @@ export class ScyllaRig extends Rig {
 export class EropatraRig extends Rig {
   constructor() { super('Eropatra'); }
   _build() {
-    const skin = toon(0xf6d2b4), gold = toon(0xf0c35a, { emissive: 0x3a2400 }), white = toon(0xf8f4ea), black = toon(0x15121a);
+    const skin = toon(0xf4cba6), gold = toon(0xf0c35a, { emissive: 0x3a2400 }), white = toon(0xf8f4ea), black = toon(0x15121a);
     const H = buildBody(this, {
       skin, bottom: white, chest: gold, waist: skin, hair: black, hair2: black, hairColor: 0x15121a, hairLen: 0.95, hairStyle: 'hime',
       thigh: skin, knee: skin, shin: skin, shoe: gold, upperArm: skin, forearm: skin, hand: skin,
-      face: softFace({ iris: ['#6a3a0a', '#e0a030', '#ffe8a0'], brow: 'firm', mouth: 'smile' }),
+      face: faces({ iris: ['#6a3a00', '#e8b020', '#fff0a0'], lash: '#0c0a10', brow: '#15121a', browShape: 'firm', shape: 'sharp', mouth: 'smirk', liner: '#0c0a10', lip: '#b04040', blush: 0.25 }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit, armor } = H;
     // long white skirt with gold hem + gold collar (usekh)
@@ -342,11 +417,11 @@ export class EropatraRig extends Rig {
 export class RumiRig extends Rig {
   constructor() { super('Rumi'); }
   _build() {
-    const skin = toon(0xffe2d0), black = toon(0x1a1418), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
+    const skin = toon(0xf2c8a4), black = toon(0x1a1418), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy',
       thigh: black, knee: black, shin: black, shoe: red, upperArm: skin, forearm: black, hand: black,
-      face: softFace({ iris: ['#5a0a14', '#d03040', '#ffb0a0'], brow: 'firm', mouth: 'smile' }),
+      face: faces({ iris: ['#4a1408', '#c85a28', '#ffc890'], lash: '#2a1a10', brow: '#b8923a', shape: 'droopy', mouth: 'smile', lip: '#c04848' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit } = H;
     const skM = toon(0x1a1418, { side: THREE.DoubleSide });
@@ -372,11 +447,11 @@ export class RumiRig extends Rig {
 export class ValeriaRig extends Rig {
   constructor() { super('Valeria'); }
   _build() {
-    const skin = toon(0xf6d6c0), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0x4a3a2a);
+    const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0x4a3a2a);
     const H = buildBody(this, {
       skin, bottom: gold, chest: gold, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight',
       thigh: net, knee: gold, shin: net, shoe: gold, upperArm: skin, forearm: gold, hand: skin,
-      face: softFace({ iris: ['#1a3a6a', '#74b9ff', '#e0f4ff'], brow: 'firm', mouth: 'flat' }),
+      face: faces({ iris: ['#123a7a', '#3f8ff0', '#c8ecff'], lash: '#1a120e', brow: '#2a1e18', browShape: 'worried', mouth: 'open', blush: 0.7, lip: '#a03040' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit } = H;
     const tasM = toon(0xd8a840, { side: THREE.DoubleSide, flatShading: true });
@@ -414,7 +489,7 @@ export class GlyttaRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: dark, chest: dark, waist: skin, hair: white, hair2: toon(0xdde4f0), hairColor: 0xf2f2f6, hairLen: 0.9, hairStyle: 'wild',
       thigh: dark, knee: dark, shin: dark, shoe: dark, upperArm: dark, forearm: dark, hand: dark,
-      face: softFace({ iris: ['#0a3a3a', '#3fd0c8', '#c8fff6'], brow: 'soft', mouth: 'smile' }),
+      face: faces({ iris: ['#0a3a3a', '#3fd0c8', '#c8fff6'], mouth: 'smile' }),
     });
     const { add, Sp, chest, head } = H;
     const halo = add(head, new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 6, 28), new THREE.MeshBasicMaterial({ color: 0xc8fff6 })), 0, 0.33, -0.02);
@@ -444,7 +519,7 @@ export class GemoraRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: black, chest: black, waist: skin, hair: toon(hairC), hair2: toon(0xb07ae8), hairColor: hairC, hairLen: 1.05, hairStyle: 'straight',
       thigh: toon(0x2a2236), knee: black, shin: toon(0x2a2236), shoe: black, upperArm: skin, forearm: black, hand: black,
-      face: softFace({ iris: ['#3a0a6a', '#b07aff', '#f0d8ff'], brow: 'soft', mouth: 'flat' }),
+      face: faces({ iris: ['#3a0a6a', '#b07aff', '#f0d8ff'], mouth: 'flat' }),
     });
     const { add, Sp, Cy, chest, head, hips } = H;
     for (const s of [-1, 1]) { // antennae
@@ -471,7 +546,7 @@ export class MiccaRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: brown, chest: brown, waist: skin, hair: toon(hairC), hair2: toon(0xc8ccd8), hairColor: hairC, hairLen: 0.85, hairStyle: 'twin', tie: gold,
       thigh: toon(0x3a2a24), knee: brown, shin: toon(0x3a2a24), shoe: brown, upperArm: skin, forearm: brown, hand: skin,
-      face: softFace({ iris: ['#6a0a2a', '#ff4a7a', '#ffc0d0'], brow: 'firm', mouth: 'smile' }),
+      face: faces({ iris: ['#6a0a2a', '#ff4a7a', '#ffc0d0'], browShape: 'firm', mouth: 'smile' }),
     });
     const { add, Sp, Cy, head } = H;
     for (const s of [-1, 1]) { // curled ram horns
@@ -516,7 +591,7 @@ export class CommanderRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: coat, chest: coat, waist: coat, hair: toon(hairC), hair2: toon(0xffeaa0), hairColor: hairC, hairLen: 0.5, hairStyle: 'straight',
       thigh: coat, knee: gold, shin: coat, shoe: toon(0x101624), upperArm: coat, forearm: gold, hand: coat,
-      face: softFace({ iris: ['#8a5800', '#f5b820', '#fff4b8'], brow: 'firm', mouth: 'smile' }),
+      face: faces({ iris: ['#8a5800', '#f5b820', '#fff4b8'], lash: '#3a2a14', brow: '#c8a850', browShape: 'firm', mouth: 'smile' }),
     });
     const { add, Sp, Cy, chest, spine, outfit } = H;
 
@@ -574,7 +649,7 @@ export class KaliRig extends Rig {
     const H = buildBody(this, {
       skin, bottom: black, chest: shirt, waist: skin, hair, hair2, hairColor: hairC, hairLen: 0.72, hairStyle: 'twin', tie: black,
       thigh: skin, knee: skin, shin: skin, shoe: skin, upperArm: shirt, forearm: shirt, hand: skin, shoulder: shirt,
-      face: softFace({ iris: c ? ['#4a0a3a', '#ff3a8a', '#ffc0e0'] : ['#123a7a', '#5aa8f0', '#d8f0ff'], brow: c ? 'firm' : 'soft', mouth: c ? 'flat' : 'smile' }),
+      face: faces({ iris: c ? ['#4a0a3a', '#ff3a8a', '#ffc0e0'] : ['#2a3a6a', '#6a90d8', '#d8e8ff'], lash: '#2a2018', brow: c ? '#6a5a88' : '#c0aa78', browShape: c ? 'firm' : 'soft', mouth: c ? 'flat' : 'smile' }),
     });
     const { add, Sp, Cy, head } = H;
     this.flashMats = [skin, shirt, hair];

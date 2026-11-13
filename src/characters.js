@@ -1,6 +1,6 @@
 // Purr-Bot (Luby's scrap-built mecha cat) + simple story NPC builder.
 import * as THREE from 'three';
-import { toon, part, damp } from './toon.js';
+import { toon, part, damp, charaLook } from './toon.js';
 import { applyKit } from './assets.js';
 import { cullFar } from './cull.js';
 
@@ -142,13 +142,14 @@ export function makeNPC({ skin = 0xffe2cf, hair, hair2, outfit, accent, cape, ex
   }
   const bang = part(S(0.11), M.hair, { ol: 0.005 }); bang.scale.set(1.05, 0.45, 0.6); bang.position.set(0, 0.16, 0.06); head.add(bang);
   // same skull size as the heroes -> reuse the hero hair kits (shifted to this skull)
-  applyKit('kit_b_hair', head, { hair: M.hair, side: longHair.material, hair2: M.hair2 }, [hr, bang], { ol: 0.006, place: (m) => { m.position.y = -0.04; } });
-  applyKit('kit_b_hairlong', head, { side: longHair.material }, [longHair], { ol: 0.006, place: (m) => { m.position.set(0, 0.125, 0); m.scale.set(1, 0.85, 1); } });
+  applyKit('kit_b_hair', head, { hair: M.hair, side: longHair.material, hair2: M.hair2 }, [hr, bang], { ol: 0.006, crease: 1.2, place: (m) => { m.position.y = -0.04; } });
+  applyKit('kit_b_hairlong', head, { side: longHair.material }, [longHair], { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, 0.125, 0); m.scale.set(1, 0.85, 1); } });
   if (cape) {
     const c = part(new THREE.CylinderGeometry(0.2, 0.42, 1.1, 14, 1, true, Math.PI * 0.55, Math.PI * 0.9), toon(cape, { side: THREE.DoubleSide }), { ol: 0.008 });
     c.position.set(0, 0.7, -0.02); body.add(c);
   }
   if (extra) extra(g, body, head, arms, M);
+  charaLook(g, [M.skin]);
   g.traverse((o) => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
   g.userData.t = Math.random() * 10;
   g.userData.update = (dt) => {

@@ -2,7 +2,7 @@
 // (pivot, hips, spine, chest, head, armL/R, elbowL/R, handL/R, legL/R, kneeL/R, footL/R, optional tail[]).
 import * as THREE from 'three';
 import { cullFar } from './cull.js';
-import { damp } from './toon.js';
+import { damp, charaLook } from './toon.js';
 
 export class Rig {
   constructor(name) {
@@ -23,6 +23,7 @@ export class Rig {
     this.time = 0;
     this.blink = 0;
     this.root.traverse((o) => { if (o.isMesh && !o.userData.isOutline) o.castShadow = true; });
+    charaLook(this.root, this.mats.skin ? [this.mats.skin] : []);
   }
 
   _build() {}
@@ -231,10 +232,15 @@ export class Rig {
       j.capeA.rotation.z = damp(j.capeA.rotation.z, Math.sin(w * 0.5) * 0.03 * r, 8, dt);
     }
 
-    // blink (squash the face decal's eyes by scaling the face vertically for a moment)
+    // blink: swap the face texture to its closed-eye frame for a moment (double blink now and then)
     this.blink -= dt;
-    if (this.blink < -3 - Math.random() * 3) this.blink = 0.12;
-    if (this.faceMesh) this.faceMesh.scale.y = this.blink > 0 ? 0.985 : 1;
+    if (this.blink < -2.4 - Math.random() * 3.5) this.blink = Math.random() < 0.2 ? 0.34 : 0.11;
+    const shut = st.dead || (this.blink > 0 && !(this.blink > 0.11 && this.blink < 0.23));
+    const ft = this.faceTex;
+    if (ft?.closed && this.faceMesh) {
+      const want = shut ? ft.closed : ft.open;
+      if (this.faceMesh.material.map !== want) this.faceMesh.material.map = want;
+    }
   }
 
   /** world position of a paw (for VFX) */

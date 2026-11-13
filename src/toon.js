@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 
 let _grad = null;
+const _shaders = new WeakMap(); // toon material -> its compiled shader (live uniform updates)
 
 /**
  * High-definition 256-step anime ramp texture.
@@ -91,6 +92,7 @@ export function toon(color, opts = {}) {
     sssColor = 0xffa080,
     sssStrength = 0.0,
     isFace = false,
+    shadeMix = 0, // 0 = world look (ramp only); characters get coloured cel shadows via charaLook()
     ...rest
   } = opts;
   delete rest.flatShading; // toon materials have no flat mode; the option only reaches the cache key
@@ -111,6 +113,9 @@ export function toon(color, opts = {}) {
   mat.userData.sssColor = new THREE.Color(sssColor);
   mat.userData.sssStrength = sssStrength;
   mat.userData.isFace = isFace;
+  mat.userData.shadeMix = shadeMix;
+  mat.userData.shadeTint = new THREE.Color(0.93, 0.88, 1.0);
+  mat.userData.shadeParams = new THREE.Vector3(1.35, 1.15, 0); // saturation, lift, unused
 
   const origCompile = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
@@ -126,6 +131,10 @@ export function toon(color, opts = {}) {
     shader.uniforms.uSssCol = { value: mat.userData.sssColor };
     shader.uniforms.uSssStr = { value: mat.userData.sssStrength };
     shader.uniforms.uIsFace = { value: mat.userData.isFace ? 1.0 : 0.0 };
+    shader.uniforms.uShadeMix = { value: mat.userData.shadeMix };
+    shader.uniforms.uShadeTint = { value: mat.userData.shadeTint };
+    shader.uniforms.uShadeParams = { value: mat.userData.shadeParams };
+    _shaders.set(mat, shader);
 
     shader.fragmentShader = `
       uniform vec3 uRimCol;
@@ -138,6 +147,9 @@ export function toon(color, opts = {}) {
       uniform vec3 uSssCol;
       uniform float uSssStr;
       uniform float uIsFace;
+      uniform float uShadeMix;
+      uniform vec3 uShadeTint;
+      uniform vec3 uShadeParams;
     ` + shader.fragmentShader;
 
     // Inject custom anime shading chunks before opaque_fragment
@@ -150,11 +162,37 @@ export function toon(color, opts = {}) {
         lightViewDir = normalize((viewMatrix * vec4(directionalLights[0].direction, 0.0)).xyz);
       #endif
 
-      // --- Face-Flattering Shading ---
-      // Flattens harsh triangular polygon shadow steps across the face plane
+      // how much key light really arrives here (cel ramp x cast shadow), 0..1
+      const vec3 LUM = vec3(0.299, 0.587, 0.114);
+      float cKey = 0.0;
+      vec3 cSun = vec3(0.0);
+      #if ( NUM_DIR_LIGHTS > 0 )
+        cSun = directionalLights[0].color * RECIPROCAL_PI;
+        cKey = dot(reflectedLight.directDiffuse, LUM) / max(dot(diffuseColor.rgb * cSun, LUM), 0.0013);
+      #endif
+
+      // --- Character cel shading: lighting only sets the brightness; the colour comes from the
+      // material itself - its own hue where lit, a saturated hue-shifted shade in shadow (anime key
+      // art never goes grey), and only a hint of the light's colour (so night stays readable) ---
+      if (uShadeMix > 0.0) {
+        float cSh = 1.0 - smoothstep(0.6, 0.74, cKey);
+        float cDl = dot(diffuseColor.rgb, LUM);
+        vec3 cCol = clamp(vec3(cDl) + (diffuseColor.rgb - vec3(cDl)) * uShadeParams.x, 0.0, 1.0) * uShadeTint;
+        vec3 cBase = mix(diffuseColor.rgb, cCol, cSh);
+        vec3 cLit = outgoingLight - totalEmissiveRadiance;
+        vec3 cRep = cBase * (dot(cLit, LUM) / max(dot(cBase, LUM), 0.03)) * mix(1.0, uShadeParams.y, cSh);
+        outgoingLight = mix(cLit, cRep, uShadeMix * mix(0.88, 1.0, cSh)) + totalEmissiveRadiance;
+      }
+
+      // --- Anime face: no cel step across the face. The head and its painted decal share this
+      // soft light (ambient + sun faded by a half-lambert and by cast shadows), so they blend as one ---
       if (uIsFace > 0.5) {
-        float faceLight = clamp(dot(vec3(0.0, 0.0, 1.0), lightViewDir) * 0.5 + 0.5, 0.0, 1.0);
-        outgoingLight = mix(outgoingLight, diffuseColor.rgb * (0.85 + 0.25 * faceLight), 0.65);
+        float fHl = dot(normalize(normal), lightViewDir) * 0.5 + 0.5;
+        float fLit = smoothstep(0.2, 0.72, fHl) * clamp(cKey / 0.38, 0.0, 1.0);
+        vec3 fAmb = min(reflectedLight.indirectDiffuse / max(diffuseColor.rgb, vec3(0.01)), vec3(3.0));
+        vec3 fLight = fAmb * 1.3 + cSun * mix(0.42, 0.93, fLit);
+        fLight = mix(fLight, vec3(dot(fLight, LUM)), 0.85); // mostly neutral light, like the body
+        outgoingLight = diffuseColor.rgb * fLight * mix(uShadeTint, vec3(1.0), fLit) + totalEmissiveRadiance;
       }
 
       // --- Anime Cel Specular Highlight (Angel Ring & Metal Glints) ---
@@ -304,12 +342,13 @@ export function outlineMaterial(thickness = 0.01, color = 0x221a2d) {
 
   // thickness is a uniform and colour is the material colour: every outline can share one program
   m.customProgramCacheKey = () => 'animeOutlineV4';
+  m.userData.thick = thickness;
   _outlineCache.set(key, m);
   return m;
 }
 
 /** Adds an outline shell to a mesh */
-export function outline(mesh, thickness = 0.01, color) {
+export function outline(mesh, thickness = 0.01, color = mesh.material?.userData?.olColor) {
   const o = new THREE.Mesh(mesh.geometry, outlineMaterial(thickness, color));
   o.raycast = () => {};
   o.userData.isOutline = true;
@@ -374,13 +413,14 @@ export function applyRim(root, color = 0xffffff, strength = 0.55, power = 2.8) {
     if (!m || !m.isMeshToonMaterial) return;
 
     m.userData.rimColor = col;
-    m.userData.rimStrength = strength;
+    const str = Math.min(strength, m.userData.rimCap ?? 9); // skin keeps a subtle rim (charaLook)
+    m.userData.rimStrength = str;
     m.userData.rimPower = power;
 
     // If shader is already compiled, update active uniforms directly
     if (m.userData.shaderRef) {
       if (m.userData.shaderRef.uniforms.uRimCol) m.userData.shaderRef.uniforms.uRimCol.value.copy(col);
-      if (m.userData.shaderRef.uniforms.uRimStr) m.userData.shaderRef.uniforms.uRimStr.value = strength;
+      if (m.userData.shaderRef.uniforms.uRimStr) m.userData.shaderRef.uniforms.uRimStr.value = str;
       if (m.userData.shaderRef.uniforms.uRimPow) m.userData.shaderRef.uniforms.uRimPow.value = power;
     } else {
       const prev = m.onBeforeCompile;
@@ -388,11 +428,55 @@ export function applyRim(root, color = 0xffffff, strength = 0.55, power = 2.8) {
         if (prev) prev(sh, r);
         m.userData.shaderRef = sh;
         if (sh.uniforms.uRimCol) sh.uniforms.uRimCol.value.copy(col);
-        if (sh.uniforms.uRimStr) sh.uniforms.uRimStr.value = strength;
+        if (sh.uniforms.uRimStr) sh.uniforms.uRimStr.value = str;
         if (sh.uniforms.uRimPow) sh.uniforms.uRimPow.value = power;
       };
       m.needsUpdate = true;
     }
+  });
+}
+
+const _hsl = { h: 0, s: 0, l: 0 };
+const _c = new THREE.Color();
+/**
+ * Anime character look for every toon material under `root`: coloured cel shadows (warm on skin,
+ * cool on whites, saturated on colours) and ink outlines tinted with a dark shade of the base colour.
+ * Kits that load later pick the outline colour up from material.userData.olColor.
+ * @param {THREE.Material[]} skins materials to treat as skin
+ */
+export function charaLook(root, skins = []) {
+  const done = new Set();
+  const conf = (m) => {
+    if (done.has(m) || !m?.isMeshToonMaterial) return;
+    done.add(m);
+    const u = m.userData;
+    m.color.getHSL(_hsl);
+    const skin = skins.includes(m) || (!m.map && _hsl.l > 0.72 && _hsl.h > 0.02 && _hsl.h < 0.11 && _hsl.s > 0.3);
+    if (u.isFace) { u.shadeMix = 0; u.shadeTint.setRGB(1.0, 0.8, 0.77); u.rimCap = 0.12; u.rimStrength = Math.min(u.rimStrength, 0.12); u.olColor = 0x7a3b33; return; }
+    if (skin) {
+      u.shadeMix = 1; u.shadeTint.setRGB(1.0, 0.77, 0.73); u.shadeParams.set(1.35, 1.5, 0);
+      u.rimCap = 0.2; u.rimStrength = Math.min(u.rimStrength, 0.2);
+      u.olColor = 0x7a3b33;
+    } else if (m.map) {
+      u.shadeMix = 0.8; u.shadeTint.setRGB(0.9, 0.86, 1.0); u.shadeParams.set(1.3, 1.15, 0);
+      u.olColor = 0x2a2030;
+    } else if (_hsl.s < 0.12 && _hsl.l > 0.55) { // whites / silver: cool lilac shadow
+      u.shadeMix = 1; u.shadeTint.setRGB(0.85, 0.88, 1.0); u.shadeParams.set(1.0, 1.75, 0);
+      u.olColor = 0x4a4660;
+    } else if (_hsl.l < 0.16) { // blacks stay inky, slightly violet
+      u.shadeMix = 0.6; u.shadeTint.setRGB(0.85, 0.8, 1.0); u.shadeParams.set(1.2, 1.3, 0);
+      u.olColor = 0x0c0810;
+    } else {
+      u.shadeMix = 1; u.shadeTint.setRGB(0.94, 0.86, 0.98); u.shadeParams.set(1.45, 1.18, 0);
+      u.olColor = _c.setHSL((_hsl.h + 0.98) % 1, Math.min(1, _hsl.s * 1.15 + 0.05), Math.max(0.06, _hsl.l * 0.26)).getHex();
+    }
+    const sh = _shaders.get(m);
+    if (sh?.uniforms.uShadeMix) { sh.uniforms.uShadeMix.value = u.shadeMix; sh.uniforms.uRimStr.value = u.rimStrength; }
+  };
+  root.traverse((o) => { if (o.isMesh && !o.userData.isOutline) conf(o.material); });
+  root.traverse((o) => { // retint outline shells that were built before the look was applied
+    if (!o.userData.isOutline || !o.parent?.material?.userData?.olColor) return;
+    o.material = outlineMaterial(o.material.userData.thick ?? 0.006, o.parent.material.userData.olColor);
   });
 }
 

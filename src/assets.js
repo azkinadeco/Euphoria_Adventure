@@ -3,7 +3,7 @@
 // .glb arrives, and keep it for good if the file fails to load.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon, outline, outlineMaterial } from './toon.js';
 import { cullFar, zoneInstanced } from './cull.js';
 
@@ -229,7 +229,7 @@ export function applySkinned(name, rig, roles, old = [], { ol = 0.006 } = {}) {
       used.add(mat);
       const w = typeof ol === 'function' ? ol(o.name.replace(/[._\d].*$/, '')) : ol;
       if (w > 0 && !mat.isMeshBasicMaterial) {
-        const line = mk(outlineMaterial(w));
+        const line = mk(outlineMaterial(w, mat.userData.olColor));
         line.userData.isOutline = true; line.raycast = () => {}; line.castShadow = false;
         holder.add(line);
       }
@@ -244,7 +244,15 @@ export function applySkinned(name, rig, roles, old = [], { ol = 0.006 } = {}) {
   });
 }
 
-export function applyKit(name, parent, roles, old = [], { ol = 0.015, place } = {}) {
+const creasedCache = new WeakMap();
+/** smooth-shaded copy of a kit geometry (hard edges only above `angle`), shared by every clone */
+function creased(geo, angle) {
+  if (!creasedCache.has(geo)) creasedCache.set(geo, toCreasedNormals(geo, angle));
+  return creasedCache.get(geo);
+}
+
+/** crease: smooth the kit's normals up to this angle (rad) - hair reads as soft locks, not facets */
+export function applyKit(name, parent, roles, old = [], { ol = 0.015, place, crease } = {}) {
   return loadKitSrc(name).then((src) => {
     if (!src || !parent) return null;
     const m = src.clone(true);
@@ -254,6 +262,7 @@ export function applyKit(name, parent, roles, old = [], { ol = 0.015, place } = 
       const mat = roles[o.name.replace(/[._\d].*$/, '')];
       if (!mat) { o.visible = false; return; }
       o.material = mat; used.add(mat);
+      if (crease) o.geometry = creased(o.geometry, crease);
       o.castShadow = !mat.isMeshBasicMaterial; o.receiveShadow = true;
       if (ol > 0 && !mat.isMeshBasicMaterial) outline(o, ol);
     });
