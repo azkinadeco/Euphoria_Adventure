@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hero Viewer · Euphoria Adventure</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #2a2a34; overflow: hidden; font: 13px system-ui, sans-serif; color: #eee; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #bar { position: fixed; left: 8px; top: 8px; display: flex; gap: 6px; flex-wrap: wrap; max-width: 96vw; }
+    #bar button, #bar select { background: #1c1c26; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 4px 8px; }
+    #ref { position: fixed; right: 8px; bottom: 8px; height: 46vh; border-radius: 8px; background: #1c1c26; }
+  </style>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="bar"></div>
+  <img id="ref" alt="" />
+  <script type="module" src="/src/viewer.js"></script>
+</body>
+</html>

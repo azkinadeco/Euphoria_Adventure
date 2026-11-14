@@ -5138,6 +5138,117 @@ def build_abadonia():
 
 
 
+# ------------------------------------------------------------------ batch 38: hero footwear (foot joint)
+def build_hero_feet():
+    """One kit per shoe type, foot-local (ankle at the origin, ground at y = -0.09, toes toward +z).
+    Roles: skin (the foot itself / stocking), shoe, trim."""
+    G = -0.09
+    ARCH = [(0.0, -0.040, -0.030, 0.020, 0.018), (0.22, -0.043, -0.004, 0.027, 0.026), (0.5, -0.056, 0.04, 0.031, 0.022),
+            (0.76, -0.072, 0.082, 0.034, 0.0145), (1.0, -0.0795, 0.122, 0.017, 0.0085)]
+    FLAT = [(0.0, -0.066, -0.038, 0.021, 0.021), (0.25, -0.064, 0.0, 0.029, 0.025), (0.55, -0.0705, 0.045, 0.033, 0.0185),
+            (0.8, -0.077, 0.085, 0.037, 0.012), (1.0, -0.0805, 0.116, 0.024, 0.008)]
+    shade = lambda lo=0.8, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
+
+    def foot_fn(keys, push=0.0, t0=0.0, t1=1.0, a0=0.0, a1=TAU, point=0.0):
+        def f(u, v):
+            t = t0 + (t1 - t0) * v
+            y, z, w, h = cr(keys, t)
+            y2, z2, _, _ = cr(keys, min(1.0, t + 0.02))
+            y1, z1, _, _ = cr(keys, max(0.0, t - 0.02))
+            ty, tz = y2 - y1, z2 - z1
+            L = math.hypot(ty, tz) or 1.0
+            ny, nzz = tz / L, -ty / L  # normal in the y-z plane, pointing up
+            a = a0 + (a1 - a0) * u
+            ca, sa = math.cos(a), math.sin(a)
+            hh = (h + push) * (1.0 if ca > 0 else 0.62)  # flatter underneath
+            ww = (w + push) * (1 - point * max(0.0, t - 0.7) / 0.3)
+            return (ww * sa, y + ny * hh * ca, z + nzz * hh * ca)
+        return f
+
+    def foot(keys, push=0.0, t0=0.0, t1=1.0, a0=0.0, a1=TAU, nv=14, point=0.0, thick=0.0):
+        closed = abs((a1 - a0) - TAU) < 1e-6
+        ob = sheet('foot', 14, nv, foot_fn(keys, push, t0, t1, a0, a1, point), closed=closed, caps=(True, True))
+        if thick:
+            modify(ob, 'SOLIDIFY', thickness=thick, offset=1)
+        fix_normals(ob)
+        return smooth(ob, 60)
+
+    def ankle(keys, r0=0.031, push=0.0, top=-0.012):
+        y, z, w, h = cr(keys, 0.12)
+        return limb([(0, top + 0.03, -0.002), (0, top, -0.004), (0, (top + y) / 2, (z - 0.004) / 2 - 0.004), (0, y + 0.004, z + 0.006)],
+                    [r0 + push, r0 + push, r0 * 0.96 + push, r0 * 0.8 + push], 12)
+
+    def hoop(y, r, rt=0.0045, z=-0.004, tilt=0.0, n=18, sides=6):
+        pts = [(math.sin(k / n * TAU) * r, y + tilt * math.cos(k / n * TAU), math.cos(k / n * TAU) * r * 0.95 + z) for k in range(n)]
+        return limb(pts + [pts[0], pts[1]], [rt] * (n + 2), sides, cap=False)
+
+    def strap(keys, t, push=0.004, rt=0.004):
+        f = foot_fn(keys, push, t, t)
+        pts = [f(k / 14, 0) for k in range(14)]
+        return limb(pts + [pts[0], pts[1]], [rt] * 16, 6, cap=False)
+
+    def toes(n=5, y=-0.0815, z=0.118, mat=None):
+        out = []
+        for i in range(n):
+            x = (i - (n - 1) / 2) * 0.0115
+            r = 0.0078 - 0.0009 * abs(i - 1)
+            out.append(ell(r, (x, y + 0.001, z + 0.004 - 0.0035 * abs(i - 1.2)), (0.9, 0.8, 1.35), sub=1))
+        return out
+
+    def heel(keys, r_top=0.012, r_bot=0.0045, block=False):
+        y, z, w, h = cr(keys, 0.07)
+        if block:
+            return limb([(0, y - h * 0.3, z + 0.004), (0, G + 0.002, z + 0.002)], [0.018, 0.014], 8, cap=True)
+        return limb([(0, y - h * 0.3, z + 0.006), (0, (y + G) / 2, z + 0.001), (0, G + 0.001, z - 0.002)], [r_top, r_bot * 1.5, r_bot], 8, cap=True)
+
+    def sole(keys, push=0.0035, t0=0.0, t1=1.0):
+        return foot(keys, push, t0, t1, math.pi * 0.62, math.pi * 1.38, nv=12, thick=0.004)
+
+    # ---- bare foot (Kali, Micca, Abadonia)
+    sk = [foot(FLAT), ankle(FLAT)] + toes()
+    kit('kit_f_bare', {'skin': [paint(o, shade(0.9, 1.0)) for o in sk]})
+
+    # ---- pump: stiletto court shoe, instep bare (Rumi)
+    sk = [foot(ARCH, t1=0.9), ankle(ARCH)]
+    sh = [foot(ARCH, 0.0035, 0.55, 1.0, point=0.25), foot(ARCH, 0.0035, 0.0, 0.3), sole(ARCH, 0.0035, 0.25, 0.6), heel(ARCH)]
+    kit('kit_f_pump', {'skin': [paint(o, shade(0.9, 1.0)) for o in sk], 'shoe': [paint(o, shade(0.78, 1.0)) for o in sh]})
+
+    # ---- heeled sandal with ankle straps (Mora, Eropatra, Valeria, Gemora)
+    sk = [foot(ARCH), ankle(ARCH)] + toes(y=-0.08, z=0.124)
+    sh = [sole(ARCH, 0.004), heel(ARCH, block=True), strap(ARCH, 0.42), strap(ARCH, 0.8, rt=0.0045),
+          hoop(-0.018, 0.034), hoop(0.004, 0.0345), hoop(0.03, 0.036)]
+    # lacing that crosses over the instep
+    fa, fb = foot_fn(ARCH, 0.0045, 0.42, 0.42), foot_fn(ARCH, 0.0045, 0.8, 0.8)
+    for s in (-1, 1):
+        sh.append(limb([fa(0.5 + s * 0.3, 0), foot_fn(ARCH, 0.0045, 0.6, 0.6)(0.0, 0), fb(0.5 - s * 0.3, 0)], [0.0035] * 3, 5, cap=False))
+    kit('kit_f_sandal', {'skin': [paint(o, shade(0.9, 1.0)) for o in sk], 'shoe': [paint(o, shade(0.85, 1.0)) for o in sh]})
+
+    # ---- heeled ankle boot with a cuff (Scylla, Glytta, Commander)
+    sh = [foot(ARCH, 0.005, point=0.3), ankle(ARCH, 0.033, 0.005, top=0.0), heel(ARCH, 0.016, 0.008), sole(ARCH, 0.0075)]
+    cuff = sheet('cuff', 16, 3, lambda u, v: (lambda th, r: (math.sin(th) * r, 0.022 + 0.03 * v + 0.012 * math.cos(th) * v, math.cos(th) * r * 0.95 - 0.003))(u * TAU, 0.039 + 0.007 * v))
+    modify(cuff, 'SOLIDIFY', thickness=0.006, offset=-1)
+    fix_normals(cuff)
+    sh.append(smooth(cuff, 60))
+    tr = [hoop(0.022, 0.041, 0.005), strap(ARCH, 0.45, 0.0065, 0.0045), ell(0.009, (0, -0.046, 0.076), (1.2, 0.8, 1.2), sub=1)]
+    kit('kit_f_boot', {'shoe': [paint(o, shade(0.74, 1.0)) for o in sh], 'trim': [paint(o, WHITE) for o in tr]})
+
+    # ---- armoured sabaton: overlapping lames, pointed toe, ankle wings (Fidelia)
+    sh = [foot(FLAT, 0.006, point=0.45), ankle(FLAT, 0.034, 0.006, top=0.0)]
+    for k, t in enumerate((0.3, 0.46, 0.62, 0.78)):
+        sh.append(foot(FLAT, 0.0095 - 0.001 * k, t, t + 0.19, math.pi * -0.5, math.pi * 0.5, nv=3, thick=0.004))
+    tip = limb([(0, -0.079, 0.108), (0, -0.074, 0.14), (0, -0.064, 0.158)], [0.017, 0.009, 0.002], 6, 1.2, 1.0)
+    sh.append(tip)
+    tr = [hoop(0.024, 0.043, 0.0055), hoop(-0.012, 0.041, 0.004)]
+    for k, t in enumerate((0.3, 0.46, 0.62, 0.78)):
+        f = foot_fn(FLAT, 0.011 - 0.001 * k, t, t)
+        tr.append(limb([f(a / 8 * 0.5 - 0.25, 0) for a in range(9)], [0.003] * 9, 5, cap=False))
+    for sx in (-1, 1):  # little fins at the ankle bone
+        fin = mesh('fin', [B(sx * 0.036, 0.012, -0.012), B(sx * 0.04, -0.03, -0.02), B(sx * 0.078, 0.03, -0.055), B(sx * 0.05, 0.0, -0.03)], [(0, 1, 2), (0, 2, 3)] if sx > 0 else [(2, 1, 0), (3, 2, 0)])
+        modify(fin, 'SOLIDIFY', thickness=0.006, offset=0)
+        tr.append(fix_normals(fin))
+    kit('kit_f_sabaton', {'shoe': [paint(o, grey(0.74, 1.0, 3, 3.0, 0.85)) for o in sh], 'trim': [paint(o, WHITE) for o in tr]})
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -5180,6 +5291,7 @@ ASSETS = {
     'waystone': build_waystone,
     'abadonia': build_abadonia,
     'aba_body': build_aba_body,
+    'hero_feet': build_hero_feet,
 }
 
 for name, fn in ASSETS.items():
