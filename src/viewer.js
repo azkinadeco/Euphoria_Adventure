@@ -80,7 +80,7 @@ function frame() {
   if (view.play) { P.t += dt * 1.4; if (P.t >= 1) { P.t = 0.4; P.action = ''; view.play = false; } }
   if (rig && !P.freeze) {
     rig.root.rotation.y = P.yaw;
-    rig.update(dt, { speed: P.speed, sprint: !!P.sprint, grounded: !P.air, vy: P.air > 1 ? -2 : 3, action: P.action || null, actionT: P.t, combo: P.combo, dt });
+    rig.update(dt, { speed: P.speed, sprint: !!P.sprint, grounded: !P.air, vy: P.air > 1 ? -2 : 3, action: P.action || null, actionT: P.t, combo: P.combo, hurtT: P.hurt ? 1 : 0, dead: !!P.dead, dt });
   }
   vfx.update?.(dt);
   const d = 5.2 / P.zoom;

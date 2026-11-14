@@ -8,13 +8,16 @@ import { Rig } from './rig.js';
 /**
  * Painted anime face (eyes, brows, blush, nose, mouth) matched to each hero's key art.
  * iris: [upper shade, body, lower glow]; shape: round | sharp (raised outer corner) | droopy.
- * `closed` draws the same face with the eyes shut (blink frame).
+ * `mode`: 'closed' (or true) = eyes shut (blink frame); 'shout' = battle cry (wide mouth, set brows);
+ * 'hurt' = eyes screwed shut, small pained mouth.
  */
-function softFace(o = {}, closed = false) {
+function softFace(o = {}, mode = false) {
+  const hurt = mode === 'hurt', shout = mode === 'shout', closed = mode === true || mode === 'closed';
   const {
-    iris: iris1 = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], iris2 = null, lash = '#2a2238', brow = lash, browShape = 'soft', shape = 'round',
-    mouth = 'smile', blush = 0.38, lip = '#b8485e', liner = null, slit = false, shadow = 'rgba(150,90,110,0.5)',
+    iris: iris1 = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], iris2 = null, lash = '#2a2238', brow = lash, shape = 'round',
+    blush = 0.38, lip = '#b8485e', liner = null, slit = false, shadow = 'rgba(150,90,110,0.5)',
   } = o;
+  const browShape = shout ? 'firm' : hurt ? 'worried' : o.browShape ?? 'soft', mouth = shout ? 'shout' : hurt ? 'hurt' : o.mouth ?? 'smile';
   const TAU = Math.PI * 2;
   return canvasTex(768, 768, (g) => {
     g.scale(3, 3);
@@ -28,7 +31,10 @@ function softFace(o = {}, closed = false) {
         g.beginPath(); g.moveTo(cx - f * (ew + 1), cy - 6 + tilt * 0.5);
         g.bezierCurveTo(cx - f * ew * 0.7, cy - eh - 7, cx + f * ew * 0.45, cy - eh - 6, cx + f * (ew + 3), cy - 13 - tilt);
       };
-      if (closed) {
+      if (hurt) { // > <
+        g.strokeStyle = lash; g.lineWidth = 6.5;
+        g.beginPath(); g.moveTo(cx + f * (ew + 2), cy - 15); g.lineTo(cx - f * ew * 0.75, cy + 3); g.lineTo(cx + f * (ew + 2), cy + 17); g.stroke();
+      } else if (closed) {
         g.strokeStyle = lash; g.lineWidth = 6.5;
         g.beginPath(); g.moveTo(cx - f * (ew + 1), cy + 4); g.quadraticCurveTo(cx, cy + 17, cx + f * (ew + 3), cy + 3 - tilt); g.stroke();
         g.lineWidth = 3.5;
@@ -96,15 +102,25 @@ function softFace(o = {}, closed = false) {
     else if (mouth === 'open') {
       g.fillStyle = '#8a2a3a'; g.moveTo(117, 205); g.quadraticCurveTo(128, 222, 139, 205); g.quadraticCurveTo(128, 208, 117, 205); g.fill(); g.stroke();
       g.fillStyle = '#ff9aa8'; g.beginPath(); g.ellipse(128, 212, 5, 2.5, 0, 0, TAU); g.fill();
+    } else if (mouth === 'shout') {
+      g.fillStyle = '#7a1f30'; g.moveTo(111, 203); g.quadraticCurveTo(128, 198, 145, 203); g.quadraticCurveTo(144, 229, 128, 231); g.quadraticCurveTo(112, 229, 111, 203); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.moveTo(115, 203.5); g.quadraticCurveTo(128, 200, 141, 203.5); g.quadraticCurveTo(128, 209, 115, 203.5); g.fill();
+      g.fillStyle = '#ff9aa8'; g.beginPath(); g.ellipse(128, 223, 8.5, 4.5, 0, 0, TAU); g.fill();
+    } else if (mouth === 'hurt') {
+      g.fillStyle = '#8a2a3a'; g.moveTo(119, 207); g.quadraticCurveTo(123, 203, 128, 207); g.quadraticCurveTo(133, 203, 137, 207); g.quadraticCurveTo(134, 219, 128, 219); g.quadraticCurveTo(122, 219, 119, 207); g.fill(); g.stroke();
     } else { g.moveTo(118, 209); g.quadraticCurveTo(128, 211, 138, 209); g.stroke(); }
-    if (mouth !== 'open') { // lower-lip shine
+    if (mouth !== 'open' && mouth !== 'shout' && mouth !== 'hurt') { // lower-lip shine
       g.strokeStyle = 'rgba(230,120,130,0.45)'; g.lineWidth = 2;
       g.beginPath(); g.moveTo(123, 216); g.quadraticCurveTo(128, 218, 133, 216); g.stroke();
     }
   });
 }
-/** open + closed frames of a face; Rig.update swaps them to blink */
-const faces = (o) => ({ open: softFace(o), closed: softFace(o, true) });
+/** open + closed frames of a face (Rig.update swaps them to blink); the battle-cry and pained
+ * frames are painted the first time a hero needs them */
+const faces = (o) => {
+  let shout, hurt;
+  return { open: softFace(o), closed: softFace(o, true), get shout() { return shout ??= softFace(o, 'shout'); }, get hurt() { return hurt ??= softFace(o, 'hurt'); } };
+};
 
 /** Blender weapon kit (batch 22) built in the holder's own space; the primitive parts in `old` are replaced */
 const weapon = (name, holder, roles, old = [...holder.children], ol = 0.004) => applyKit(name, holder, roles, old, { ol });

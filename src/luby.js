@@ -13,7 +13,8 @@ const C = {
   stocking: 0x17181d, white: 0xf4f4f0, glow: 0xb8ff4a,
 };
 
-function faceTexture(closed = false) {
+function faceTexture(mode = false) {
+  const closed = mode === true || mode === 'hurt', shout = mode === 'shout', hurt = mode === 'hurt';
   return canvasTex(512, 512, (g) => {
     g.scale(2, 2); const w = 256, h = 256; // drawn at 256, rasterised at 512 for crisp eyes
     g.clearRect(0, 0, w, h);
@@ -80,6 +81,20 @@ function faceTexture(closed = false) {
     g.strokeStyle = 'rgba(220,70,90,0.7)'; g.lineWidth = 2;
     for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
       g.beginPath(); g.moveTo(128 + s * (64 + i * 9), 182); g.lineTo(128 + s * (69 + i * 9), 173); g.stroke();
+    }
+    if (shout || hurt) { // battle cry: wide open, both fangs; hurt: a small wobbly mouth
+      g.fillStyle = '#7a1f2c'; g.strokeStyle = '#3a1218'; g.lineWidth = 2.5;
+      g.beginPath();
+      if (shout) { g.moveTo(106, 203); g.quadraticCurveTo(128, 197, 152, 203); g.quadraticCurveTo(150, 234, 128, 236); g.quadraticCurveTo(108, 234, 106, 203); }
+      else { g.moveTo(117, 207); g.quadraticCurveTo(122, 202, 128, 207); g.quadraticCurveTo(134, 202, 139, 207); g.quadraticCurveTo(136, 221, 128, 221); g.quadraticCurveTo(120, 221, 117, 207); }
+      g.fill(); g.stroke();
+      if (shout) {
+        g.fillStyle = '#ff8fa0'; g.beginPath(); g.ellipse(129, 227, 10, 5, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#fff';
+        g.beginPath(); g.moveTo(111, 203); g.lineTo(119, 202); g.lineTo(115, 214); g.fill();
+        g.beginPath(); g.moveTo(138, 202); g.lineTo(146, 203); g.lineTo(142, 214); g.fill();
+      }
+      return;
     }
     // grin with fang
     g.fillStyle = '#7a1f2c';
@@ -160,7 +175,8 @@ export class Luby extends Rig {
     M.stocking = animeCloth(0xffffff, { map: st.map, emissiveMap: st.emi, emissive: 0x9cff3a, emissiveIntensity: 0.9 });
     M.stockK = toon(C.stocking);
     M.stockK.userData.rimColor = new THREE.Color(0xffffff); M.stockK.userData.rimStrength = 0.45; // kit loads after applyRim runs
-    this.faceTex = { open: faceTexture(), closed: faceTexture(true) };
+    let fShout, fHurt;
+    this.faceTex = { open: faceTexture(), closed: faceTexture(true), get shout() { return fShout ??= faceTexture('shout'); }, get hurt() { return fHurt ??= faceTexture('hurt'); } };
     M.face = toon(0xffffff, { map: this.faceTex.open, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, isFace: true });
 
     const j = this.j;

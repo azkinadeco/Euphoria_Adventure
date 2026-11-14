@@ -66,6 +66,16 @@ export class Rig {
 
     const spd = st.speed || 0;
     const moving = spd > 0.3 && st.grounded;
+    // landing recoil: the knees give for a moment when she touches down after a real fall
+    if (st.grounded && this._air > 0.25 && !st.dead) this.landT = 0.24;
+    this._air = st.grounded ? 0 : (this._air || 0) + dt;
+    this.landT = Math.max(0, (this.landT || 0) - dt);
+    // lean into turns while running (yaw rate of the rig in the world)
+    const me = this.root.matrixWorld.elements, yawW = Math.atan2(me[8], me[10]);
+    const dYaw = Math.atan2(Math.sin(yawW - (this._yawW ?? yawW)), Math.cos(yawW - (this._yawW ?? yawW)));
+    this._yawW = yawW;
+    const leanT = moving && dt > 0 ? Math.max(-0.2, Math.min(0.2, -dYaw / dt * 0.03)) * Math.min(1, spd / 5) : 0;
+    this._lean = damp(this._lean || 0, leanT, 6, dt);
     if (!moving && st.grounded && !st.action) this.idleT += dt; else this.idleT = 0;
 
     if (moving) {
@@ -318,6 +328,12 @@ export class Rig {
       hipsY = 0.22; k = 6;
     }
 
+    if (this.landT > 0 && !a && !st.swim && !st.dead) {
+      const L = Math.sin((this.landT / 0.24) * Math.PI);
+      T.kneeL[0] += 0.6 * L; T.kneeR[0] += 0.6 * L; T.legL[0] -= 0.32 * L; T.legR[0] -= 0.32 * L; T.spine[0] += 0.2 * L; T.head[0] -= 0.1 * L;
+      hipsY -= 0.075 * L; k = Math.max(k, 24);
+    }
+
     for (const n of names) {
       const g = j[n], tg = T[n];
       g.rotation.x = damp(g.rotation.x, tg[0], k, dt);
@@ -326,7 +342,8 @@ export class Rig {
     }
     j.hips.position.y = damp(j.hips.position.y, hipsY - 0.8, k, dt);
     // dead: lie on side
-    j.pivot.rotation.z = damp(j.pivot.rotation.z, st.dead ? 1.45 : 0, 5, dt);
+    this._fall = damp(this._fall || 0, st.dead ? 1.45 : 0, 5, dt);
+    j.pivot.rotation.z = this._fall + (st.dead ? 0 : this._lean);
 
     j.pivot.rotation.y = spin;
     // long back hair lags behind the motion and settles with a soft sway
@@ -363,7 +380,9 @@ export class Rig {
     const shut = st.dead || (this.blink > 0 && !(this.blink > 0.11 && this.blink < 0.23));
     const ft = this.faceTex;
     if (ft?.closed && this.faceMesh) {
-      const want = shut ? ft.closed : ft.open;
+      // expressions: pained wince when hit, a battle cry on finishers and skills, otherwise blink
+      const cry = a === 'burst' ? t > 0.3 && t < 0.85 : a === 'attack' ? st.combo === 3 && t > 0.2 && t < 0.7 : a === 'fang' || a === 'spin' || a === 'pounce' || a === 'bash';
+      const want = st.dead ? ft.closed : st.hurtT > 0 && ft.hurt ? ft.hurt : cry && ft.shout ? ft.shout : shut ? ft.closed : ft.open;
       if (this.faceMesh.material.map !== want) this.faceMesh.material.map = want;
     }
   }
