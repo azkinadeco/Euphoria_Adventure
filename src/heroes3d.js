@@ -227,7 +227,8 @@ export class FideliaRig extends Rig {
   constructor() { super('Fidelia'); }
   _build() {
     this.style = 'sword';
-    const skin = toon(0xffe4d4), shell = toon(0xf4eef8, { flatShading: true }), pearl = toon(0xe6dcf2), blue = toon(0x7fc4ec);
+    // mother-of-pearl: a broad rose highlight over the white shell
+    const skin = toon(0xffe4d4), shell = toon(0xf4eef8, { flatShading: true, specStrength: 0.55, specPower: 9, specThreshold: 0.5, specColor: 0xff9fd8 }), pearl = toon(0xe6dcf2, { specStrength: 0.5, specPower: 14, specThreshold: 0.55, specColor: 0x9fe8ff }), blue = toon(0x7fc4ec);
     const hairC = 0xcfe6f6;
     const H = buildBody(this, {
       skin, bottom: shell, chest: skin, hair: toon(hairC), hair2: toon(0xa9d4f0), hairColor: hairC, hairLen: 0.7, hairStyle: 'wavy', curvy: true,
@@ -256,6 +257,9 @@ export class FideliaRig extends Rig {
     const skirt = add(hips, part(Cy(0.15, 0.2, 0.12, 12, true), fauldM, { ol: 0.006 }), 0, -0.04, 0);
     outfit({ fidFauld: fauldM }, [skirt]);
     const belt = add(hips, part(new THREE.TorusGeometry(0.145, 0.015, 6, 20), blue, { ol: 0 }), 0, 0.03, 0); belt.rotation.x = Math.PI / 2;
+    // thigh band with a little shell (key art, left leg)
+    const band = add(this.j.legL, part(new THREE.TorusGeometry(0.079, 0.008, 6, 18), pearl, { ol: 0 }), 0.004, -0.16, 0); band.rotation.x = Math.PI / 2;
+    add(this.j.legL, part(Sp(0.02, 8, 6), shell, { ol: 0.003 }), 0.06, -0.16, 0.055).scale.set(1, 1, 0.5);
     // shell helmet with fins
     const helm = add(head, part(Sp(0.142, 18, 10, 0, Math.PI * 2, 0, 1.15), shell, { ol: 0.008 }), 0, 0.115, -0.01);
     void helm;
@@ -432,14 +436,14 @@ export class EropatraRig extends Rig {
     armor.chest({ usekh: gold, usekhBead: toon(0x2fb8c8) }, [collar]);
     armor.head({ eroCrown: gold }, [crown]);
     add(head, new THREE.Mesh(Sp(0.03, 8, 6), new THREE.MeshBasicMaterial({ color: 0x40d0ff })), 0, 0.2, 0.135);
-    const halo = add(head, new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 6, 28), new THREE.MeshBasicMaterial({ color: 0xffd86a })), 0, 0.2, -0.17);
-    void halo;
+    const halo = add(head, new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.011, 6, 32), new THREE.MeshBasicMaterial({ color: 0xffd86a })), 0, 0.4, -0.01);
+    halo.rotation.x = Math.PI / 2 - 0.18; // floating over the crown, as in the key art
     for (const s of [-1, 1]) add(head, part(Cy(0.03, 0.03, 0.05, 8), gold, { ol: 0.003 }), s * 0.11, -0.06, 0.04);
     for (const s of [-1, 1]) { const arm = this.j['elbow' + (s > 0 ? 'L' : 'R')]; add(arm, part(Cy(0.046, 0.046, 0.06, 10), gold, { ol: 0.003 }), 0, -0.05, 0); }
     // cape
     const capeM = toon(0xf0e6c8, { side: THREE.DoubleSide });
     const cape = add(chest, part(Cy(0.2, 0.45, 1.2, 18, true, Math.PI * 0.55, Math.PI * 0.9), capeM, { ol: 0.006 }), 0, -0.5, -0.03);
-    outfit({ eroSkirt: skM, eroGold: gold, eroCape: capeM }, [sk, hem, panel, cape]);
+    outfit({ eroSkirt: skM, eroGold: gold, eroCape: capeM, eroSleeve: capeM }, [sk, hem, panel, cape]);
     // Anubis staff
     const st = new THREE.Group(); this.j.handR.add(st);
     this.trails = [[st, [0, 0.55, 0], [0, 1.15, 0]]];
@@ -504,15 +508,15 @@ export class ValeriaRig extends Rig {
       face: faces({ iris: ['#123a7a', '#3f8ff0', '#c8ecff'], lash: '#1a120e', brow: '#2a1e18', browShape: 'worried', mouth: 'open', blush: 0.7, lip: '#a03040' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit } = H;
+    // key art: bare shoulders, short pleated gold skirt, laurel wreath, leaf collar and bracers
     const tasM = toon(0xd8a840, { side: THREE.DoubleSide, flatShading: true });
     const tas = add(hips, part(Cy(0.15, 0.22, 0.16, 12, true), tasM, { ol: 0.006 }), 0, -0.06, 0);
-    outfit({ valTasset: tasM }, [tas]);
-    const pads = [];
-    for (const sx of [-1, 1]) { const pad = add(chest, part(Sp(0.08, 10, 8), gold, { ol: 0.006 }), sx * 0.19, 0.12, 0); pad.scale.y = 0.75; pads.push(pad); }
+    outfit({ valSkirt: tasM }, [tas]);
     const circ = add(head, part(new THREE.TorusGeometry(0.13, 0.014, 6, 20), gold, { ol: 0.003 }), 0, 0.17, 0.01); circ.rotation.x = Math.PI / 2 - 0.25;
-    H.armor.pauldrons({ valPad: gold, valRim: dark }, pads);
-    H.armor.head({ valCirclet: gold }, [circ]);
-    add(head, new THREE.Mesh(new THREE.OctahedronGeometry(0.025), new THREE.MeshBasicMaterial({ color: 0x9ee8ff })), 0, 0.19, 0.13);
+    applyKit('kit_val_laurel', head, { leaf: gold }, [circ], { ol: 0.004, crease: 1.0 });
+    const collar = add(chest, part(new THREE.TorusGeometry(0.05, 0.011, 6, 18), gold, { ol: 0 }), 0, 0.168, 0.002); collar.rotation.x = Math.PI / 2;
+    for (let k = 0; k < 5; k++) { const lf = add(chest, part(new THREE.ConeGeometry(0.011, 0.04, 4), gold, { ol: 0 }), (k - 2) * 0.021, 0.143 - Math.abs(k - 2) * 0.004, 0.052 - Math.abs(k - 2) * 0.008); lf.rotation.set(Math.PI - 0.5, 0, (k - 2) * 0.22); lf.scale.z = 0.4; }
+    const belt = add(hips, part(new THREE.TorusGeometry(0.15, 0.012, 6, 22), gold, { ol: 0 }), 0, 0.028, -0.008); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.74, 1);
     const ah = add(head, part(new THREE.ConeGeometry(0.012, 0.12, 4), dark, { ol: 0 }), 0, 0.27, 0.02); ah.rotation.z = 0.5; // ahoge
     // greatsword with an icy edge
     const sw = new THREE.Group(); this.j.handR.add(sw);

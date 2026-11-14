@@ -4351,9 +4351,29 @@ def build_hero_outfits():
             R[role].append(cl)
 
     # ---- Fidelia: shell faulds (scalloped plates, open at the front)
-    plates('fidFauld', 9, 0.905, 0.775, 0.162, 0.205, a0=TAU / 9 * 0.5, skip=(), curl=0.016)
+    plates('fidFauld', 9, 0.905, 0.775, 0.162, 0.205, a0=TAU / 9 * 0.5, skip=(0, 8), curl=0.016)  # open at the front: hip plates only (key art)
     # ---- Valeria: long gold tassets (front pair + sides + back)
     plates('valTasset', 7, 0.905, 0.72, 0.162, 0.215, a0=0.0, curl=0.022, k=0.85)
+    # ---- Valeria: short pleated cloth skirt (key art)
+    vpl = lambda th, v: 0.012 * (0.2 + v) * (abs(math.sin(th * 11)) - 0.5)
+    skirt('valSkirt', 0.905, 0.745, 0.162, 0.238, vpl, lambda th: 0.006 * math.sin(th * 22), nu=88, nv=8, k=0.82,
+          pnt=lambda p, n, pc: (lambda q: (q, q, q))(0.7 + 0.3 * abs(math.sin(math.atan2(p.x, -p.y) * 11))))
+    # ---- Eropatra: wide hanging robe sleeves (arm / elbow joints), longer at the back
+    for sd, kk in ((1, 'L'), (-1, 'R')):
+        def slv(u, v, sd=sd):
+            th = u * TAU
+            y0 = 1.13 - (1.13 - 0.8) * v
+            r = 0.052 + 0.085 * v ** 1.6
+            hang = 0.17 * v ** 2 * (0.5 - 0.5 * math.cos(th - math.pi)) ** 1.5  # the back of the cuff droops
+            fold = 0.006 * v * math.sin(th * 7)
+            return (sd * 0.175 + (r + fold) * math.sin(th) * sd, y0 - hang, -0.01 + (r + fold) * math.cos(th) - 0.03 * v ** 2)
+        so = sheet('eroSleeve', 24, 12, slv)
+        modify(so, 'SOLIDIFY', thickness=0.005, offset=0)
+        fix_normals(so)
+        wsl = lambda x, y, z, kk=kk: (lambda e: {'arm' + kk: 1 - e, 'elbow' + kk: e})(sst((1.02 - y) / 0.08))
+        put('eroSleeve', so, wsl, shade(0.82, 1.0))
+        cuff = [slv(k / 24, 1.0) for k in range(24)]
+        put('eroGold', limb(cuff + [cuff[0], cuff[1]], [0.007] * 26, 6, cap=False), wsl, shade(0.9, 1.0))
     # ---- Scylla: two-tier ruffled skirt
     ruff = lambda n, a: (lambda th, v: a * v * v * math.sin(th * n))
     skirt('scySkirt', 0.905, 0.79, 0.161, 0.205, ruff(16, 0.012), lambda th: 0.006 * math.sin(th * 16))
@@ -5416,6 +5436,21 @@ def build_hero_extras():
         clasp.append(paint(limb([(0.105, 0.2, 0.065), (0.105 + 0.045 * math.sin(a), 0.2 + 0.05 * math.cos(a), 0.062), (0.105 + 0.07 * math.sin(a), 0.2 + 0.075 * math.cos(a), 0.05)],
                                 [0.008, 0.006, 0.001], 5, 1.0, 0.5), shade(0.85, 1.0)))
     kit('kit_rumi_horn', {'horn': [horn], 'clasp': clasp})
+
+    # ---- Valeria: laurel wreath (head-local): leaves fanning back from the brow on both sides
+    leaves = []
+    for sx in (-1, 1):
+        for k in range(9):
+            a = 0.22 + k * 0.3
+            cx, cz = math.sin(a) * 0.136 * sx, math.cos(a) * 0.138 + 0.006
+            y = 0.185 + 0.03 * (1 - math.cos(a)) * 0.5 + 0.012 * (k % 2)
+            for up in (1, -1):
+                tip = (cx + sx * 0.012 * math.cos(a) * 1.5 - math.sin(a) * 0.0, y + up * 0.03 + 0.012, cz - 0.03 * math.sin(a) - 0.012)
+                mid = ((cx * 1.04 + tip[0]) / 2, (y + tip[1]) / 2 + 0.004 * up, (cz * 1.04 + tip[2]) / 2)
+                leaves.append(paint(limb([(cx, y, cz), mid, tip], [0.004, 0.012, 0.0015], 6, 1.0, 0.45), shade(0.8, 1.0)))
+    band = [(math.sin(k / 30 * TAU) * 0.134, 0.185 + 0.03 * (1 - math.cos(k / 30 * TAU)) * 0.5, math.cos(k / 30 * TAU) * 0.136 + 0.006) for k in range(30)]
+    leaves.append(paint(limb(band + [band[0], band[1]], [0.005] * 32, 6, cap=False), shade(0.8, 1.0)))
+    kit('kit_val_laurel', {'leaf': leaves})
 
 
 ASSETS = {
