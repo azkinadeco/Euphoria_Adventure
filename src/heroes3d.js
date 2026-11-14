@@ -377,7 +377,7 @@ export class ScyllaRig extends Rig {
     this.style = 'scythe';
     const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x221c2a, { net: [0.024, 0.14, 0.76] }), netArm = toon(0x221c2a, { net: [0.022, 0.14, 9, 0.175] }), netMid = toon(0x221c2a, { net: [0.024, 0.14, 9, 0] }), silver = toon(0xe9e9f2);
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: netMid, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy', curvy: true,
+      skin, bottom: black, chest: netMid, bandeau: black, waist: netMid, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy', curvy: true,
       thigh: net, knee: net, shin: net, shoe: black, upperArm: netArm, shoulder: skin, forearm: black, hand: black, foot: ['boot', { shoe: black, trim: purple }],
       face: faces({ iris: ['#2a1050', '#8a5ae0', '#e0c8ff'], lash: '#2a2430', brow: '#b4b4c6', browShape: 'firm', shape: 'sharp', mouth: 'flat', blush: 0.2, lip: '#b05070' }),
     });
@@ -387,7 +387,10 @@ export class ScyllaRig extends Rig {
     const skM = toon(0xf0f0f6, { side: THREE.DoubleSide });
     const sk = add(hips, part(Cy(0.15, 0.22, 0.14, 14, true), skM, { ol: 0.006 }), 0, -0.05, 0);
     outfit({ scySkirt: skM, scyLace: toon(0x2a2232, { side: THREE.DoubleSide }) }, [sk]);
-    for (const sx of [-1, 1]) add(chest, new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.16, 0.01), purple), sx * 0.04, 0.0, 0.1);
+    // key art: armoured bustier over the fishnet, one layered pauldron on the scythe arm, a collar
+    applyKit('kit_a_pauldron', this.j.armR, { valPad: black, valRim: purple }, [], { ol: 0.005, place: (m) => { m.scale.set(-1.12, 1.12, 1.12); } });
+    const collar = add(chest, part(new THREE.TorusGeometry(0.05, 0.009, 6, 18), black, { ol: 0 }), 0, 0.165, 0.002); collar.rotation.x = Math.PI / 2;
+    add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.012), new THREE.MeshBasicMaterial({ color: 0xb070ff })), 0, 0.158, 0.05);
     // hair ornament (shell)
     add(this.j.head, part(Sp(0.03, 8, 6), purple, { ol: 0.004 }), 0.1, 0.18, 0.04);
     // giant abyss scythe
@@ -456,21 +459,30 @@ export class RumiRig extends Rig {
     this.style = 'cstaff';
     const skin = toon(0xf2c8a4), black = toon(0x1a1418), stock = toon(0x1c161c, { net: [0, 0, 0.62] }), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy', curvy: true,
-      thigh: stock, knee: stock, shin: stock, shoe: red, upperArm: skin, forearm: black, hand: black, foot: ['pump', { skin: black, shoe: red }],
-      face: faces({ iris: ['#4a1408', '#c85a28', '#ffc890'], lash: '#2a1a10', brow: '#b8923a', shape: 'droopy', mouth: 'smile', lip: '#c04848' }),
+      skin, bottom: black, bandeau: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy', curvy: true,
+      thigh: stock, knee: stock, shin: stock, shoe: red, upperArm: toon(0x1a1418, { net: [0, 0, 1.1, 0.175] }), shoulder: skin, forearm: black, hand: black, foot: ['pump', { skin: black, shoe: red }],
+      face: faces({ iris: ['#4a1408', '#c85a28', '#ffc890'], lash: '#2a1a10', brow: '#b8923a', shape: 'droopy', mouth: 'smirk', lip: '#c04848' }),
     });
     const { add, Sp, Cy, chest, head, hips, outfit } = H;
     const skM = toon(0x1a1418, { side: THREE.DoubleSide });
     const sk = add(hips, part(Cy(0.15, 0.24, 0.26, 14, true), skM, { ol: 0.006 }), 0, -0.1, 0);
-    for (const s of [-1, 1]) { // curled horns
+    // key art: tall ridged demon horns with a silver clasp, strapless corset dress laced in red,
+    // detached sleeves, a jewelled choker
+    const hornM = toon(0x2a2026, { specStrength: 0.5, specPower: 30 }), claspM = toon(0xc8c8d8, { specStrength: 0.9, specPower: 40 });
+    const hornOld = [];
+    for (const s of [-1, 1]) {
       const h = add(head, part(new THREE.ConeGeometry(0.035, 0.2, 8), black, { ol: 0.004 }), s * 0.1, 0.22, 0.0);
-      h.rotation.set(-0.5, 0, -s * 0.7);
+      h.rotation.set(-0.5, 0, -s * 0.7); hornOld.push(h);
+      applyKit('kit_rumi_horn', head, { horn: hornM, clasp: s < 0 ? claspM : undefined }, s > 0 ? [] : hornOld, { ol: 0.005, crease: 1.0, place: (m) => { m.scale.x = s; } });
     }
+    for (let k = 0; k < 4; k++) { // crossed lacing down the bodice
+      for (const d of [-1, 1]) { const l = add(H.spine, new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.005, 0.004), red), 0, 0.03 + k * 0.034, 0.083 - k * 0.002); l.rotation.z = d * 0.62; }
+    }
+    const choker = add(chest, part(new THREE.TorusGeometry(0.046, 0.008, 6, 18), black, { ol: 0 }), 0, 0.17, 0.002); choker.rotation.x = Math.PI / 2;
     const capeM = toon(0x9a1a24, { side: THREE.DoubleSide });
     const cape = add(chest, part(Cy(0.2, 0.46, 1.0, 18, true, Math.PI * 0.55, Math.PI * 0.9), capeM, { ol: 0.006 }), 0, -0.4, -0.03);
     outfit({ rumSkirt: skM, rumCape: capeM }, [sk, cape]);
-    add(chest, new THREE.Mesh(Sp(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff3a4a })), 0, 0.12, 0.1);
+    add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.013), new THREE.MeshBasicMaterial({ color: 0xff3a4a })), 0, 0.158, 0.048);
     // cross-spike staff
     const st = new THREE.Group(); this.j.handR.add(st);
     st.position.set(0, -0.04, 0); st.rotation.x = Math.PI / 2 - 0.15;

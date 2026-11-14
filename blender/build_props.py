@@ -5375,6 +5375,49 @@ def build_micca():
     kit('kit_micca_lid', {'wood': wood, 'gold': gold, 'teeth': teeth})
 
 
+# ------------------------------------------------------------------ batch 44+: small per-hero accessory kits
+def crpath(pts, radii, n=6):
+    """Catmull-Rom resample of a tube path: (points, radii) with n steps per segment"""
+    P = [Vector(q) for q in pts]
+    out, rad = [], []
+    for i in range(len(P) - 1):
+        p0, p1, p2, p3 = P[max(i - 1, 0)], P[i], P[i + 1], P[min(i + 2, len(P) - 1)]
+        for j in range(n):
+            t = j / n
+            out.append(tuple(0.5 * ((2 * p1) + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t ** 3)))
+            rad.append(radii[i] + (radii[i + 1] - radii[i]) * t)
+    out.append(tuple(P[-1]))
+    rad.append(radii[-1])
+    return out, rad
+
+
+def build_hero_extras():
+    shade = lambda lo=0.78, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
+
+    def ridged(pts, radii, n=7, every=3, amp=0.12, sides=9):
+        P, R = crpath(pts, radii, n)
+        m = len(P) - 1
+        R = [r * (1 + (amp if i % every == 0 else 0.0) * (1 - i / m)) for i, r in enumerate(R)]
+        ob = limb(P, R, sides, cap=True)
+        S = [Vector(B(*q)) for q in P]
+
+        def col(p, nn, pc):
+            i = min(range(m + 1), key=lambda q: (S[q] - p).length_squared)
+            k = 0.7 + 0.3 * (i / m) ** 0.7 + (0.07 if i % every == 0 else -0.03)
+            return (min(1.0, k),) * 3
+        return paint(ob, col)
+
+    # ---- Rumi: tall lyre-shaped demon horns (head-local, +x side; mirrored in game) + silver hair clasp
+    horn = ridged([(0.082, 0.2, 0.015), (0.145, 0.255, 0.0), (0.185, 0.34, -0.012), (0.165, 0.425, -0.005), (0.11, 0.475, 0.015), (0.075, 0.485, 0.03)],
+                  [0.037, 0.034, 0.027, 0.018, 0.009, 0.002])
+    clasp = [paint(ell(0.024, (0.105, 0.2, 0.06), (0.7, 1.0, 0.5), sub=2), shade(0.85, 1.0))]
+    for k in range(3):
+        a = -0.6 + k * 0.6
+        clasp.append(paint(limb([(0.105, 0.2, 0.065), (0.105 + 0.045 * math.sin(a), 0.2 + 0.05 * math.cos(a), 0.062), (0.105 + 0.07 * math.sin(a), 0.2 + 0.075 * math.cos(a), 0.05)],
+                                [0.008, 0.006, 0.001], 5, 1.0, 0.5), shade(0.85, 1.0)))
+    kit('kit_rumi_horn', {'horn': [horn], 'clasp': clasp})
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -5420,6 +5463,7 @@ ASSETS = {
     'hero_feet': build_hero_feet,
     'hero_curvy': build_hero_curvy,
     'micca': build_micca,
+    'hero_extras': build_hero_extras,
 }
 
 for name, fn in ASSETS.items():
