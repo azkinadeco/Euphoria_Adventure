@@ -4358,7 +4358,25 @@ def build_hero_outfits():
     pn = sheet('eroGold', 6, 14, panel, closed=False)
     put('eroGold', pn, w_skirt(0.905, 0.47, 0.8), lambda p, n, pc: (lambda q: (q, q, q))(0.8 + 0.2 * (0.5 + 0.5 * math.sin(p.z * 120))), 0.006)
     # ---- capes (rig joints capeA / capeB flutter them)
-    cape('moraCape', 1.25, 0.2, 0.2, 0.44, 0.3 * math.pi, 0.42 * math.pi, uv=True)
+    # lavender outside (the star map), rose lining
+    cape('moraCape', 1.25, 0.2, 0.2, 0.44, 0.3 * math.pi, 0.42 * math.pi, uv=True,
+         pnt=lambda p, n, pc: (lambda q: (q, q, q) if n.x * p.x + n.y * (p.y - 0.02) > 0 else (q, 0.5 * q, 0.68 * q))(0.82 + 0.18 * (0.55 + 0.45 * n.z)))
+    # ---- Mora: long narrow tabard hanging from the waist, front and back (key art)
+    for sg in (1, -1):
+        def tab(u, v, sg=sg):
+            y = 0.9 + (0.17 - 0.9) * v
+            wd = 0.082 - 0.03 * v
+            x = (u - 0.5) * 2 * wd * (1 - max(0.0, v - 0.9) / 0.1 * (1 - abs(u - 0.5) * 0)) * (1 if v < 0.9 else 1 - (v - 0.9) / 0.1 * abs(2 * u - 1) ** 0.5 * 0.9)
+            zc = (0.094 if sg > 0 else 0.118) + 0.022 * math.sin(min(1.0, v * 2.2) * math.pi / 2) - 0.25 * x * x
+            return (x, y - (0.03 * (1 - abs(2 * u - 1)) if v >= 0.999 else 0.0), sg * (zc + 0.004 * math.sin(v * 11 + u * 3)))
+        tb = sheet('moraTab', 8, 18, tab, closed=False)
+        modify(tb, 'SOLIDIFY', thickness=0.005, offset=0)
+        fix_normals(tb)
+        put('moraTab', tb, w_skirt(0.9, 0.17, 0.55), lambda p, n, pc: (lambda q: (q, q, q))(0.9 + 0.1 * abs(n.y)))
+        edge = [tab(u, 1.0) for u in (0.0, 0.25, 0.5, 0.75, 1.0)]
+        put('moraTabTrim', limb(edge, [0.006] * 5, 6, cap=True), w_skirt(0.9, 0.17, 0.55), shade(0.9, 1.0))
+        band = [(lambda th: (0.15 * math.sin(th), 0.905, sg * (0.1 * math.cos(th) + (0.0 if sg > 0 else 0.02))))(a / 8 * 1.5 - 0.75) for a in range(9)]
+        put('moraTabTrim', limb(band, [0.008] * 9, 6, cap=True), lambda x, y, z: {'hips': 1.0}, shade(0.9, 1.0))
     cape('eroCape', 1.25, 0.05, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi)
     # black outside, the material's crimson only on the lining
     cape('rumCape', 1.25, 0.24, 0.2, 0.46, 0.3 * math.pi, 0.44 * math.pi, folds=0.03,
@@ -4553,7 +4571,8 @@ def build_hero_armor():
     sheet_uv(ho, NU, NV)
     modify(ho, 'SOLIDIFY', thickness=0.008, offset=1)
     fix_normals(ho)
-    Hd['moraHood'] = [paint(ho, lambda p, n, pc: (lambda k: (k, k, k))(0.8 + 0.2 * (0.5 + 0.5 * n.z)))]
+    hc = Vector(B(0, 0.11, -0.015))  # rose lining: faces that look at the head
+    Hd['moraHood'] = [paint(ho, lambda p, n, pc: (lambda k: (k, k, k) if n.dot(pc - hc) > 0 else (k, 0.5 * k, 0.68 * k))(0.8 + 0.2 * (0.5 + 0.5 * n.z)))]
     tr = []
     for u in (0.0, 1.0):
         pts = [hood(u, j / 24) for j in range(5, 25)]

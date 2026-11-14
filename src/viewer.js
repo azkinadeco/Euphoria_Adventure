@@ -31,7 +31,7 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 scene.add(new THREE.HemisphereLight(0xdcf0ff, 0x6f7f58, 1.6));
 const sun = new THREE.DirectionalLight(0xfff5e4, 2.45);
 sun.position.set(3, 6, 5); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.022; sun.shadow.radius = 2.0; // same as the game's sun
 Object.assign(sun.shadow.camera, { left: -3, right: 3, top: 4, bottom: -1, near: 1, far: 20 });
 scene.add(sun);
 const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.MeshLambertMaterial({ color: 0x4a4a5a }));

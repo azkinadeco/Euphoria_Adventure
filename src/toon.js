@@ -93,6 +93,7 @@ export function toon(color, opts = {}) {
     sssStrength = 0.0,
     isFace = false,
     net = null, // [cell, line width 0..0.5, top y, axis x = 0.08, bottom y]: fishnet / stocking cut on a limb (rig-space)
+    grad = null, // [hex, y0, y1]: blend to a second colour along the mesh's own y (two-tone hair tips)
     shadeMix = 0, // 0 = world look (ramp only); characters get coloured cel shadows via charaLook()
     ...rest
   } = opts;
@@ -148,6 +149,15 @@ export function toon(color, opts = {}) {
           float nU = atan(vBindP.z, abs(vBindP.x) - uNetAx.x) * 0.06 / uNet.x, nV = vBindP.y / uNet.x;
           if (max(abs(fract(nU + nV) - 0.5), abs(fract(nU - nV) - 0.5)) < 0.5 - uNet.y) discard;
         }`);
+    }
+
+    if (grad) {
+      shader.uniforms.uGradCol = { value: new THREE.Color(grad[0]) };
+      shader.uniforms.uGradY = { value: new THREE.Vector2(grad[1], grad[2]) };
+      shader.vertexShader = 'varying float vGradY;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGradY = position.y;');
+      // keeps the kit's painted shading: only the base hue is swapped
+      shader.fragmentShader = 'varying float vGradY;\nuniform vec3 uGradCol;\nuniform vec2 uGradY;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb / max(diffuse, vec3(0.004)) * uGradCol, smoothstep(uGradY.x, uGradY.y, vGradY));`);
     }
 
     shader.fragmentShader = `
@@ -249,7 +259,7 @@ export function toon(color, opts = {}) {
   // would split identical shaders into separate programs, so only keep a key someone set explicitly
   const origKey = Object.prototype.hasOwnProperty.call(mat, 'customProgramCacheKey') ? mat.customProgramCacheKey.bind(mat) : () => '';
   // spec/face/rim are uniforms (flatShading is already part of three's own key): one program per variant
-  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '');
+  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '') + (grad ? ':grad' : '');
 
   return mat;
 }

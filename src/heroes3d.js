@@ -143,7 +143,8 @@ function buildBody(rig, S) {
   // hair cap + bangs
   const cap = add(head, part(Sp(0.13, 22, 10, 0, Math.PI * 2, 0, 1.05), S.hair, { ol: 0.008 }), 0, 0.105, -0.012); cap.scale.set(1.04, 1.03, 1.04);
   // sides + back of the hair, open over the face
-  const sides = add(head, part(Sp(0.13, 22, 10, Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 1.0, 1.25), toon(S.hairColor, { side: THREE.DoubleSide }), { ol: 0.008 }), 0, 0.105, -0.012);
+  const tipC = S.hairTip; // second hair colour toward the ends (shader gradient along each kit's own y)
+  const sides = add(head, part(Sp(0.13, 22, 10, Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 1.0, 1.25), toon(S.hairColor, { side: THREE.DoubleSide, grad: tipC ? [tipC, -0.12, -0.42] : null }), { ol: 0.008 }), 0, 0.105, -0.012);
   sides.scale.set(1.04, 1.03, 1.04);
   // anime 'angel ring' hair highlight
   const ring = add(head, new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.01, 6, 32, Math.PI * 1.3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false })), 0, 0.165, -0.01);
@@ -164,7 +165,7 @@ function buildBody(rig, S) {
   const hs = S.hairStyle;
   applyKit(hs ? `kit_hs_${hs}_front` : 'kit_b_hair', head, { hair: S.hair, side: sides.material, hair2: S.hair2 ?? S.hair }, hairOld, { ol: 0.006, crease: 1.2 });
   // long back hair flowing to the waist
-  const longH = add(head, part(Cy(0.13, 0.19, S.hairLen ?? 0.62, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(S.hairColor, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, 0.1 - (S.hairLen ?? 0.62) / 2, -0.04);
+  const longH = add(head, part(Cy(0.13, 0.19, S.hairLen ?? 0.62, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(S.hairColor, { side: THREE.DoubleSide, grad: tipC ? [tipC, S.tipY?.[0] ?? -0.5, S.tipY?.[1] ?? -0.92] : null }), { ol: 0.006 }), 0, 0.1 - (S.hairLen ?? 0.62) / 2, -0.04);
   const hairL = S.hairLen ?? 0.62;
   // backOld is returned so a rig can add its own primitive tails for the kit to replace
   const backOld = [longH];
@@ -176,10 +177,6 @@ function buildBody(rig, S) {
     u.specStrength = 0.5; u.specPower = 18; u.specThreshold = 0.6;
     u.specColor = m.color.clone().lerp(new THREE.Color(0xffffff), 0.5).multiplyScalar(0.55);
   }
-  if (S.hairTip) {
-    const tip = add(head, part(Cy(0.19, 0.21, 0.16, 18, true, Math.PI * 0.55, Math.PI * 0.9), toon(S.hairTip, { side: THREE.DoubleSide }), { ol: 0.006 }), 0, 0.1 - (S.hairLen ?? 0.62) - 0.07, -0.04);
-  }
-
   for (const s of [-1, 1]) {
     const k = s > 0 ? 'L' : 'R';
     const arm = grp(chest, 'arm' + k, s * 0.175, 0.1, -0.01);
@@ -298,38 +295,68 @@ export class MoraRig extends Rig {
   constructor() { super('Mora'); this.orbT = 0; }
   _build() {
     this.style = 'caster';
-    const skin = toon(0xffe6d8), suit = toon(0xf6f4fa), purple = toon(0x8a3fb0), gold = toon(0xf0c35a);
-    const starTex = canvasTex(256, 128, (g, w, h) => {
-      g.fillStyle = '#7a35a6'; g.fillRect(0, 0, w, h);
-      g.fillStyle = '#ffe7a8';
-      for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * h, r = Math.random() * 2.2 + 0.6; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
-      g.fillStyle = '#f0c35a'; g.fillRect(0, h - 8, w, 8);
+    // key art: lavender star cloak with a rose lining, white halter leotard with a long tabard,
+    // white thigh-highs, fingerless violet gloves, pink hair fading to pale blue
+    const skin = toon(0xffe6d8), suit = toon(0xf6f4fa), hose = toon(0xf6f4fa, { net: [0, 0, 0.745] }), glove = toon(0xa98ad8), gold = toon(0xf0c35a);
+    const starTex = canvasTex(512, 256, (g, w, h) => {
+      g.fillStyle = '#b9a0e6'; g.fillRect(0, 0, w, h);
+      let sd = 7; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      g.fillStyle = '#ffe9a8';
+      for (let i = 0; i < 46; i++) { // four-point stars and crescent moons
+        const x = rnd() * w, y = rnd() * (h - 30), r = rnd() * 5 + 3;
+        if (i % 5 === 0) { g.beginPath(); g.arc(x, y, r * 1.6, 0.6, Math.PI * 2 - 0.6); g.arc(x + r * 0.9, y, r * 1.25, Math.PI * 2 - 1.0, 1.0, true); g.fill(); continue; }
+        g.beginPath();
+        for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, rr = k % 2 ? r * 0.32 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+        g.fill();
+      }
+      g.fillStyle = '#f0c35a'; g.fillRect(0, h - 12, w, 12);
+      g.fillStyle = '#fff3c8'; g.fillRect(0, h - 15, w, 2);
     });
     const cloak = toon(0xffffff, { map: starTex, side: THREE.DoubleSide });
     const H = buildBody(this, {
-      skin, bottom: suit, chest: suit, waist: suit, hair: toon(0xf4a8d0), hair2: toon(0xffc8e4), hairColor: 0xf4a8d0, hairTip: 0xa8c8f0, hairLen: 0.78, hairStyle: 'straight',
-      thigh: suit, knee: suit, shin: suit, shoe: gold, upperArm: suit, forearm: suit, hand: skin, foot: ['sandal', { skin: suit, shoe: gold }],
+      skin, bottom: suit, chest: suit, waist: suit, hair: toon(0xf4a8d0), hair2: toon(0xffc8e4), hairColor: 0xf4a8d0, hairTip: 0xb4d4f6, hairLen: 0.78, hairStyle: 'straight',
+      thigh: hose, knee: hose, shin: hose, shoe: gold, hand: glove, foot: ['sandal', { skin: suit, shoe: gold }],
       face: faces({ iris: ['#5a1f7a', '#c060c8', '#ffc8e8'], lash: '#4a2a48', brow: '#d98ab4', mouth: 'smile', lip: '#d04a70', blush: 0.46 }),
     });
     const { add, Sp, Cy, chest, head, outfit, armor } = H;
     // hood (star cloak) + cape
     const hood = add(head, part(Sp(0.15, 20, 10, Math.PI / 2 + 0.8, Math.PI * 2 - 1.6, 0, 1.9), cloak, { ol: 0.008 }), 0, 0.11, -0.015);
-    void hood;
     const hoodTop = add(head, part(Sp(0.152, 20, 8, 0, Math.PI * 2, 0, 0.95), cloak, { ol: 0.008 }), 0, 0.11, -0.015);
-    void hoodTop;
     const cape = add(chest, part(Cy(0.17, 0.42, 1.05, 18, true, Math.PI * 0.6, Math.PI * 0.8), cloak, { ol: 0.008 }), 0, -0.42, -0.02);
-    outfit({ moraCape: cloak }, [cape]);
+    outfit({ moraCape: cloak, moraTab: toon(0xf6f4fa, { side: THREE.DoubleSide }), moraTabTrim: gold }, [cape]);
     // gold collar + jewel
     const collar = add(chest, part(new THREE.TorusGeometry(0.07, 0.014, 6, 18), gold, { ol: 0 }), 0, 0.15, 0); collar.rotation.x = Math.PI / 2;
     armor.head({ moraHood: cloak, moraHoodTrim: gold }, [hood, hoodTop]);
     armor.chest({ moraCollar: gold }, [collar]);
     add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.022), new THREE.MeshBasicMaterial({ color: 0xc28bff })), 0, 0.1, 0.1);
-    for (const s of [-1, 1]) add(this.j['hand' + (s > 0 ? 'L' : 'R')], part(new THREE.TorusGeometry(0.045, 0.01, 6, 14), gold, { ol: 0 }), 0, 0.02, 0).rotation.x = Math.PI / 2;
-    // floating planet orb (time & stars)
+    for (const s of [-1, 1]) { // gold bangles + a star on the back of each glove
+      const hd = this.j['hand' + (s > 0 ? 'L' : 'R')];
+      add(hd, part(new THREE.TorusGeometry(0.043, 0.008, 6, 14), gold, { ol: 0 }), 0, 0.03, 0).rotation.x = Math.PI / 2;
+      add(hd, part(new THREE.TorusGeometry(0.046, 0.005, 6, 14), gold, { ol: 0 }), 0, 0.05, 0).rotation.x = Math.PI / 2 + 0.15;
+    }
+    // Saturn, her focus: banded planet, tilted ring disc, a wisp of nebula
     const orb = new THREE.Group();
-    const planet = new THREE.Mesh(Sp(0.11, 16, 12), toon(0xf0c070, { emissive: 0x6a4010 }));
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.012, 6, 28), new THREE.MeshBasicMaterial({ color: 0xd2b0ff }));
-    ring.rotation.x = 1.2; orb.add(planet, ring);
+    const satTex = canvasTex(64, 64, (g, w, h) => {
+      const bands = ['#e8b860', '#f6d896', '#d89a48', '#f2cf88', '#c98a3e', '#f0c878', '#e0a850', '#f8e0a8'];
+      bands.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, i * h / bands.length, w, h / bands.length + 1); });
+    });
+    const planet = new THREE.Mesh(Sp(0.115, 20, 14), toon(0xffffff, { map: satTex, emissive: 0x5a3408, emissiveIntensity: 0.35 }));
+    const ringTex = canvasTex(256, 256, (g, w) => {
+      const gr = g.createRadialGradient(w / 2, w / 2, w * 0.3, w / 2, w / 2, w * 0.5);
+      gr.addColorStop(0, 'rgba(210,176,255,0)'); gr.addColorStop(0.08, 'rgba(240,214,170,0.95)'); gr.addColorStop(0.4, 'rgba(214,180,255,0.9)');
+      gr.addColorStop(0.5, 'rgba(120,90,180,0.25)'); gr.addColorStop(0.62, 'rgba(232,200,255,0.9)'); gr.addColorStop(1, 'rgba(210,176,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.14, 0.24, 48), new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+    ring.rotation.set(1.25, 0.25, 0); ring.material.userData.noGlow = true;
+    const nebTex = canvasTex(128, 128, (g, w) => {
+      const gr = g.createRadialGradient(w / 2, w / 2, 4, w / 2, w / 2, w / 2);
+      gr.addColorStop(0, 'rgba(190,150,255,0.55)'); gr.addColorStop(0.5, 'rgba(120,110,240,0.2)'); gr.addColorStop(1, 'rgba(120,110,240,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    });
+    const neb = new THREE.Sprite(new THREE.SpriteMaterial({ map: nebTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    neb.scale.set(0.62, 0.42, 1); neb.material.userData.noGlow = true;
+    orb.add(planet, ring, neb);
     this.root.add(orb);
     this.orb = orb;
   }
