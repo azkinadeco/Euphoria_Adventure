@@ -1,5 +1,6 @@
 // Purr-Bot (Luby's scrap-built mecha cat) + simple story NPC builder.
 import * as THREE from 'three';
+import { MoraRig, FideliaRig } from './heroes3d.js';
 import { toon, part, damp, charaLook } from './toon.js';
 import { applyKit } from './assets.js';
 import { cullFar } from './cull.js';
@@ -162,38 +163,13 @@ export function makeNPC({ skin = 0xffe2cf, hair, hair2, outfit, accent, cape, ex
   return cullFar(g, 110);
 }
 
-export function makeMora() {
-  return makeNPC({
-    hair: 0xf2a6cf, hair2: 0xa8c8f0, outfit: 0xf3f0f6, accent: 0x9b6bd6, cape: 0x8a3fb0,
-    extra: (g, body, head, arms) => {
-      // floating planet orb (time & stars)
-      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), toon(0xf0c070, { emissive: 0x6a4010 }));
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.015, 6, 24), new THREE.MeshBasicMaterial({ color: 0xc8a0ff }));
-      ring.rotation.x = 1.2; orb.add(ring); orb.position.set(-0.45, 1.75, 0.15); g.add(orb);
-      const hood = part(new THREE.SphereGeometry(0.15, 16, 10, 0, Math.PI * 2, 0, 1.4), toon(0x8a3fb0, { side: THREE.DoubleSide }), { ol: 0.006 });
-      hood.position.set(0, 0.1, -0.03); hood.rotation.x = -0.4; head.add(hood);
-      arms[0].rotation.z = -0.8;
-      const old = g.userData.update;
-      g.userData.update = (dt) => { old(dt); orb.position.y = 1.75 + Math.sin(g.userData.t * 1.5) * 0.06; orb.rotation.y += dt; };
-    },
-  });
+/** a story NPC that is simply the playable hero's own rig, idling (batch 51): the camp shows the
+ * same Mora and Fidelia the player later controls, not chibi stand-ins */
+function rigNPC(RigClass) {
+  const rig = new RigClass(), g = rig.root;
+  g.userData.rig = rig;
+  g.userData.update = (dt) => rig.update(dt, { speed: 0, grounded: true });
+  return g;
 }
-
-export function makeFidelia() {
-  return makeNPC({
-    hair: 0xc8e4f4, outfit: 0xeef3f8, accent: 0x8fc4e8,
-    extra: (g, body, head, arms) => {
-      const shellMat = toon(0xf2eaf6, { flatShading: true });
-      const shield = part(new THREE.SphereGeometry(0.32, 12, 8, 0, Math.PI * 2, 0, 1.0), shellMat, { ol: 0.012 });
-      shield.rotation.x = Math.PI / 2; shield.position.set(0.32, 0.95, 0.15); shield.scale.set(1, 0.5, 1); body.add(shield);
-      const sword = part(new THREE.BoxGeometry(0.05, 1.0, 0.015), toon(0x7ad0ff, { emissive: 0x104060 }), { ol: 0.008 });
-      sword.position.set(-0.28, 0.75, 0.1); sword.rotation.z = 0.15; body.add(sword);
-      const helm = part(new THREE.SphereGeometry(0.14, 14, 8, 0, Math.PI * 2, 0, 1.2), shellMat, { ol: 0.008 });
-      helm.position.set(0, 0.11, -0.01); head.add(helm);
-      for (const s of [-1, 1]) {
-        const fin = part(new THREE.ConeGeometry(0.06, 0.2, 3), toon(0x9fd8f0), { ol: 0.006 }); fin.position.set(s * 0.15, 0.15, -0.02); fin.rotation.z = -s * 1.0; head.add(fin);
-        const pad = part(new THREE.SphereGeometry(0.09, 10, 8), shellMat, { ol: 0.006 }); pad.position.set(s * 0.19, 1.22, 0); pad.scale.y = 0.7; body.add(pad);
-      }
-    },
-  });
-}
+export const makeMora = () => rigNPC(MoraRig);
+export const makeFidelia = () => rigNPC(FideliaRig);
