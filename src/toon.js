@@ -194,7 +194,10 @@ export function toon(color, opts = {}) {
         vec3 cCol = clamp(vec3(cDl) + (diffuseColor.rgb - vec3(cDl)) * uShadeParams.x, 0.0, 1.0) * uShadeTint;
         vec3 cBase = mix(diffuseColor.rgb, cCol, cSh);
         vec3 cLit = outgoingLight - totalEmissiveRadiance;
-        vec3 cRep = cBase * (dot(cLit, LUM) / max(dot(cBase, LUM), 0.03)) * mix(1.0, uShadeParams.y, cSh);
+        // two tones only: a cast shadow is never darker than the cel ramp's own shade step, or a
+        // self-shadowed fold (under the bust, inside a sleeve) turns into a dirty grey blotch
+        float cFloor = dot(reflectedLight.indirectDiffuse, LUM) + dot(diffuseColor.rgb * cSun, LUM) * 0.3;
+        vec3 cRep = cBase * (max(dot(cLit, LUM), cFloor) / max(dot(cBase, LUM), 0.03)) * mix(1.0, uShadeParams.y, cSh);
         outgoingLight = mix(cLit, cRep, uShadeMix * mix(0.88, 1.0, cSh)) + totalEmissiveRadiance;
       }
 

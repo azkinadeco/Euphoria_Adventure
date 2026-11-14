@@ -210,7 +210,7 @@ function buildBody(rig, S) {
   // one continuous skinned body (hero_body_skinned.glb): skin underneath, garment layers on top.
   // A layer whose material is the skin is simply not drawn; only the bare body carries the outline.
   const lay = (m) => (m && m !== S.skin ? m : undefined);
-  applySkinned(S.bodyKit ?? 'hero_body_skinned', rig, {
+  applySkinned(S.bodyKit ?? (S.curvy ? 'hero_body_curvy' : 'hero_body_skinned'), rig, {
     skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), upper: lay(S.upperArm ?? S.shoulder),
     forearm: lay(S.forearm), thigh: lay(S.thigh), knee: lay(S.knee ?? S.shin), shin: lay(S.shin),
   }, bodyOld, { ol: (r) => (r === 'skin' ? 0.007 : r === 'knee' ? 0.004 : 0) });
@@ -220,7 +220,7 @@ function buildBody(rig, S) {
   const armor = {
     pauldrons: (roles, old) => ['L', 'R'].forEach((k, i) => applyKit('kit_a_pauldron', j['arm' + k], roles, i ? [] : old,
       { ol: 0.005, place: (m) => { m.scale.x = k === 'L' ? 1 : -1; } })),
-    chest: (roles, old) => applyKit('kit_a_chest', chest, roles, old, { ol: 0.005 }),
+    chest: (roles, old, place) => applyKit('kit_a_chest', chest, roles, old, { ol: 0.005, place }),
     head: (roles, old) => applyKit('kit_a_head', head, roles, old, { ol: 0.006 }),
   };
   return { add, Sp, Cy, chest, head, hips, spine, backOld, outfit, armor };
@@ -233,7 +233,7 @@ export class FideliaRig extends Rig {
     const skin = toon(0xffe4d4), shell = toon(0xf4eef8, { flatShading: true }), pearl = toon(0xe6dcf2), blue = toon(0x7fc4ec);
     const hairC = 0xcfe6f6;
     const H = buildBody(this, {
-      skin, bottom: shell, chest: skin, hair: toon(hairC), hair2: toon(0xa9d4f0), hairColor: hairC, hairLen: 0.7, hairStyle: 'wavy',
+      skin, bottom: shell, chest: skin, hair: toon(hairC), hair2: toon(0xa9d4f0), hairColor: hairC, hairLen: 0.7, hairStyle: 'wavy', curvy: true,
       thigh: skin, knee: shell, shin: toon(0xe9eef4, { flatShading: true }), shoe: toon(0xdbe3ec, { flatShading: true }),
       forearm: toon(0xe9eef4, { flatShading: true }), hand: toon(0xe9eef4), foot: ['sabaton', { shoe: shell, trim: pearl }], face: faces({ iris: ['#0f5a78', '#35b8d8', '#c8f6ff'], lash: '#2c4560', brow: '#86aecb', browShape: 'firm', mouth: 'smile', lip: '#d0607a' }),
     });
@@ -253,7 +253,7 @@ export class FideliaRig extends Rig {
     const gem = add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.018), new THREE.MeshBasicMaterial({ color: 0x5ad0ff })), 0, 0.0, 0.11);
     void gem;
     armor.pauldrons({ shellPad: shell, shellRidge: pearl }, pads);
-    armor.chest({ fidBust: shell }, cups);
+    armor.chest({ fidBust: shell }, cups, (m) => { m.scale.set(1.18, 1.3, 1.3); m.position.set(0, -0.012, -0.004); }); // sized for the fuller body
     // armored faulds
     const fauldM = toon(0xeef2f8, { side: THREE.DoubleSide, flatShading: true });
     const skirt = add(hips, part(Cy(0.15, 0.2, 0.12, 12, true), fauldM, { ol: 0.006 }), 0, -0.04, 0);
@@ -350,7 +350,7 @@ export class ScyllaRig extends Rig {
     this.style = 'scythe';
     const skin = toon(0xffe8dc), black = toon(0x262030), purple = toon(0x8a4fd0), net = toon(0x221c2a, { net: [0.024, 0.14, 0.76] }), netArm = toon(0x221c2a, { net: [0.022, 0.14, 9, 0.175] }), netMid = toon(0x221c2a, { net: [0.024, 0.14, 9, 0] }), silver = toon(0xe9e9f2);
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: netMid, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy',
+      skin, bottom: black, chest: black, waist: netMid, hair: silver, hair2: toon(0xd0d0e4), hairColor: 0xe9e9f2, hairLen: 0.82, hairStyle: 'wavy', curvy: true,
       thigh: net, knee: net, shin: net, shoe: black, upperArm: netArm, shoulder: skin, forearm: black, hand: black, foot: ['boot', { shoe: black, trim: purple }],
       face: faces({ iris: ['#2a1050', '#8a5ae0', '#e0c8ff'], lash: '#2a2430', brow: '#b4b4c6', browShape: 'firm', shape: 'sharp', mouth: 'flat', blush: 0.2, lip: '#b05070' }),
     });
@@ -429,7 +429,7 @@ export class RumiRig extends Rig {
     this.style = 'cstaff';
     const skin = toon(0xf2c8a4), black = toon(0x1a1418), stock = toon(0x1c161c, { net: [0, 0, 0.62] }), red = toon(0x9a1a24), blonde = toon(0xf4d27a);
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy',
+      skin, bottom: black, chest: black, waist: black, hair: blonde, hair2: toon(0xffe6a0), hairColor: 0xf4d27a, hairLen: 0.8, hairStyle: 'wavy', curvy: true,
       thigh: stock, knee: stock, shin: stock, shoe: red, upperArm: skin, forearm: black, hand: black, foot: ['pump', { skin: black, shoe: red }],
       face: faces({ iris: ['#4a1408', '#c85a28', '#ffc890'], lash: '#2a1a10', brow: '#b8923a', shape: 'droopy', mouth: 'smile', lip: '#c04848' }),
     });
@@ -460,7 +460,7 @@ export class ValeriaRig extends Rig {
     this.style = 'great';
     const skin = toon(0xe2ad88), gold = toon(0xd8a840, { emissive: 0x2a1a00, flatShading: true }), dark = toon(0x2a1e18), net = toon(0xb08a50, { net: [0.026, 0.14, 0.7] }), top = toon(0xf2e8d8);
     const H = buildBody(this, {
-      skin, bottom: gold, chest: top, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight',
+      skin, bottom: gold, chest: top, waist: skin, hair: dark, hair2: dark, hairColor: 0x2a1e18, hairLen: 0.95, hairStyle: 'straight', curvy: true,
       thigh: net, knee: net, shin: net, shoe: gold, upperArm: skin, forearm: gold, hand: skin, foot: ['sandal', { skin, shoe: gold }],
       face: faces({ iris: ['#123a7a', '#3f8ff0', '#c8ecff'], lash: '#1a120e', brow: '#2a1e18', browShape: 'worried', mouth: 'open', blush: 0.7, lip: '#a03040' }),
     });
@@ -531,7 +531,7 @@ export class GemoraRig extends Rig {
     this.style = 'caster';
     const skin = toon(0xf4dcd8), black = toon(0x16121e), purple = toon(0x9a5ad8, { emissive: 0x3a1a6a, emissiveIntensity: 0.8 }), hairC = 0x8a4ad0, hose = toon(0x2a2236);
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: skin, hair: toon(hairC), hair2: toon(0xb07ae8), hairColor: hairC, hairLen: 1.05, hairStyle: 'straight',
+      skin, bottom: black, chest: black, waist: skin, hair: toon(hairC), hair2: toon(0xb07ae8), hairColor: hairC, hairLen: 1.05, hairStyle: 'straight', curvy: true,
       thigh: hose, knee: black, shin: hose, shoe: black, upperArm: skin, forearm: black, hand: black, foot: ['sandal', { skin: hose, shoe: black }],
       face: faces({ iris: ['#3a0a6a', '#b07aff', '#f0d8ff'], mouth: 'flat' }),
     });
@@ -665,7 +665,7 @@ export class KaliRig extends Rig {
     const skin = toon(c ? 0xd8c8d8 : 0xf8e0d2), shirt = toon(c ? 0x3a3050 : 0xf4f2f0), black = toon(0x16141c);
     const hairC = c ? 0x9a90b0 : 0xeadcae, hair = toon(hairC), hair2 = toon(c ? 0x7a6a98 : 0xf6ecc8);
     const H = buildBody(this, {
-      skin, bottom: black, chest: shirt, waist: skin, hair, hair2, hairColor: hairC, hairLen: 0.72, hairStyle: 'twin', tie: black,
+      skin, bottom: black, chest: shirt, waist: skin, hair, hair2, hairColor: hairC, hairLen: 0.72, hairStyle: 'twin', tie: black, curvy: true,
       thigh: skin, knee: skin, shin: skin, shoe: skin, upperArm: shirt, forearm: shirt, hand: skin, shoulder: shirt, foot: ['bare', { skin }],
       face: faces({ iris: c ? ['#4a0a3a', '#ff3a8a', '#ffc0e0'] : ['#2a3a6a', '#6a90d8', '#d8e8ff'], lash: '#2a2018', brow: c ? '#6a5a88' : '#c0aa78', browShape: c ? 'firm' : 'soft', mouth: c ? 'flat' : 'smile' }),
     });

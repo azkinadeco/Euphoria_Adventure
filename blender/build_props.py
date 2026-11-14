@@ -4186,6 +4186,11 @@ def build_aba_body():
     build_hero_skinned('aba_body_skinned.glb', {'bust': 1.5, 'waist': 0.88, 'hip': 1.1, 'thigh': 1.13, 'keep': ('skin', 'bottom')})
 
 
+def build_hero_curvy():
+    """the fuller figure most of the key art shows (batch 39): every garment layer, same joints / roles"""
+    build_hero_skinned('hero_body_curvy.glb', {'bust': 1.42, 'waist': 0.9, 'hip': 1.05, 'thigh': 1.08})
+
+
 def skinned_export(fname, R, J, PARENT, uv=False):
     ad = bpy.data.armatures.new('rig')
     rig = link(bpy.data.objects.new('rig', ad))
@@ -5292,6 +5297,7 @@ ASSETS = {
     'abadonia': build_abadonia,
     'aba_body': build_aba_body,
     'hero_feet': build_hero_feet,
+    'hero_curvy': build_hero_curvy,
 }
 
 for name, fn in ASSETS.items():
