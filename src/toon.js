@@ -492,13 +492,26 @@ const _c = new THREE.Color();
  * @param {THREE.Material[]} skins materials to treat as skin
  */
 export function charaLook(root, skins = []) {
-  const done = new Set();
-  const conf = (m) => {
-    if (done.has(m) || !m?.isMeshToonMaterial) return;
-    done.add(m);
+  const conf = (m) => charaMat(m, skins.includes(m));
+  root.traverse((o) => { if (o.isMesh && !o.userData.isOutline) conf(o.material); });
+  root.traverse((o) => { // retint outline shells that were built before the look was applied
+    if (!o.userData.isOutline || !o.parent?.material?.userData?.olColor) return;
+    o.material = outlineMaterial(o.material.userData.thick ?? 0.006, o.parent.material.userData.olColor);
+  });
+}
+
+/**
+ * The character look for one material (once per material). Kits and skinned layers that arrive after
+ * the rig was built call this for their role materials, so cloth that only exists on a Blender mesh
+ * gets the same coloured shadows and tinted outline as the rest of the hero.
+ */
+export function charaMat(m, isSkin = false) {
+  {
+    if (!m?.isMeshToonMaterial || m.userData.chara) return;
+    m.userData.chara = true;
     const u = m.userData;
     m.color.getHSL(_hsl);
-    const skin = skins.includes(m) || (!m.map && _hsl.l > 0.72 && _hsl.h > 0.02 && _hsl.h < 0.11 && _hsl.s > 0.3);
+    const skin = isSkin || (!m.map && _hsl.l > 0.72 && _hsl.h > 0.02 && _hsl.h < 0.11 && _hsl.s > 0.3);
     if (u.isFace) { u.shadeMix = 0; u.shadeTint.setRGB(1.0, 0.8, 0.77); u.rimCap = 0.12; u.rimStrength = Math.min(u.rimStrength, 0.12); u.olColor = 0x7a3b33; return; }
     if (skin) {
       u.shadeMix = 1; u.shadeTint.setRGB(1.0, 0.77, 0.73); u.shadeParams.set(1.35, 1.5, 0);
@@ -508,7 +521,7 @@ export function charaLook(root, skins = []) {
       u.shadeMix = 0.8; u.shadeTint.setRGB(0.9, 0.86, 1.0); u.shadeParams.set(1.3, 1.15, 0);
       u.olColor = 0x2a2030;
     } else if (_hsl.s < 0.12 && _hsl.l > 0.55) { // whites / silver: cool lilac shadow
-      u.shadeMix = 1; u.shadeTint.setRGB(0.85, 0.88, 1.0); u.shadeParams.set(1.0, 1.75, 0);
+      u.shadeMix = 1; u.shadeTint.setRGB(0.86, 0.88, 1.0); u.shadeParams.set(1.0, 2.25, 0); // white cloth shades to a light lavender, never to grey
       u.olColor = 0x4a4660;
     } else if (_hsl.l < 0.16) { // blacks stay inky, slightly violet
       u.shadeMix = 0.6; u.shadeTint.setRGB(0.85, 0.8, 1.0); u.shadeParams.set(1.2, 1.3, 0);
@@ -519,12 +532,7 @@ export function charaLook(root, skins = []) {
     }
     const sh = _shaders.get(m);
     if (sh?.uniforms.uShadeMix) { sh.uniforms.uShadeMix.value = u.shadeMix; sh.uniforms.uRimStr.value = u.rimStrength; }
-  };
-  root.traverse((o) => { if (o.isMesh && !o.userData.isOutline) conf(o.material); });
-  root.traverse((o) => { // retint outline shells that were built before the look was applied
-    if (!o.userData.isOutline || !o.parent?.material?.userData?.olColor) return;
-    o.material = outlineMaterial(o.material.userData.thick ?? 0.006, o.parent.material.userData.olColor);
-  });
+  }
 }
 
 export { terrainMat } from './nature.js';

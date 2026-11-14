@@ -208,7 +208,7 @@ function buildBody(rig, S) {
   // A layer whose material is the skin is simply not drawn; only the bare body carries the outline.
   const lay = (m) => (m && m !== S.skin ? m : undefined);
   applySkinned(S.bodyKit ?? (S.curvy ? 'hero_body_curvy' : 'hero_body_skinned'), rig, {
-    skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), bandeau: lay(S.bandeau), upper: lay(S.upperArm ?? S.shoulder),
+    skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), bandeau: lay(S.bandeau), tee: lay(S.tee), sleeve: lay(S.sleeve), upper: lay(S.upperArm ?? S.shoulder),
     forearm: lay(S.forearm), thigh: lay(S.thigh), knee: lay(S.knee ?? S.shin), shin: lay(S.shin),
   }, bodyOld, { ol: (r) => (r === 'skin' ? 0.007 : r === 'knee' ? 0.004 : 0) });
   /** skinned Blender outfit pieces (hero_outfits.glb): roles -> materials, old primitives replaced */
@@ -710,15 +710,25 @@ export class KaliRig extends Rig {
   _build() {
     this.style = 'sword';
     const c = this.root.name === 'KaliCorrupt';
-    const skin = toon(c ? 0xd8c8d8 : 0xf8e0d2), shirt = toon(c ? 0x3a3050 : 0xf4f2f0), black = toon(0x16141c);
+    // key art: loose white cropped tee with long sleeves, black side-tie bikini, bare legs and feet,
+    // blonde twin tails down to the ankles
+    const skin = toon(c ? 0xd8c8d8 : 0xf8e0d2), shirt = toon(c ? 0x3a3050 : 0xf4f2f0, { side: THREE.DoubleSide }), black = toon(0x16141c);
     const hairC = c ? 0x9a90b0 : 0xeadcae, hair = toon(hairC), hair2 = toon(c ? 0x7a6a98 : 0xf6ecc8);
     const H = buildBody(this, {
-      skin, bottom: black, chest: shirt, waist: skin, hair, hair2, hairColor: hairC, hairLen: 0.72, hairStyle: 'twin', tie: black, curvy: true,
-      thigh: skin, knee: skin, shin: skin, shoe: skin, upperArm: shirt, forearm: shirt, hand: skin, shoulder: shirt, foot: ['bare', { skin }],
+      skin, bottom: black, tee: shirt, sleeve: shirt, hair, hair2, hairColor: hairC, hairLen: 1.22, hairStyle: 'twin', tie: black, curvy: true,
+      thigh: skin, knee: skin, shin: skin, shoe: skin, hand: skin, foot: ['bare', { skin }],
       face: faces({ iris: c ? ['#4a0a3a', '#ff3a8a', '#ffc0e0'] : ['#2a3a6a', '#6a90d8', '#d8e8ff'], lash: '#2a2018', brow: c ? '#6a5a88' : '#c0aa78', browShape: c ? 'firm' : 'soft', mouth: c ? 'flat' : 'smile' }),
     });
-    const { add, Sp, Cy, head } = H;
+    const { add, Sp, Cy, head, hips } = H;
     this.flashMats = [skin, shirt, hair];
+    for (const s of [-1, 1]) { // side ties of the bikini: two loops and two loose ends on each hip
+      const bow = new THREE.Group(); hips.add(bow); bow.position.set(s * 0.158, 0.012, 0.012);
+      for (const d of [-1, 1]) {
+        const loop = add(bow, part(new THREE.TorusGeometry(0.017, 0.0045, 5, 10), black, { ol: 0 }), s * 0.006, 0.004, d * 0.017); loop.rotation.set(0.5 * d, Math.PI / 2 - 0.5 * s, 0); loop.scale.set(1, 0.6, 1);
+        const end = add(bow, part(new THREE.CylinderGeometry(0.004, 0.002, 0.07, 5), black, { ol: 0 }), s * 0.008, -0.036, d * 0.008); end.rotation.set(d * 0.2, 0, s * 0.18);
+      }
+      add(bow, part(Sp(0.007, 6, 5), black, { ol: 0 }));
+    }
     // very long twin tails tied high on both sides
     for (const s of [-1, 1]) {
       const knot = add(head, part(Sp(0.035, 8, 6), black, { ol: 0.003 }), s * 0.13, 0.19, -0.03);

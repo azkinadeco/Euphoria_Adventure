@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { toon, outline, outlineMaterial } from './toon.js';
+import { toon, outline, outlineMaterial, charaMat } from './toon.js';
 import { cullFar, zoneInstanced } from './cull.js';
 
 const loader = new GLTFLoader();
@@ -208,6 +208,7 @@ function whiteColors(geo) {
 export function applySkinned(name, rig, roles, old = [], { ol = 0.006 } = {}) {
   return loadKitSrc(name).then((src) => {
     if (!src || !rig.bindRest) return null;
+    if (rig.root.userData.chara) for (const m of Object.values(roles)) charaMat(m); // before the outlines pick their tint
     const holder = new THREE.Group();
     holder.name = name;
     const used = new Set();
@@ -255,6 +256,7 @@ function creased(geo, angle) {
 export function applyKit(name, parent, roles, old = [], { ol = 0.015, place, crease } = {}) {
   return loadKitSrc(name).then((src) => {
     if (!src || !parent) return null;
+    for (let a = parent; a; a = a.parent) if (a.userData.chara) { for (const mt of Object.values(roles)) charaMat(mt); break; } // hero rigs: anime look for kit-only materials
     const m = src.clone(true);
     const used = new Set();
     m.traverse((o) => {

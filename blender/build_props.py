@@ -4117,7 +4117,7 @@ def build_hero_skinned(fname='hero_body_skinned.glb', curvy=None):
         return {'chest': ch, 'arm' + s: (1 - ch) * (1 - el), 'elbow' + s: el * (1 - hd), 'hand' + s: el * hd}
 
     sh = lambda lo=0.82, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
-    R = {k: [] for k in ('skin', 'bottom', 'waist', 'chest', 'bandeau', 'upper', 'forearm', 'thigh', 'knee', 'shin')}
+    R = {k: [] for k in ('skin', 'bottom', 'waist', 'chest', 'bandeau', 'tee', 'sleeve', 'upper', 'forearm', 'thigh', 'knee', 'shin')}
 
     def put(role, ob, wfn, pnt):
         paint(ob, pnt)
@@ -4165,6 +4165,21 @@ def build_hero_skinned(fname='hero_body_skinned.glb', curvy=None):
     bd = sheet('bandeau', 56, 12, bandeau)
     outward(bd)
     put('bandeau', bd, w_body, sh(0.76, 1.0))
+
+    def tee(u, v):  # loose cropped T-shirt: hangs straight down from the bust, hem off the waist (batch 43)
+        th = u * TAU
+        yt = 1.262 - 0.05 * math.exp(-(wrap(th) / 0.5) ** 2)
+        y = 1.03 + 0.006 * math.sin(th * 6) + (yt - 1.03) * v
+        loose = sst((1.13 - y) / 0.09)
+        x, _, z = torso(max(y, 1.118), th, 0.0065 + 0.011 * loose + 0.004 * loose * math.sin(th * 7))
+        return (x, y, z)
+    te = sheet('tee', 56, 16, tee)
+    outward(te)
+    put('tee', te, w_body, sh(0.8, 1.0))
+    for s in (1, -1):  # long loose sleeves, gathered a little at the wrist
+        sl = sheet('sleeve', 16, 22, lambda u, v, s=s: arm(s, 0.805 + (1.3 - 0.805) * v, u * TAU, 0.011 + 0.007 * math.sin(math.pi * min(1.0, v * 1.6)) - 0.004 * sst((0.12 - v) / 0.12)), caps=(False, True))
+        outward(sl, s * 0.175, -0.01)
+        put('sleeve', sl, w_arm, sh(0.8, 1.0))
     for s in (1, -1):
         up = sheet('upper', 16, 16, lambda u, v, s=s: arm(s, 0.985 + (1.3 - 0.985) * v, u * TAU, 0.003), caps=(False, True))
         outward(up, s * 0.175, -0.01)

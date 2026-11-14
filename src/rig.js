@@ -8,6 +8,7 @@ export class Rig {
   constructor(name) {
     this.root = new THREE.Group();
     this.root.name = name;
+    this.root.userData.chara = true; // kits attached later get the character look (assets.js)
     cullFar(this.root, 110); // heroes/NPC rigs: ~80 draw calls each, pointless beyond fog of detail
     this.j = {};
     this.mats = {};
