@@ -5452,6 +5452,20 @@ def build_hero_extras():
     leaves.append(paint(limb(band + [band[0], band[1]], [0.005] * 32, 6, cap=False), shade(0.8, 1.0)))
     kit('kit_val_laurel', {'leaf': leaves})
 
+    # ---- Glytta: abyss chitin on the shoulder (arm joint, +x; mirrored in game): a fan of curved,
+    # ridged spikes over a cap, with one staring eye
+    sp = []
+    for k, (ang, L, r) in enumerate(((0.15, 0.2, 0.03), (0.7, 0.27, 0.034), (1.2, 0.22, 0.03), (1.7, 0.15, 0.024), (-0.4, 0.13, 0.022))):
+        dx, dy = math.sin(ang), math.cos(ang)
+        z = -0.02 + 0.03 * math.sin(k * 2.1)
+        base = (0.02 + 0.03 * dx, 0.02 + 0.03 * dy, z)
+        mid = (base[0] + dx * L * 0.55, base[1] + dy * L * 0.55 + 0.02, z - 0.02)
+        tip = (base[0] + dx * L + 0.03 * dy, base[1] + dy * L + 0.035, z - 0.055)
+        sp.append(ridged([base, mid, tip], [r, r * 0.62, 0.002], n=5, every=2, amp=0.16, sides=6))
+    sp.append(paint(ell(0.062, (0.012, 0.0, 0.0), (1.05, 0.8, 1.1), sub=2, amp=0.1, seed=4), shade(0.7, 1.0)))
+    eye = [paint(ell(0.021, (0.045, 0.012, 0.048), (1.0, 1.0, 0.5), sub=2), WHITE)]
+    kit('kit_gly_spikes', {'spike': sp, 'eye': eye})
+
 
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,

@@ -541,20 +541,25 @@ export class GlyttaRig extends Rig {
   constructor() { super('Glytta'); }
   _build() {
     this.style = 'caster';
-    const skin = toon(0xe8dcd8), dark = toon(0x1a1a24, { flatShading: true }), teal = toon(0x3fd0c8, { emissive: 0x0a4a48, emissiveIntensity: 0.9 }), white = toon(0xf2f2f6);
+    // key art: a dancer half-claimed by the abyss - dark chitin laced with glowing teal veins on legs
+    // and gauntlets, bare shoulders and waist, a black halo, staring spikes on both shoulders
+    const skin = toon(0xe8dcd8), dark = toon(0x141a26), teal = toon(0x3fd0c8, { emissive: 0x0a4a48, emissiveIntensity: 0.9 }), white = toon(0xf2f2f6);
+    const legM = toon(0x141a26, { net: [0, 0, 0.72], glyph: [0x40ffe0, 0.03, 0.1, 0.7] }), armM = toon(0x141a26, { glyph: [0x40ffe0, 0.024, 0.78, 1.0, 0.175] });
     const H = buildBody(this, {
-      skin, bottom: dark, chest: dark, waist: skin, hair: white, hair2: toon(0xdde4f0), hairColor: 0xf2f2f6, hairLen: 0.9, hairStyle: 'wild',
-      thigh: dark, knee: dark, shin: dark, shoe: dark, upperArm: dark, forearm: dark, hand: dark, foot: ['boot', { shoe: dark, trim: teal }],
-      face: faces({ iris: ['#0a3a3a', '#3fd0c8', '#c8fff6'], mouth: 'smile' }),
+      skin, bottom: dark, bandeau: dark, hair: white, hair2: toon(0xdde4f0), hairColor: 0xf2f2f6, hairTip: 0xb4e4ee, hairLen: 0.9, hairStyle: 'wild', curvy: true,
+      thigh: legM, knee: legM, shin: legM, shoe: dark, forearm: armM, hand: dark, foot: ['boot', { shoe: dark, trim: teal }],
+      face: faces({ iris: ['#0a3a5a', '#3fb0e8', '#c8f6ff'], lash: '#1a2030', brow: '#aab4c4', browShape: 'firm', shape: 'sharp', mouth: 'smirk', lip: '#b05068' }),
     });
-    const { add, Sp, chest, head } = H;
-    const halo = add(head, new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.012, 6, 28), new THREE.MeshBasicMaterial({ color: 0xc8fff6 })), 0, 0.33, -0.02);
-    halo.rotation.x = Math.PI / 2;
-    // jagged crystal armor spikes
-    for (const sx of [-1, 1]) {
-      for (let k = 0; k < 3; k++) { const sp = add(chest, part(new THREE.ConeGeometry(0.035, 0.22, 4), dark, { ol: 0.004 }), sx * (0.17 + k * 0.03), 0.18 - k * 0.02, -0.04); sp.rotation.z = -sx * (0.8 + k * 0.3); }
-      add(chest, part(Sp(0.03, 6, 5), teal, { ol: 0 }), sx * 0.12, 0.07, 0.09);
+    const { add, head, hips } = H;
+    const halo = add(head, part(new THREE.TorusGeometry(0.17, 0.016, 8, 32), toon(0x10141e), { ol: 0.004 }), 0, 0.35, -0.02);
+    halo.rotation.x = Math.PI / 2 - 0.12;
+    add(halo, new THREE.Mesh(new THREE.TorusGeometry(0.152, 0.004, 5, 32), new THREE.MeshBasicMaterial({ color: 0x40ffe0 })));
+    const eyeM = new THREE.MeshBasicMaterial({ color: 0x8afff0 });
+    for (const k of ['L', 'R']) {
+      const sx = k === 'L' ? 1 : -1;
+      applyKit('kit_gly_spikes', this.j['arm' + k], { spike: dark, eye: eyeM }, [], { ol: 0.005, crease: 1.0, place: (m) => { m.scale.x = sx; } });
     }
+    const belt = add(hips, part(new THREE.TorusGeometry(0.15, 0.008, 6, 22), teal, { ol: 0 }), 0, 0.022, -0.008); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.74, 1);
     // twin crystal blades on both forearms
     for (const k of ['L', 'R']) {
       const sx = k === 'L' ? 1 : -1;
@@ -563,7 +568,7 @@ export class GlyttaRig extends Rig {
       b.position.set(sx * 0.03, -0.08, 0.05); b.rotation.x = Math.PI / 2 + 0.3;
       this.j['hand' + k].add(b);
       weapon('kit_w_crystal', holderFor(b), { crBlade: teal }, [b], 0.005);
-      const guard = part(new THREE.BoxGeometry(0.12, 0.14, 0.12), dark, { ol: 0.004 }); guard.position.y = -0.04; this.j['hand' + k].add(guard);
+      const guard = part(new THREE.OctahedronGeometry(0.06), dark, { ol: 0.004 }); guard.position.y = -0.03; guard.scale.set(0.85, 1.15, 0.85); this.j['hand' + k].add(guard);
     }
   }
 }
@@ -682,6 +687,14 @@ export class CommanderRig extends Rig {
       p.rotation.z = -s * 0.35; pads.push(p);
     }
     H.armor.pauldrons({ cmdPad: gold, cmdTrim: coat }, pads);
+
+    // star emblem on the chest, belt with a buckle, gold piping down the coat front
+    const starS = new THREE.Shape();
+    for (let k = 0; k < 8; k++) { const a2 = k * Math.PI / 4, r = k % 2 ? 0.012 : 0.04; starS[k ? 'lineTo' : 'moveTo'](Math.sin(a2) * r, Math.cos(a2) * r); }
+    add(chest, new THREE.Mesh(new THREE.ExtrudeGeometry(starS, { depth: 0.006, bevelEnabled: false }), new THREE.MeshBasicMaterial({ color: 0xffd86a })), 0, 0.085, 0.092);
+    const cbelt = add(H.hips, part(new THREE.TorusGeometry(0.148, 0.012, 6, 22), gold, { ol: 0 }), 0, 0.026, -0.008); cbelt.rotation.x = Math.PI / 2; cbelt.scale.set(1, 0.74, 1);
+    add(H.hips, part(new THREE.BoxGeometry(0.05, 0.036, 0.012), gold, { ol: 0.003 }), 0, 0.026, 0.103);
+    for (const sx of [-1, 1]) add(spine, new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.17, 0.005), gold), sx * 0.022, 0.07, 0.083);
 
     // White & Gold Flowing Cape behind the spine
     const capeGeo = new THREE.PlaneGeometry(0.48, 0.95, 4, 6);
