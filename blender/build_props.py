@@ -4117,7 +4117,7 @@ def build_hero_skinned(fname='hero_body_skinned.glb', curvy=None):
         return {'chest': ch, 'arm' + s: (1 - ch) * (1 - el), 'elbow' + s: el * (1 - hd), 'hand' + s: el * hd}
 
     sh = lambda lo=0.82, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
-    R = {k: [] for k in ('skin', 'bottom', 'waist', 'chest', 'upper', 'forearm', 'thigh', 'knee', 'shin')}
+    R = {k: [] for k in ('skin', 'bottom', 'waist', 'chest', 'bandeau', 'upper', 'forearm', 'thigh', 'knee', 'shin')}
 
     def put(role, ob, wfn, pnt):
         paint(ob, pnt)
@@ -4156,6 +4156,15 @@ def build_hero_skinned(fname='hero_body_skinned.glb', curvy=None):
     tp = sheet('chest', 44, 18, top)
     outward(tp)
     put('chest', tp, w_body, sh(0.78, 1.0))
+
+    def bandeau(u, v):  # strapless top: sweetheart edge over the bust, lower across the back (batch 41)
+        th = u * TAU
+        a = abs(wrap(th))
+        yt = 1.132 + 0.036 * math.exp(-((a - 0.42) / 0.34) ** 2) - 0.012 * math.exp(-(a / 0.1) ** 2) + 0.01 * sst((a - 1.2) / 0.8)
+        return torso(1.045 + (yt - 1.045) * v, th, 0.0048)
+    bd = sheet('bandeau', 56, 12, bandeau)
+    outward(bd)
+    put('bandeau', bd, w_body, sh(0.76, 1.0))
     for s in (1, -1):
         up = sheet('upper', 16, 16, lambda u, v, s=s: arm(s, 0.985 + (1.3 - 0.985) * v, u * TAU, 0.003), caps=(False, True))
         outward(up, s * 0.175, -0.01)
@@ -5273,6 +5282,84 @@ def build_hero_feet():
     kit('kit_f_sabaton', {'shoe': [paint(o, grey(0.74, 1.0, 3, 3.0, 0.85)) for o in sh], 'trim': [paint(o, WHITE) for o in tr]})
 
 
+# ------------------------------------------------------------------ batch 42: Micca (ram horns, Pandora chest)
+def build_micca():
+    shade = lambda lo=0.78, hi=1.0: (lambda p, n, pc: (lambda k: (k, k, k))(lo + (hi - lo) * (0.55 + 0.45 * n.z)))
+    # ---- curled ram horn (head-local, built for +x; mirrored in game): 1.4 turns, ridged, tapering
+    pts, rad = [], []
+    N = 64
+    for i in range(N + 1):
+        t = i / N
+        a = -0.45 + t * 1.42 * TAU
+        R = 0.082 * (1 - 0.5 * t)
+        pts.append((0.07 + 0.105 * t ** 1.2, 0.165 + R * math.cos(a) + 0.02 * t, -0.03 - R * math.sin(a)))
+        r = 0.036 * (1 - t) ** 0.75 + 0.003
+        rad.append(r * (1.0 + (0.11 if i % 4 == 0 else 0.0) * (1 - t)))
+    horn = limb(pts, rad, 9, cap=True)
+    P0 = [Vector(B(*q)) for q in pts]
+
+    def hcol(p, n, pc):  # darker in the grooves and toward the root, pale tip
+        i = min(range(0, N + 1, 2), key=lambda q: (P0[q] - p).length_squared)
+        k = 0.74 + 0.26 * (i / N) + (0.08 if i % 4 == 0 else -0.04)
+        return (min(1.0, k),) * 3
+    kit('kit_micca_horn', {'horn': [paint(horn, hcol)]})
+
+    # ---- Pandora's chest (origin at the centre of the body; lid kit hinged at its back-bottom edge)
+    W, Hh, D = 0.44, 0.3, 0.32
+    wood, gold, teeth, eye, tongue = [], [], [], [], []
+    body = box((W, D, Hh), B(0, 0, 0), bevel=0.012)
+    wood.append(paint(body, lambda p, n, pc: (lambda k: (k, k, k))((0.72 + 0.28 * (0.5 + 0.5 * math.sin(p.z * 95))) * (0.86 + 0.14 * nz(p, 9, 3)))))
+    for x in (-0.15, 0.15):  # iron-bound straps
+        gold.append(paint(box((0.05, D + 0.014, Hh + 0.014), B(x, 0, 0), bevel=0.006), shade(0.8, 1.0)))
+    gold.append(paint(box((W + 0.02, D + 0.02, 0.035), B(0, -Hh / 2 + 0.012, 0), bevel=0.008), shade(0.8, 1.0)))
+    gold.append(paint(box((W + 0.016, D + 0.016, 0.022), B(0, Hh / 2 - 0.008, 0), bevel=0.006), shade(0.85, 1.0)))
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            gold.append(paint(ell(0.03, (sx * W / 2, -Hh / 2 + 0.02, sz * D / 2), (1, 1, 1), sub=1), shade(0.85, 1.0)))
+    gold.append(paint(box((0.07, 0.02, 0.09), B(0, 0.03, D / 2 + 0.008), bevel=0.008), shade(0.9, 1.0)))  # lock plate
+    for k in range(9):  # lower fangs along the front and the sides
+        x = (k - 4) * 0.046
+        teeth.append(paint(cyl(0.017, 0.07 if k % 2 == 0 else 0.05, B(x, Hh / 2 + (0.03 if k % 2 == 0 else 0.02), D / 2 - 0.022), verts=5, r2=0.0), WHITE))
+    for sx in (-1, 1):
+        for k in range(3):
+            teeth.append(paint(cyl(0.015, 0.05, B(sx * (W / 2 - 0.022), Hh / 2 + 0.02, 0.06 - k * 0.07), verts=5, r2=0.0), WHITE))
+    eye.append(paint(ell(0.05, (0, Hh / 2 - 0.01, 0.0), (1.5, 0.7, 1.2), sub=2), WHITE))
+    tg = limb([(0.03, Hh / 2 - 0.01, 0.05), (0.06, Hh / 2 + 0.03, D / 2 + 0.02), (0.08, 0.02, D / 2 + 0.07), (0.05, -0.1, D / 2 + 0.06), (0.09, -0.15, D / 2 + 0.1), (0.14, -0.12, D / 2 + 0.11)],
+              [0.035, 0.04, 0.036, 0.03, 0.022, 0.006], 8, 1.3, 0.6)
+    tongue.append(paint(tg, shade(0.72, 1.0)))
+    for sx, z in ((-1, 0.02), (1, -0.08)):  # tentacles curling out of the sides
+        tn = limb([(sx * 0.1, Hh / 2 - 0.02, z), (sx * (W / 2 + 0.03), Hh / 2 + 0.04, z), (sx * (W / 2 + 0.11), 0.05, z + 0.03), (sx * (W / 2 + 0.1), -0.05, z + 0.08), (sx * (W / 2 + 0.17), -0.07, z + 0.1)],
+                  [0.03, 0.032, 0.026, 0.018, 0.004], 8)
+        tongue.append(paint(tn, shade(0.6, 0.9)))
+    kit('kit_micca_box', {'wood': wood, 'gold': gold, 'teeth': teeth, 'eye': eye, 'tongue': tongue})
+
+    wood, gold, teeth = [], [], []
+    LH = 0.105
+
+    def dome(u, v, grow=0.0):
+        a = math.pi * v
+        return ((u - 0.5) * (W + 0.02 + grow), (LH + grow) * math.sin(a), D / 2 - (D / 2 + 0.01 + grow) * math.cos(a))
+    lid = sheet('lid', 6, 12, lambda u, v: dome(u, v), closed=False)
+    modify(lid, 'SOLIDIFY', thickness=0.014, offset=-1)
+    fix_normals(lid)
+    wood.append(paint(lid, lambda p, n, pc: (lambda k: (k, k, k))((0.74 + 0.26 * (0.5 + 0.5 * math.sin(p.x * 70))) * (0.86 + 0.14 * nz(p, 9, 5)))))
+    for sx in (-1, 1):  # end walls
+        vs = [B(sx * (W / 2 + 0.008), 0, D / 2)] + [B(sx * (W / 2 + 0.008), LH * math.sin(math.pi * k / 12), D / 2 - (D / 2 + 0.01) * math.cos(math.pi * k / 12)) for k in range(13)]
+        end = mesh('end', vs, [(0, k + 1, k + 2) if sx > 0 else (0, k + 2, k + 1) for k in range(12)])
+        wood.append(paint(end, shade(0.7, 0.9)))
+    for x in (-0.15, 0.15):
+        st = sheet('strap', 2, 12, lambda u, v, x=x: (lambda q: (x + (u - 0.5) * 0.052, q[1], q[2]))(dome(0.5, v, 0.008)), closed=False)
+        modify(st, 'SOLIDIFY', thickness=0.008, offset=1)
+        fix_normals(st)
+        gold.append(paint(st, shade(0.82, 1.0)))
+    rim = limb([dome(u, 1.0, 0.004) for u in (0.0, 0.25, 0.5, 0.75, 1.0)], [0.011] * 5, 6)
+    gold.append(paint(rim, shade(0.85, 1.0)))
+    for k in range(8):  # upper fangs
+        x = (k - 3.5) * 0.05
+        teeth.append(paint(cyl(0.016, 0.06 if k % 2 else 0.045, B(x, -0.022 if k % 2 else -0.015, D - 0.02), rot=(math.pi, 0, 0), verts=5, r2=0.0), WHITE))
+    kit('kit_micca_lid', {'wood': wood, 'gold': gold, 'teeth': teeth})
+
+
 ASSETS = {
     'sunbeam_rock': build_sunbeam_rock,
     'tent': build_tent,
@@ -5317,6 +5404,7 @@ ASSETS = {
     'aba_body': build_aba_body,
     'hero_feet': build_hero_feet,
     'hero_curvy': build_hero_curvy,
+    'micca': build_micca,
 }
 
 for name, fn in ASSETS.items():

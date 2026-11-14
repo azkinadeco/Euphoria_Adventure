@@ -12,7 +12,7 @@ import { Rig } from './rig.js';
  */
 function softFace(o = {}, closed = false) {
   const {
-    iris = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], lash = '#2a2238', brow = lash, browShape = 'soft', shape = 'round',
+    iris: iris1 = ['#1d4f8a', '#4fa3e8', '#bfe6ff'], iris2 = null, lash = '#2a2238', brow = lash, browShape = 'soft', shape = 'round',
     mouth = 'smile', blush = 0.38, lip = '#b8485e', liner = null, slit = false, shadow = 'rgba(150,90,110,0.5)',
   } = o;
   const TAU = Math.PI * 2;
@@ -23,7 +23,7 @@ function softFace(o = {}, closed = false) {
     const tilt = shape === 'sharp' ? 6 : shape === 'droopy' ? -4 : 2; // how far the outer corner rises
     const ew = 26, eh = shape === 'sharp' ? 27 : 31;
     const eye = (cx, f) => {
-      const cy = 134;
+      const cy = 134, iris = f > 0 && iris2 ? iris2 : iris1; // iris2: odd-eyed heroes (her left eye)
       const lid = () => { // upper lash line, inner corner -> outer corner
         g.beginPath(); g.moveTo(cx - f * (ew + 1), cy - 6 + tilt * 0.5);
         g.bezierCurveTo(cx - f * ew * 0.7, cy - eh - 7, cx + f * ew * 0.45, cy - eh - 6, cx + f * (ew + 3), cy - 13 - tilt);
@@ -208,7 +208,7 @@ function buildBody(rig, S) {
   // A layer whose material is the skin is simply not drawn; only the bare body carries the outline.
   const lay = (m) => (m && m !== S.skin ? m : undefined);
   applySkinned(S.bodyKit ?? (S.curvy ? 'hero_body_curvy' : 'hero_body_skinned'), rig, {
-    skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), upper: lay(S.upperArm ?? S.shoulder),
+    skin: S.skin, bottom: lay(S.bottom), waist: lay(S.waist), chest: lay(S.chest), bandeau: lay(S.bandeau), upper: lay(S.upperArm ?? S.shoulder),
     forearm: lay(S.forearm), thigh: lay(S.thigh), knee: lay(S.knee ?? S.shin), shin: lay(S.shin),
   }, bodyOld, { ol: (r) => (r === 'skin' ? 0.007 : r === 'knee' ? 0.004 : 0) });
   /** skinned Blender outfit pieces (hero_outfits.glb): roles -> materials, old primitives replaced */
@@ -556,19 +556,28 @@ export class GemoraRig extends Rig {
   constructor() { super('Gemora'); }
   _build() {
     this.style = 'caster';
-    const skin = toon(0xf4dcd8), black = toon(0x16121e), purple = toon(0x9a5ad8, { emissive: 0x3a1a6a, emissiveIntensity: 0.8 }), hairC = 0x8a4ad0, hose = toon(0x2a2236);
+    // key art: strapless black top, bare arms, sheer dark tights lit by violet alien glyphs, silver sandals,
+    // crystal-tipped antennae, floor-length violet hair
+    const skin = toon(0xf4dcd8), black = toon(0x16121e), purple = toon(0x9a5ad8, { emissive: 0x3a1a6a, emissiveIntensity: 0.8 }), hairC = 0x8a4ad0;
+    const hose = toon(0x35262e, { glyph: [0xb060ff, 0.021, 0.13, 0.8] }), silver = toon(0x9a9ab4, { specStrength: 0.8, specPower: 40 });
     const H = buildBody(this, {
-      skin, bottom: black, chest: black, waist: skin, hair: toon(hairC), hair2: toon(0xb07ae8), hairColor: hairC, hairLen: 1.05, hairStyle: 'straight', curvy: true,
-      thigh: hose, knee: black, shin: hose, shoe: black, upperArm: skin, forearm: black, hand: black, foot: ['sandal', { skin: hose, shoe: black }],
-      face: faces({ iris: ['#3a0a6a', '#b07aff', '#f0d8ff'], mouth: 'flat' }),
+      skin, bottom: hose, bandeau: black, hair: toon(hairC), hair2: toon(0xb07ae8), hairColor: hairC, hairTip: 0xd0a8f8, tipY: [-0.6, -0.98], hairLen: 1.05, hairStyle: 'straight', curvy: true,
+      thigh: hose, knee: hose, shin: hose, shoe: black, foot: ['sandal', { skin: hose, shoe: silver }],
+      face: faces({ iris: ['#5a0a6a', '#e060e8', '#ffd0ff'], lash: '#2a1838', brow: '#7a48b8', mouth: 'flat', lip: '#c05080' }),
     });
     const { add, Sp, Cy, chest, head, hips } = H;
-    for (const s of [-1, 1]) { // antennae
-      const a = add(head, part(Cy(0.006, 0.006, 0.22, 5), black, { ol: 0 }), s * 0.06, 0.32, 0); a.rotation.z = -s * 0.35;
-      add(head, new THREE.Mesh(Sp(0.025, 8, 6), new THREE.MeshBasicMaterial({ color: 0xc07aff })), s * 0.1, 0.42, 0);
+    const gemM = new THREE.MeshBasicMaterial({ color: 0xc07aff });
+    for (const s of [-1, 1]) { // antennae: a curved stalk ending in a faceted crystal
+      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(s * 0.045, 0.21, 0.03), new THREE.Vector3(s * 0.07, 0.3, 0.035), new THREE.Vector3(s * 0.115, 0.37, 0.02), new THREE.Vector3(s * 0.15, 0.415, 0.0)]);
+      add(head, part(new THREE.TubeGeometry(curve, 10, 0.0055, 6), black, { ol: 0.003 }));
+      const gem = add(head, new THREE.Mesh(new THREE.OctahedronGeometry(0.022), gemM), s * 0.158, 0.44, -0.004);
+      gem.scale.set(0.7, 1.7, 0.7); gem.rotation.z = -s * 0.5;
+      add(head, part(Sp(0.012, 8, 6), silver, { ol: 0 }), s * 0.15, 0.415, 0.0);
     }
-    for (const s of [-1, 1]) add(chest, new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.18, 0.01), purple), s * 0.07, -0.02, 0.1);
-    const belt = add(hips, part(new THREE.TorusGeometry(0.145, 0.016, 6, 20), purple, { ol: 0 }), 0, 0.02, 0); belt.rotation.x = Math.PI / 2;
+    // top trim + a glowing seam down the middle, a slim tech band on each wrist
+    add(chest, new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.07, 0.008), purple), 0, 0.0, 0.118);
+    for (const k of ['L', 'R']) add(this.j['hand' + k], part(new THREE.TorusGeometry(0.036, 0.007, 6, 14), silver, { ol: 0 }), 0, 0.035, 0).rotation.x = Math.PI / 2;
+    const belt = add(hips, part(new THREE.TorusGeometry(0.148, 0.007, 6, 24), purple, { ol: 0 }), 0, 0.025, -0.008); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.72, 1);
     // void rifle
     const gun = new THREE.Group(); this.j.handR.add(gun);
     gun.position.set(0, -0.06, 0.02); gun.rotation.x = Math.PI / 2;
@@ -584,20 +593,28 @@ export class MiccaRig extends Rig {
   constructor() { super('Micca'); this.bt = 0; }
   _build() {
     this.style = 'caster';
-    const skin = toon(0xffe2d4), brown = toon(0x5a3a2a), horn = toon(0xe8d8b0, { flatShading: true }), gold = toon(0xf0c35a), hairC = 0xdfe2ea, lace = toon(0x3a2a24);
+    // key art: mint-white twin tails, big curled ram horns, odd eyes (red / teal), sleeveless brown
+    // turtleneck dress, dark lace on arms and legs, bare feet, the mimic chest she rides
+    const skin = toon(0xffe2d4), brown = toon(0x6a4630), horn = toon(0xe2c88c), gold = toon(0xf0c35a), hairC = 0xe6f0ee;
+    const lace = toon(0x2e2020, { net: [0.013, 0.2, 0.72] }), laceArm = toon(0x2e2020, { net: [0.012, 0.2, 9, 0.175, 0.79] });
     const H = buildBody(this, {
-      skin, bottom: brown, chest: brown, waist: skin, hair: toon(hairC), hair2: toon(0xc8ccd8), hairColor: hairC, hairLen: 0.85, hairStyle: 'twin', tie: gold,
-      thigh: lace, knee: brown, shin: lace, shoe: brown, upperArm: skin, forearm: brown, hand: skin, foot: ['bare', { skin: lace }],
-      face: faces({ iris: ['#6a0a2a', '#ff4a7a', '#ffc0d0'], browShape: 'firm', mouth: 'smile' }),
+      skin, bottom: brown, chest: brown, waist: brown, hair: toon(hairC), hair2: toon(0xd0e6e2), hairColor: hairC, hairTip: 0x86dccc, tipY: [-0.35, -0.9], hairLen: 0.85, hairStyle: 'twin', tie: gold,
+      thigh: lace, knee: lace, shin: lace, shoe: brown, forearm: laceArm, hand: skin, foot: ['bare', { skin }],
+      face: faces({ iris: ['#6a0a1a', '#f03a4a', '#ffc0c0'], iris2: ['#0a5a5a', '#2fc8b8', '#c8fff0'], browShape: 'firm', brow: '#a8bcb8', mouth: 'smile', lip: '#c04858' }),
     });
-    const { add, Sp, Cy, head } = H;
-    for (const s of [-1, 1]) { // curled ram horns
+    const { add, Sp, Cy, head, hips, outfit } = H;
+    const skM = toon(0x6a4630, { side: THREE.DoubleSide });
+    outfit({ rumSkirt: skM }, []); // the same tight mini-dress cut as Rumi's, in brown
+    const prim = [];
+    for (const s of [-1, 1]) { // placeholder horns until the Blender pair arrives
       for (let k = 0; k < 6; k++) {
         const a = k * 0.75;
-        const seg = add(head, part(Sp(0.04 - k * 0.004, 8, 6), horn, { ol: 0.004 }), s * (0.12 + Math.sin(a) * 0.06), 0.2 + Math.cos(a) * 0.06 - k * 0.012, -0.02 + Math.sin(a + 1) * 0.03);
-        void seg;
+        prim.push(add(head, part(Sp(0.04 - k * 0.004, 8, 6), horn, { ol: 0.004 }), s * (0.12 + Math.sin(a) * 0.06), 0.2 + Math.cos(a) * 0.06 - k * 0.012, -0.02 + Math.sin(a + 1) * 0.03));
       }
+      applyKit('kit_micca_horn', head, { horn }, s > 0 ? prim : [], { ol: 0.005, crease: 1.0, place: (m) => { m.scale.set(s * 1.25, 1.25, 1.25); m.position.set(0, -0.05, 0.005); } });
     }
+    for (const k of ['L', 'R']) add(this.j['hand' + k], part(new THREE.TorusGeometry(0.037, 0.008, 6, 14), gold, { ol: 0 }), 0, 0.03, 0).rotation.x = Math.PI / 2;
+    add(this.j.footR, part(new THREE.TorusGeometry(0.04, 0.009, 6, 14), toon(0x4a4650), { ol: 0 }), 0, 0.01, 0).rotation.x = Math.PI / 2; // the shackle
     // war hammer
     const hm = new THREE.Group(); this.j.handR.add(hm);
     hm.position.set(0, -0.05, 0); hm.rotation.x = Math.PI / 2 + 0.2;
@@ -605,13 +622,17 @@ export class MiccaRig extends Rig {
     add(hm, part(new THREE.BoxGeometry(0.34, 0.22, 0.22), toon(0x2a2a30, { flatShading: true }), { ol: 0.008 }), 0, 0.95, 0);
     add(hm, new THREE.Mesh(new THREE.OctahedronGeometry(0.05), new THREE.MeshBasicMaterial({ color: 0xff3a5a })), 0, 0.95, 0.12);
     weapon('kit_w_hammer', hm, { hmHandle: hm.children[0].material, hmHead: hm.children[1].material }, hm.children.slice(0, 2), 0.005);
-    // Pandora's box floating behind her
+    // Pandora's box floating behind her: a toothy mimic chest (Blender kits; the lid stays a separate, hinged part)
     const box = new THREE.Group();
-    box.add(part(new THREE.BoxGeometry(0.42, 0.3, 0.3), toon(0x6a2a1a), { ol: 0.008 }));
-    const lid = new THREE.Group(); lid.position.set(0, 0.15, -0.15); box.add(lid);
-    const lm = part(new THREE.BoxGeometry(0.44, 0.08, 0.32), toon(0x7a3a24), { ol: 0.006 }); lm.position.z = 0.15; lid.add(lm);
-    for (const x of [-0.18, 0.18]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.32, 0.32), gold); b.position.x = x; box.add(b); }
-    const eye = new THREE.Mesh(Sp(0.05, 10, 8), new THREE.MeshBasicMaterial({ color: 0xff3a5a })); eye.position.set(0, 0.04, 0.16); box.add(eye);
+    const wood = toon(0x7a3e22), tongue = toon(0xb83a5a), teeth = toon(0xf4ecd8), eyeM = new THREE.MeshBasicMaterial({ color: 0xff3a5a });
+    const bodyOld = [part(new THREE.BoxGeometry(0.42, 0.3, 0.3), wood, { ol: 0.008 })];
+    box.add(bodyOld[0]);
+    const lid = new THREE.Group(); lid.position.set(0, 0.15, -0.16); box.add(lid);
+    const lm = part(new THREE.BoxGeometry(0.44, 0.08, 0.32), wood, { ol: 0.006 }); lm.position.z = 0.15; lid.add(lm);
+    for (const x of [-0.18, 0.18]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.32, 0.32), gold); b.position.x = x; box.add(b); bodyOld.push(b); }
+    const eye = new THREE.Mesh(Sp(0.05, 10, 8), eyeM); eye.position.set(0, 0.04, 0.16); box.add(eye); bodyOld.push(eye);
+    applyKit('kit_micca_box', box, { wood, gold, teeth, eye: eyeM, tongue }, bodyOld, { ol: 0.007 });
+    applyKit('kit_micca_lid', lid, { wood, gold, teeth }, [lm], { ol: 0.007 });
     this.root.add(box);
     this.box = box; this.boxLid = lid;
   }
@@ -621,7 +642,7 @@ export class MiccaRig extends Rig {
     const open = st.action === 'cast' || st.action === 'burst';
     this.box.position.set(0.5, 1.2 + Math.sin(this.bt * 2) * 0.08, -0.45);
     this.box.rotation.y = Math.sin(this.bt) * 0.3;
-    this.boxLid.rotation.x = -(open ? 1.2 : 0.1 + Math.abs(Math.sin(this.bt * 3)) * 0.15);
+    this.boxLid.rotation.x = -(open ? 1.2 : 0.42 + Math.abs(Math.sin(this.bt * 3)) * 0.14); // always a little agape: fangs and eye show
   }
 }
 

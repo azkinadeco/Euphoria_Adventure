@@ -94,6 +94,7 @@ export function toon(color, opts = {}) {
     isFace = false,
     net = null, // [cell, line width 0..0.5, top y, axis x = 0.08, bottom y]: fishnet / stocking cut on a limb (rig-space)
     grad = null, // [hex, y0, y1]: blend to a second colour along the mesh's own y (two-tone hair tips)
+    glyph = null, // [hex, cell, y0, y1, axis x]: glowing rectilinear circuit glyphs on a limb (rig-space, like net)
     shadeMix = 0, // 0 = world look (ramp only); characters get coloured cel shadows via charaLook()
     ...rest
   } = opts;
@@ -151,6 +152,25 @@ export function toon(color, opts = {}) {
         }`);
     }
 
+    if (glyph) {
+      // alien circuitry: every cell of a grid wrapped round the limb draws a bar, a post or a corner,
+      // so the lines join into right-angled glyphs; only the front of the limb carries them
+      shader.uniforms.uGlyCol = { value: new THREE.Color(glyph[0]).multiplyScalar(2.6) };
+      shader.uniforms.uGly = { value: new THREE.Vector4(glyph[1], glyph[2], glyph[3], glyph[4] ?? 0.08) };
+      shader.vertexShader = 'varying vec3 vGlyP;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vGlyP = position;');
+      shader.fragmentShader = 'varying vec3 vGlyP;\nuniform vec3 uGlyCol;\nuniform vec4 uGly;\n' + shader.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        {
+          float gA = atan(abs(vGlyP.x) - uGly.w, vGlyP.z);
+          vec2 gP = vec2(gA * 0.055, vGlyP.y) / uGly.x;
+          vec2 gC = floor(gP), gF = fract(gP) - 0.5;
+          float gH = fract(sin(dot(gC, vec2(127.1, 311.7))) * 43758.5453);
+          float gW = 0.11;
+          float bar = step(abs(gF.y), gW), post = step(abs(gF.x), gW);
+          float gL = gH < 0.24 ? bar : gH < 0.5 ? post : gH < 0.66 ? max(bar * step(gF.x, gW), post * step(gF.y, gW)) : gH < 0.78 ? max(bar * step(-gW, gF.x), post * step(-gW, gF.y)) : 0.0;
+          float gM = smoothstep(1.25, 0.95, abs(gA)) * step(uGly.y, vGlyP.y) * step(vGlyP.y, uGly.z);
+          totalEmissiveRadiance += uGlyCol * gL * gM;
+        }`);
+    }
     if (grad) {
       shader.uniforms.uGradCol = { value: new THREE.Color(grad[0]) };
       shader.uniforms.uGradY = { value: new THREE.Vector2(grad[1], grad[2]) };
@@ -259,7 +279,7 @@ export function toon(color, opts = {}) {
   // would split identical shaders into separate programs, so only keep a key someone set explicitly
   const origKey = Object.prototype.hasOwnProperty.call(mat, 'customProgramCacheKey') ? mat.customProgramCacheKey.bind(mat) : () => '';
   // spec/face/rim are uniforms (flatShading is already part of three's own key): one program per variant
-  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '') + (grad ? ':grad' : '');
+  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '') + (grad ? ':grad' : '') + (glyph ? ':glyph' : '');
 
   return mat;
 }
