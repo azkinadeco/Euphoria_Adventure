@@ -232,7 +232,13 @@ export class Player {
     this.root.position.copy(this.pos); this.root.rotation.y = facing;
   }
 
-  startAction(name, dur, data = null) { this.action = name; this.actionT = 0; this.actionDur = dur; this.actionData = data; this._hitDone = false; this._ticks = 0; }
+  startAction(name, dur, data = null) {
+    this.action = name; this.actionT = 0; this.actionDur = dur; this.actionData = data; this._hitDone = false; this._ticks = 0;
+    // every lunge leaves speed lines in the hero's colour; a burst gathers an aura while it charges
+    const V = this.game.vfx;
+    if ((name === 'fang' || name === 'pounce') && data?.from && data?.to) V.dashStreak(data.from, data.to, data.color ?? this.hero.color);
+    else if (name === 'burst') V.aura(this.root, this.hero.color, Math.min(dur, 1.3));
+  }
 
   nearestEnemy(maxD, preferFront = true) {
     const L = this.game.combat?.lock;

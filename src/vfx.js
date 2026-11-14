@@ -141,6 +141,52 @@ export class VFX {
   }
 
   /** elemental magic circle under a hero as a skill / burst goes off: spinning rune rings, a rising glow and motes */
+  /** speed lines left behind a dash / lunge: thin ribbons along the path that slide forward and fade (batch 49) */
+  dashStreak(from, to, color = 0xffffff, life = 0.38) {
+    const dir = new THREE.Vector3().subVectors(to, from); dir.y = 0;
+    const len = dir.length(); if (len < 0.5) return;
+    dir.normalize();
+    const side = new THREE.Vector3(dir.z, 0, -dir.x), grp = new THREE.Group(), lines = [];
+    for (let i = 0; i < 9; i++) {
+      const L = len * (0.35 + Math.random() * 0.55), w = 0.02 + Math.random() * 0.05;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+      m.scale.set(L, w, 1);
+      m.position.copy(from).addScaledVector(dir, len * (0.15 + Math.random() * 0.5)).addScaledVector(side, (Math.random() - 0.5) * 1.1);
+      m.position.y += 0.25 + Math.random() * 1.5;
+      m.rotation.y = Math.atan2(-dir.z, dir.x); // plane's x axis along the dash
+      if (i % 2) m.rotation.x = Math.PI / 2;
+      grp.add(m); lines.push([m, 0.6 + Math.random() * 1.2]);
+    }
+    this.scene.add(grp);
+    this.items.push({ obj: grp, t: 0, life, update: (it, k) => { for (const [m, v] of lines) { m.position.addScaledVector(dir, v * 0.06); m.material.opacity = 0.7 * (1 - k) * (1 - k); m.scale.y *= 0.97; } } });
+  }
+
+  /** power gathering round a hero while a burst charges: two tilted rings climbing the body + rising motes */
+  aura(target, color = 0xffffff, life = 1.2, radius = 0.75) {
+    const grp = new THREE.Group(), rings = [];
+    for (let i = 0; i < 2; i++) {
+      const r = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.018, 5, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+      grp.add(r); rings.push(r);
+    }
+    const veil = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.9, radius * 1.05, 2.2, 24, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    veil.position.y = 1.1; grp.add(veil);
+    this.scene.add(grp);
+    const wp = new THREE.Vector3();
+    let acc = 0;
+    this.items.push({ obj: grp, t: 0, life, update: (it, k) => {
+      target.getWorldPosition(wp); grp.position.copy(wp);
+      const fade = Math.min(1, k * 6) * (k < 0.75 ? 1 : (1 - k) / 0.25);
+      rings.forEach((r, i) => {
+        const ph = (it.t * 1.6 + i * 0.5) % 1;
+        r.position.y = 0.15 + ph * 1.9; r.rotation.set(Math.PI / 2 + 0.35 * Math.sin(it.t * 5 + i * 2), 0, it.t * 4 * (i ? -1 : 1));
+        r.scale.setScalar(1 - 0.35 * ph); r.material.opacity = 0.8 * fade * (1 - ph);
+      });
+      veil.material.opacity = 0.1 * fade; veil.rotation.y = it.t * 2;
+      acc += it.t - (it._pt || 0); it._pt = it.t;
+      if (acc > 0.06) { acc = 0; const a = Math.random() * Math.PI * 2; this.particles(wp.clone().add(new THREE.Vector3(Math.cos(a) * radius, 0.1, Math.sin(a) * radius)), 2, color, { speed: 0.5, up: 3.2, life: 0.7, grav: -2.5, spread: 0.15 }); }
+    } });
+  }
+
   castCircle(pos, color = 0xb8ff4a, radius = 1.6, life = 0.9) {
     const grp = new THREE.Group();
     const rune = this.geo.rune_ring;
