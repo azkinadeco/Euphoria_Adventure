@@ -3426,22 +3426,27 @@ def build_hair_styles():
                               [0.035, 0.03, 0.008], seed=30 + k))
         return res
 
-    def back(name, n, spread, fn, flat=0.5, blunt=False):
-        """fn(k, u, t) -> (x, y, z) offset along the strand; t 0 (top) .. 1 (tip)"""
+    def back(name, n, spread, fn, flat=0.5, blunt=False, seg=10, under=True):
+        """fn(k, u, t) -> (x, y, z) offset along the strand; t 0 (top) .. 1 (tip).
+        Two layers (batch 48): the outer locks, plus a shorter, tighter under-layer that closes the
+        gaps between them and gives the mane its body."""
         out = []
-        for k in range(n):
-            u = k / (n - 1) - 0.5
-            a = u * spread
-            sx_, sz_ = math.sin(a), -math.cos(a)
-            pts, rad = [], []
-            for i in range(7):
-                t = i / 6
-                r = 0.13 + 0.07 * t
-                ox, oy, oz = fn(k, u, t)
-                pts.append((sx_ * r + ox, -t + oy, sz_ * (r - 0.02 * t) - 0.04 + oz))
-                w = 0.05 + 0.012 * math.sin(t * math.pi)
-                rad.append(w * (1 - 0.15 * t) if blunt else w * (1 - t) ** 0.7 + 0.004)
-            out.append(strand(pts, rad, 6, flat, 40 + k, blunt, 0.16))
+        for layer in ((0, 1) if under else (0,)):
+            m = n if layer == 0 else n - 1
+            for k in range(m):
+                u = (k + 0.5 * layer) / (n - 1) - 0.5
+                a = u * spread
+                sx_, sz_ = math.sin(a), -math.cos(a)
+                pts, rad = [], []
+                ln = 1.0 if layer == 0 else 0.86
+                for i in range(seg + 1):
+                    t = i / seg
+                    r = (0.13 if layer == 0 else 0.112) + (0.07 if layer == 0 else 0.05) * t
+                    ox, oy, oz = fn(k + 7 * layer, u, t)
+                    pts.append((sx_ * r + ox, -t * ln + oy, sz_ * (r - 0.02 * t) - 0.04 + oz))
+                    w = (0.052 if layer == 0 else 0.06) + 0.014 * math.sin(t * math.pi)
+                    rad.append(w * (1 - 0.15 * t) if blunt else w * (1 - t) ** 0.7 + 0.004)
+                out.append(strand(pts, rad, 6, flat, 40 + k + 20 * layer, blunt, 0.16 if layer == 0 else 0.5))
         kit(name, {'side': out})
 
     # ---------- HIME: blunt fringe + long straight side locks + straight blunt back (Eropatra)
@@ -3454,7 +3459,7 @@ def build_hair_styles():
         hair.append(strand([(sx * 0.1, 0.15, 0.07), (sx * 0.112, 0.05, 0.075), (sx * 0.11, -0.04, 0.07)], [0.028, 0.03, 0.028], 6, 0.5, 20, True))
         hair.append(strand([(sx * 0.12, 0.12, 0.03), (sx * 0.135, -0.05, 0.045), (sx * 0.14, -0.2, 0.05)], [0.03, 0.032, 0.03], 6, 0.5, 22, True))
     kit('kit_hs_hime_front', {'hair': hair, 'side': side})
-    back('kit_hs_hime_back', 13, 2.4, lambda k, u, t: (0, 0, 0), 0.5, True)
+    back('kit_hs_hime_back', 13, 2.8, lambda k, u, t: (0, 0, 0), 0.5, True)
 
     # ---------- WAVY: side-swept bangs, S-curved locks, voluminous waves (Fidelia, Scylla, Rumi)
     hair, side, hair2 = [cap()], sides_ring(out=1.08), []
@@ -3469,7 +3474,10 @@ def build_hair_styles():
         pts = [(sx * (0.11 + 0.012 * math.sin(t * 7)), 0.13 - t * 0.36, 0.05 + 0.01 * math.cos(t * 7)) for t in [j / 6 for j in range(7)]]
         hair.append(strand(pts, [0.03, 0.032, 0.03, 0.026, 0.02, 0.012, 0.004], 6, 0.5, 20 + sx))
     kit('kit_hs_wavy_front', {'hair': hair, 'side': side, 'hair2': hair2})
-    back('kit_hs_wavy_back', 13, 2.6, lambda k, u, t: (0.03 * t * math.sin(t * 9 + k * 0.9) + u * 0.08 * t, 0, 0.025 * t * math.cos(t * 7 + k)), 0.55)
+    # real waves: every lock snakes sideways and in depth, wider toward the ends, and curls up at the tip
+    back('kit_hs_wavy_back', 13, 3.0, lambda k, u, t: (0.05 * t ** 0.8 * math.sin(t * 11 + k * 1.3) + u * 0.14 * t,
+                                                         0.05 * max(0.0, t - 0.85) / 0.15,
+                                                         0.035 * t * math.cos(t * 9 + k * 1.7) - 0.03 * t), 0.6)
 
     # ---------- STRAIGHT: centre-parted bangs, long tapered locks, V-cut back (Mora, Valeria, Gemora)
     hair, side, hair2 = [cap()], sides_ring(), []
@@ -3485,7 +3493,7 @@ def build_hair_styles():
         hair.append(strand([(sx * 0.108, 0.13, 0.055), (sx * 0.12, -0.02, 0.06), (sx * 0.122, -0.2, 0.055), (sx * 0.12, -0.3, 0.05)], [0.03, 0.03, 0.022, 0.004], 6, 0.5, 20 + sx))
     hair.append(strand([(0.0, 0.235, -0.01), (0.02, 0.29, 0.0), (0.05, 0.3, 0.02)], [0.012, 0.009, 0.002], 5, 0.6, 26))  # ahoge
     kit('kit_hs_straight_front', {'hair': hair, 'side': side, 'hair2': hair2})
-    back('kit_hs_straight_back', 13, 2.4, lambda k, u, t: (0, (abs(u) * 0.12) * t, 0), 0.45)
+    back('kit_hs_straight_back', 13, 2.8, lambda k, u, t: (0.012 * t * math.sin(t * 5 + k), (abs(u) * 0.12) * t, -0.02 * t), 0.45)
 
     # ---------- WILD: spiky messy fringe + flicked-out tips (Glytta)
     hair, side, hair2 = [cap()], sides_ring(11, 3.6, 0.0, 1.12), []
