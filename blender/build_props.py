@@ -3510,6 +3510,21 @@ def build_hair_styles():
     kit('kit_hs_wild_front', {'hair': hair, 'side': side, 'hair2': hair2})
     back('kit_hs_wild_back', 15, 2.9, lambda k, u, t: (u * 0.2 * t ** 2 + 0.03 * math.sin(k * 2.3) * t, 0.06 * t ** 3 * ((k % 3) - 1), -0.05 * t ** 2 * (k % 2)), 0.6)
 
+    # ---------- LUBY (batch 50): choppy black fringe under the hood with lime streaks, long pointed
+    # side locks that hang past the jaw (key art); no back kit - the hood covers it
+    hair, hair2 = [], []
+    for i in range(9):
+        x = (i - 4) * 0.027
+        z0 = 0.106 - abs(i - 4) * 0.011
+        L = 0.07 + 0.03 * abs(math.sin(i * 1.9))
+        jx = 0.03 * math.sin(i * 2.3)
+        b = strand([(x * 0.9, 0.186, z0 - 0.012), (x + jx * 0.4, 0.168, z0 + 0.014), (x + jx, 0.165 - L, z0 + 0.02)], [0.02, 0.021, 0.003], 5, 0.55, 10 + i)
+        (hair2 if i in (2, 5, 7) else hair).append(b)
+    for sx in (-1, 1):
+        hair.append(strand([(sx * 0.105, 0.13, 0.06), (sx * 0.118, 0.02, 0.068), (sx * 0.112, -0.07, 0.072), (sx * 0.1, -0.13, 0.076)], [0.022, 0.024, 0.016, 0.003], 6, 0.5, 20 + sx))
+        hair2.append(strand([(sx * 0.092, 0.15, 0.086), (sx * 0.104, 0.06, 0.092), (sx * 0.1, -0.02, 0.095)], [0.013, 0.012, 0.002], 5, 0.5, 26 + sx))
+    kit('kit_hs_luby_front', {'hair': hair, 'hair2': hair2})
+
     # ---------- TWIN TAILS: front = default bangs + ahoge, back = two high tails with ties (Kali, Micca)
     hair, side, hair2 = [cap()], sides_ring(), []
     for i in range(7):

@@ -278,7 +278,7 @@ export class Luby extends Rig {
       hairOld.push(l);
     }
     // same skull as the heroes -> the shared Blender hair kit fits (lime streak on the 3rd bang)
-    applyKit('kit_b_hair', head, { hair: M.hair, hair2: M.hairLime } /* back locks hidden: the hood covers them */, hairOld, { ol: 0.006, crease: 1.2 });
+    applyKit('kit_hs_luby_front', head, { hair: M.hair, hair2: M.hairLime } /* her own fringe: lime streaks, long side locks (batch 50) */, hairOld, { ol: 0.006, crease: 1.2 });
 
     // ---------- cat hood ----------
     const hoodG = grp(head, 'hood', 0, 0.112, -0.012);
