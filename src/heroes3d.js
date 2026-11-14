@@ -24,7 +24,14 @@ function softFace(o = {}, mode = false) {
     g.clearRect(0, 0, 256, 256);
     g.lineCap = 'round'; g.lineJoin = 'round';
     const tilt = shape === 'sharp' ? 6 : shape === 'droopy' ? -4 : 2; // how far the outer corner rises
-    const ew = 26, eh = shape === 'sharp' ? 27 : 31;
+    const ew = 28, eh = shape === 'sharp' ? 29 : 34;
+    { // the fringe's shadow across the forehead, a staple of anime faces
+      const hs = g.createLinearGradient(0, 40, 0, 100);
+      hs.addColorStop(0, 'rgba(196,120,120,0.42)'); hs.addColorStop(0.75, 'rgba(196,120,120,0.3)'); hs.addColorStop(1, 'rgba(196,120,120,0)');
+      g.fillStyle = hs; g.beginPath(); g.moveTo(0, 0); g.lineTo(256, 0); g.lineTo(256, 88);
+      for (let k = 8; k >= 0; k--) g.lineTo(k * 32, 86 + (k % 2 ? 12 : 0)); // jagged lower edge, like the locks above it
+      g.fill();
+    }
     const eye = (cx, f) => {
       const cy = 134, iris = f > 0 && iris2 ? iris2 : iris1; // iris2: odd-eyed heroes (her left eye)
       const lid = () => { // upper lash line, inner corner -> outer corner
@@ -44,15 +51,16 @@ function softFace(o = {}, mode = false) {
         g.beginPath(); g.ellipse(cx, cy, ew, eh, 0, 0, TAU); g.clip();
         g.fillStyle = '#fffdfb'; g.fillRect(cx - 40, cy - 40, 80, 80);
         const ix = cx + f * 1.5, iy = cy + 3, ih = eh - 3;
-        g.fillStyle = iris[0]; g.beginPath(); g.ellipse(ix, iy, 20.5, ih, 0, 0, TAU); g.fill();
+        g.fillStyle = iris[0]; g.beginPath(); g.ellipse(ix, iy, 22, ih, 0, 0, TAU); g.fill();
         const gr = g.createLinearGradient(0, iy - ih, 0, iy + ih);
         gr.addColorStop(0, iris[0]); gr.addColorStop(0.42, iris[1]); gr.addColorStop(0.86, iris[2]); gr.addColorStop(1, '#ffffff');
-        g.fillStyle = gr; g.beginPath(); g.ellipse(ix, iy + 1, 17.5, ih - 3, 0, 0, TAU); g.fill();
+        g.fillStyle = gr; g.beginPath(); g.ellipse(ix, iy + 1, 19, ih - 3, 0, 0, TAU); g.fill();
+        g.strokeStyle = iris[2]; g.globalAlpha = 0.55; g.lineWidth = 1.6; g.beginPath(); g.ellipse(ix, iy + 3, 11.5, ih * 0.5, 0, 0, TAU); g.stroke(); g.globalAlpha = 1; // inner iris ring
         // pupil + the dark upper half every anime iris has
         g.fillStyle = 'rgba(12,10,26,0.86)'; g.beginPath(); g.ellipse(ix, iy + 2, slit ? 4.5 : 8, slit ? ih * 0.6 : 11, 0, 0, TAU); g.fill();
         const up = g.createLinearGradient(0, iy - ih, 0, iy + 2);
         up.addColorStop(0, 'rgba(10,8,30,0.62)'); up.addColorStop(1, 'rgba(10,8,30,0)');
-        g.fillStyle = up; g.beginPath(); g.ellipse(ix, iy, 20.5, ih, 0, 0, TAU); g.fill();
+        g.fillStyle = up; g.beginPath(); g.ellipse(ix, iy, 22, ih, 0, 0, TAU); g.fill();
         // bright lower crescent
         g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 3;
         g.beginPath(); g.ellipse(ix, iy + 1, 12, ih - 9, 0, 0.25 * Math.PI, 0.75 * Math.PI); g.stroke();
@@ -63,7 +71,8 @@ function softFace(o = {}, mode = false) {
         g.restore();
         // highlights
         g.fillStyle = '#fff';
-        g.beginPath(); g.ellipse(cx - f * 7, cy - 10, 7, 5.5, -0.5 * f, 0, TAU); g.fill();
+        g.beginPath(); g.ellipse(cx - f * 8, cy - 12, 8.5, 6.5, -0.5 * f, 0, TAU); g.fill();
+        g.beginPath(); g.arc(cx - f * 15, cy - 1, 2.6, 0, TAU); g.fill();
         g.beginPath(); g.arc(cx + f * 8, cy + 14, 3, 0, TAU); g.fill();
         // lashes: thick upper line, outer wing, fine lower line, lid crease
         g.strokeStyle = lash; g.lineWidth = 7.5; lid(); g.stroke();
