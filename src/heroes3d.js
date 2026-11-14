@@ -749,6 +749,40 @@ export class CommanderRig extends Rig {
   }
 }
 
+/** Hyeonxa · the serpent matron of the reef camp (story NPC, batch 52), built like a hero from her key art:
+ * floor-length black hime hair, rose horns, a plum strapless leotard, crimson heels, three serpents behind her. */
+export class HyeonxaRig extends Rig {
+  constructor() { super('Hyeonxa'); }
+  _build() {
+    this.style = 'caster';
+    const skin = toon(0xffdcd6), plum = toon(0x2e1626, { specStrength: 0.45, specPower: 26, specColor: 0xd070a0 }), black = toon(0x1a1420), rose = toon(0xd8588c);
+    const H = buildBody(this, {
+      skin, bottom: plum, bandeau: plum, waist: plum, hair: black, hair2: toon(0x2c2034), hairColor: 0x1a1420, hairLen: 1.2, hairStyle: 'hime', curvy: true,
+      shoe: rose, foot: ['pump', { skin, shoe: toon(0x8a1430) }],
+      face: faces({ iris: ['#5a0a2a', '#d04a78', '#ffc0d4'], lash: '#1a1018', brow: '#1a1420', browShape: 'firm', shape: 'sharp', mouth: 'smirk', lip: '#a02848', blush: 0.3 }),
+    });
+    const { add, head, chest } = H;
+    for (const s of [-1, 1]) applyKit('kit_rumi_horn', head, { horn: rose }, [], { ol: 0.005, crease: 1.0, place: (m) => { m.scale.set(s * 0.62, 0.62, 0.62); m.position.set(s * 0.02, 0.085, -0.02); } });
+    add(chest, new THREE.Mesh(new THREE.OctahedronGeometry(0.014), new THREE.MeshBasicMaterial({ color: 0xff5a8a })), 0, 0.03, 0.125); // the eye-jewel on the bodice
+    // three serpents rise behind her and sway
+    const scale = toon(0x7a3058, { specStrength: 0.5, specPower: 20 });
+    this.snakes = [];
+    for (let i = 0; i < 3; i++) {
+      const g = new THREE.Group(); g.position.set(0.12 + i * 0.1, 0.55 + i * 0.05, -0.32 - i * 0.05); this.root.add(g);
+      const h = 0.75 + i * 0.28;
+      const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.5, -0.5, 0.1), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.22, h * 0.45, -0.05), new THREE.Vector3(0.1, h * 0.85, 0.02), new THREE.Vector3(0.3, h, 0.16), new THREE.Vector3(0.34, h - 0.07, 0.3)]);
+      g.add(part(new THREE.TubeGeometry(curve, 28, 0.07 - i * 0.008, 8), scale, { ol: 0.007 }));
+      const hd = add(g, part(new THREE.SphereGeometry(0.085 - i * 0.008, 10, 8), scale, { ol: 0.006 }), 0.35, h - 0.09, 0.34); hd.scale.set(0.9, 0.7, 1.4);
+      for (const e of [-1, 1]) add(hd, new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 5), new THREE.MeshBasicMaterial({ color: 0xff7aa8 })), e * 0.05, 0.03, 0.045);
+      this.snakes.push(g);
+    }
+  }
+  update(dt, st) {
+    super.update(dt, st);
+    this.snakes.forEach((g, i) => { g.rotation.y = Math.sin(this.time * 1.2 + i * 1.7) * 0.28; g.rotation.z = Math.sin(this.time * 0.8 + i) * 0.06; });
+  }
+}
+
 /** Kali · Hundred Blade Saint (Arc 2). `corrupt` builds the Second-Eclipse boss version. */
 export class KaliRig extends Rig {
   constructor(corrupt = false) { super(corrupt ? 'KaliCorrupt' : 'Kali', corrupt); this.bt = 0; }

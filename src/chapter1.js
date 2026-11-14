@@ -2,8 +2,7 @@
 import * as THREE from 'three';
 import { RLOC, BRIDGE, makeChest } from './reef.js';
 import { Enemy } from './enemies.js';
-import { ScyllaRig } from './heroes3d.js';
-import { makeNPC } from './characters.js';
+import { ScyllaRig, HyeonxaRig } from './heroes3d.js';
 import { toon, part } from './toon.js';
 import { SCRIPTS } from './story.js';
 import { sfx, setMusicMood } from './sfx.js';
@@ -22,25 +21,12 @@ export class Chapter1 {
     this.scyllaNpc = new ScyllaRig();
     this.scyllaNpc.root.position.set(C.x + 2.5, C.y, C.z + 2.5); this.scyllaNpc.root.rotation.y = -2.3;
     S.add(this.scyllaNpc.root);
-    this.hyeonxa = makeNPC({
-      hair: 0x1e1622, outfit: 0x2a1830, accent: 0xb03a6a, skin: 0xffe6da,
-      extra: (g, body, head) => {
-        for (const s of [-1, 1]) { const horn = part(new THREE.ConeGeometry(0.03, 0.2, 6), toon(0xd86a9a), { ol: 0.005 }); horn.position.set(s * 0.08, 0.24, 0); horn.rotation.z = -s * 0.4; head.add(horn); }
-        // two serpents coiling over her shoulders
-        for (const s of [-1, 1]) {
-          const sn = new THREE.Group(); sn.position.set(s * 0.32, 1.35, -0.1); body.add(sn);
-          for (let i = 0; i < 6; i++) { const seg = part(new THREE.SphereGeometry(0.07 - i * 0.004, 8, 6), toon(0x3a1a2a), { ol: 0.006 }); seg.position.set(s * Math.sin(i * 0.6) * 0.12, i * 0.09, Math.cos(i * 0.6) * 0.08); sn.add(seg); }
-          const hd = part(new THREE.SphereGeometry(0.08, 8, 6), toon(0x3a1a2a), { ol: 0.006 }); hd.scale.set(1, 0.8, 1.4); hd.position.set(s * 0.05, 0.6, 0.12); sn.add(hd);
-          g.userData['snake' + s] = sn;
-        }
-      },
-    });
+    this.hyeonxaRig = new HyeonxaRig(); this.hyeonxa = this.hyeonxaRig.root; // full rig from her key art (batch 52)
     this.hyeonxa.position.set(C.x - 2.4, C.y, C.z + 2.8); this.hyeonxa.rotation.y = 2.4;
     S.add(this.hyeonxa);
     W.addCollider(this.hyeonxa.position.x, this.hyeonxa.position.z, 0.4);
     W.animated.push({ update: (dt, t) => {
-      this.hyeonxa.userData.update(dt);
-      for (const s of [-1, 1]) { const sn = this.hyeonxa.userData['snake' + s]; if (sn) sn.rotation.y = Math.sin(t * 1.5 + s) * 0.4; }
+      this.hyeonxaRig.update(dt, { speed: 0, grounded: true });
       if (this.scyllaNpc.root.visible) this.scyllaNpc.update(dt, { speed: 0, grounded: true });
     } });
     const talk = { pos: this.hyeonxa.position, radius: 2.6, kind: 'reef_talk', label: 'Bicara dengan Hyeonxa' };

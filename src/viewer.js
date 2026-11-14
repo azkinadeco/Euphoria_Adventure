@@ -7,6 +7,9 @@ import { modelsIdle } from './assets.js';
 import { applyRim } from './toon.js';
 import { boostGlow } from './graphics.js';
 import { VFX } from './vfx.js';
+import { HyeonxaRig } from './heroes3d.js';
+
+const NPCS = { hyeonxa: { make: () => new HyeonxaRig(), portrait: 'assets/portraits/hyeonxa.png' } }; // story NPC rigs
 
 const q = new URLSearchParams(location.search);
 const num = (k, d) => (q.has(k) ? parseFloat(q.get(k)) : d);
@@ -41,7 +44,7 @@ const vfx = new VFX(scene);
 let rig = null, ready;
 function load(id) {
   if (rig) scene.remove(rig.root);
-  const def = HEROES[id] || HEROES.luby;
+  const def = NPCS[id] || HEROES[id] || HEROES.luby;
   rig = def.make();
   scene.add(rig.root);
   document.getElementById('ref').src = def.portrait;
