@@ -1,7 +1,7 @@
 // Playable 3D models for Fidelia (Valkyrie Tidal Shield) and Mora (Chronos Astral Sister),
 // built on the shared Rig so they reuse every animation Luby has.
 import * as THREE from 'three';
-import { applyKit, applySkinned } from './assets.js';
+import { applyKit, applySkinned, flameLayers, flickerFlames } from './assets.js';
 import { toon, part, canvasTex, animeHead, charaLook, damp } from './toon.js';
 import { Rig } from './rig.js';
 
@@ -890,14 +890,31 @@ export class AbadoniaRig extends Rig {
     });
     const kits = [];
     kits.push(applyKit('kit_aba_bra', H.chest, { bra: taupe }, [], { ol: 0.004, crease: 1.2 }));
-    kits.push(applyKit('kit_aba_crown', H.head, { crown: toon(0x1c1622), gem: B(0xff4a2a) }, [], { ol: 0.005 }));
+    // the crown's ember is a small jewel between the horns, not a slab (key art): shrink it about its own centre
+    kits.push(applyKit('kit_aba_crown', H.head, { crown: toon(0x1c1622), gem: B(0xff4a2a) }, [], { ol: 0.005 }).then((m) => {
+      m?.traverse((o) => {
+        if (!o.isMesh || !o.name.startsWith('gem')) return;
+        o.geometry.computeBoundingBox(); const c = o.geometry.boundingBox.getCenter(new THREE.Vector3());
+        o.scale.setScalar(0.42); o.position.copy(c).multiplyScalar(1 - 0.42); o.position.y -= 0.012;
+      });
+      return m;
+    }));
     // demon-eye battle axe, carried upright like a standard
     const ax = new THREE.Group(); this.j.handR.add(ax);
     ax.position.set(0, -0.04, 0); ax.rotation.x = Math.PI / 2 - 0.15;
     kits.push(applyKit('kit_aba_axe', ax, { axShaft: toon(0x2a1a4a), axMetal: toon(0x6a6478), axHead: toon(0x2c2636, { rimColor: 0x9a62ff, rimStrength: 0.9, rimPower: 2.0 }), axAura: B(0x9a3cff), axEye: B(0xff6a1a), axPupil: B(0x1a0505) }, [], { ol: 0.006 }));
     this.trails = [[ax, [0, 0.95, 0], [0, 1.72, 0]]];
+    // violet abyss fire licks round the axe head and the shield, as in the key art
+    const fire = (parent, x, y, z, k) => {
+      const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(k); parent.add(g);
+      const fl = flameLayers(g);
+      [0x6a20e0, 0xa050ff, 0xe0b0ff].forEach((c, i) => { fl[i].material.color.setHex(c); fl[i].material.opacity *= 0.75; });
+      return fl;
+    };
+    this.fires = [fire(ax, 0, 1.25, -0.06, 0.95), fire(ax, 0.22, 1.2, 0, 0.55), fire(ax, -0.22, 1.2, 0, 0.55)];
     // the abyss shield hovers at her left hand, wreathed in its own fire
     const sh = this.shield = new THREE.Group();
+    this.fires.push(fire(sh, 0, 0.55, -0.05, 0.9), fire(sh, 0.2, 0.2, -0.05, 0.55), fire(sh, -0.2, 0.25, -0.05, 0.55));
     kits.push(applyKit('kit_aba_shield', sh, { shFace: toon(0x8a3cf0, { emissive: 0x3a0e90, emissiveIntensity: 0.12 }), shRim: toon(0x8a84a0), shGem: B(0xff2a3a), shEye: B(0xb060ff) }, [], { ol: 0.008 }));
 
     // ---- the lion ----
@@ -935,6 +952,7 @@ export class AbadoniaRig extends Rig {
   update(dt, st) {
     super.update(dt, { ...st, sprint: false, flipT: 0, swim: false });
     const j = this.j, t = this.time, sp = st.speed || 0, a = st.action, moving = sp > 0.3 && st.grounded;
+    for (let i = 0; i < this.fires.length; i++) flickerFlames(this.fires[i], t + i * 1.7);
     // rider: side-saddle, legs to her right; shield arm reaching for the hovering shield
     j.pivot.rotation.x = 0; j.pivot.rotation.z = st.dead ? 0.35 : 0;
     j.legR.rotation.set(-1.5, 0, -1.2); j.kneeR.rotation.set(1.35, 0, 0); j.footR.rotation.set(0.5, 0, 0);
