@@ -86,7 +86,7 @@ class Game {
     try { const gl = this.renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); gpu = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)); } catch (e) { gpu = ''; }
     this.gpuName = gpu;
     const weakGpu = /intel|iris|uhd|hd graphics|swiftshader|llvmpipe|software|mali|adreno|powervr/i.test(gpu);
-    this._gfxInit = saved && PRESETS[saved] ? saved : (weakGpu ? 'low' : mobile ? 'med' : 'high');
+    this._gfxInit = saved && PRESETS[saved] ? saved : (weakGpu ? 'low' : 'high'); // strong phones (Apple GPU) start on HIGH too: it no longer carries the AO pass there
     this.fpsAcc = 0; this.fpsFrames = 0;
 
     this.state = this._defaultState();
@@ -1075,6 +1075,9 @@ class Game {
     if (this.playing) this._updateZone(raw);
     updateCull(this.camera.position, raw);
     this._tick(dt);
+    // touch devices: the sun's shadow map is redrawn every other frame (a second full pass over every
+    // shadow caster otherwise); the map and its matrix stay paired, so nothing swims
+    if (this.input.touch) { const sm = this.renderer.shadowMap; sm.autoUpdate = false; sm.needsUpdate = (this._frame = (this._frame || 0) + 1) % 2 === 0; }
     this.graphics.render();
   }
 

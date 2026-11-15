@@ -122,6 +122,7 @@ export class UI {
   async dialog(lines) {
     const G = this.game;
     this.dialogOpen = true;
+    document.body.classList.add('dlg'); // CSS clears the controls and HUD clutter while someone is talking
     G.inputLocked = true;
     document.exitPointerLock?.();
     const box = $('dialog');
@@ -144,6 +145,7 @@ export class UI {
       await this._line(line[0], clean(line[1]));
     }
     box.classList.add('hidden');
+    document.body.classList.remove('dlg');
     this.dialogOpen = false;
     G.inputLocked = false;
     G.input.consume();

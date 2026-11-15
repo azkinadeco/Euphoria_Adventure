@@ -84,7 +84,7 @@ function frame() {
   if (rig && P.idle != null) rig.idleT = P.idle;
   if (rig && !P.freeze) {
     rig.root.rotation.y = P.yaw;
-    rig.update(dt, { speed: P.speed, sprint: !!P.sprint, grounded: !P.air, vy: P.air > 1 ? -2 : 3, action: P.action || null, actionT: P.t, combo: P.combo, hurtT: P.hurt ? 1 : 0, look: P.look ?? null,  dead: !!P.dead, dt });
+    rig.update(dt, { speed: P.speed, sprint: !!P.sprint, grounded: !P.air, vy: P.air > 1 ? -2 : 3, action: P.action || null, actionT: P.t, combo: P.combo, hurtT: P.hurt ? 1 : 0, look: P.look ?? null, glide: !!P.glide,  dead: !!P.dead, dt });
   }
   vfx.update?.(dt);
   const d = 5.2 / P.zoom;

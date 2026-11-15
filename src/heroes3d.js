@@ -947,10 +947,31 @@ export class AbadoniaRig extends Rig {
       this.bTails.push({ g, yaw, elev });
     }
     sh.position.set(0.63, 1.2, 0.24); sh.rotation.set(0.06, 0.55, -0.16); sh.scale.setScalar(1.12);
+    // abyss wings: folded away on the ground, they unfurl from the lion's shoulders when she glides
+    // (the player's glider is not shown for her)
+    this.ownWings = true; this.wingK = 0; this.wings = [];
+    const wingS = new THREE.Shape();
+    [[0, 0.1], [0.45, 0.5], [1.2, 0.72], [2.05, 0.5], [1.6, 0.2], [1.42, -0.2], [1.08, 0.04], [0.9, -0.34], [0.56, -0.06], [0.36, -0.4], [0, -0.16]].forEach(([x, y], i) => wingS[i ? 'lineTo' : 'moveTo'](x, y));
+    const memb = toon(0x5a22b8, { side: THREE.DoubleSide, emissive: 0x3a0e90, emissiveIntensity: 0.55, rimColor: 0xc090ff, rimStrength: 0.8 });
+    const bone = toon(0x1c1626);
+    for (const s of [-1, 1]) {
+      const side = new THREE.Group(); side.position.set(s * 0.24, 1.42, 0.22); side.scale.x = s; beast.add(side);
+      const flap = new THREE.Group(); side.add(flap);
+      const m = part(new THREE.ShapeGeometry(wingS), memb, { ol: 0 }); m.rotation.x = Math.PI / 2; flap.add(m);
+      for (const [x, y, r] of [[2.05, 0.5, 0.03], [1.42, -0.2, 0.022], [0.9, -0.34, 0.02], [0.36, -0.4, 0.018]]) { // finger bones from the wrist
+        const L = Math.hypot(x - 0.45, y - 0.5), b = part(new THREE.CylinderGeometry(r * 0.35, r, L, 6), bone, { ol: 0.004 });
+        b.position.set((x + 0.45) / 2, 0.012, (y + 0.5) / 2); b.rotation.set(Math.PI / 2, 0, 0); b.rotation.order = 'YXZ'; b.rotation.y = Math.atan2(x - 0.45, y - 0.5);
+        flap.add(b);
+      }
+      const arm = part(new THREE.CylinderGeometry(0.03, 0.045, 0.68, 6), bone, { ol: 0.004 }); arm.position.set(0.225, 0.012, 0.3); arm.rotation.order = 'YXZ'; arm.rotation.set(Math.PI / 2, Math.atan2(0.45, 0.4), 0); flap.add(arm);
+      const claw = part(new THREE.ConeGeometry(0.03, 0.14, 5), bone, { ol: 0.003 }); claw.position.set(0.47, 0.012, 0.6); claw.rotation.x = Math.PI / 2; flap.add(claw);
+      side.visible = false;
+      this.wings.push({ side, flap });
+    }
     Promise.all(kits).then(() => charaLook(this.root, [skin]));
   }
   update(dt, st) {
-    super.update(dt, { ...st, sprint: false, flipT: 0, swim: false });
+    super.update(dt, { ...st, sprint: false, flipT: 0, swim: false, glide: false });
     const j = this.j, t = this.time, sp = st.speed || 0, a = st.action, moving = sp > 0.3 && st.grounded;
     for (let i = 0; i < this.fires.length; i++) flickerFlames(this.fires[i], t + i * 1.7);
     // rider: side-saddle, legs to her right; shield arm reaching for the hovering shield
@@ -968,13 +989,29 @@ export class AbadoniaRig extends Rig {
     const ph = gallop ? t * 20 : this.phase, sw = st.dead ? 0 : gallop ? 0.85 : 0.55 * Math.min(amp, 1.2);
     const fold = st.dead ? 1.25 : 0;
     const tg = gallop ? [Math.sin(ph), Math.sin(ph + 0.4), -Math.sin(ph), -Math.sin(ph + 0.4)] : [Math.sin(ph), -Math.sin(ph), -Math.sin(ph), Math.sin(ph)];
-    L.forEach((g, i) => { g.rotation.x = damp(g.rotation.x, tg[i] * sw + (i < 2 ? -fold : fold), 16, dt); });
+    if (!st.glide) L.forEach((g, i) => { g.rotation.x = damp(g.rotation.x, tg[i] * sw + (i < 2 ? -fold : fold), 16, dt); });
     const rear = a === 'burst' ? Math.sin(Math.min(1, (st.actionT || 0) / 0.6) * Math.PI) : 0;
     const lunge = a === 'attack' ? Math.sin(Math.min(1, (st.actionT || 0) * 1.6) * Math.PI) : 0;
     b.position.y = damp(b.position.y, (moving ? Math.abs(Math.cos(ph)) * 0.05 * amp : Math.sin(t * 1.8) * 0.012) - (st.dead ? 0.5 : 0) + (gallop ? Math.abs(Math.sin(ph)) * 0.12 : 0), 10, dt);
     b.rotation.x = damp(b.rotation.x, -0.42 * rear + 0.07 * lunge + (gallop ? Math.sin(ph) * 0.08 : 0), 10, dt);
     b.position.z = damp(b.position.z, 0.18 * lunge, 12, dt);
     this.bHead.rotation.set(damp(this.bHead.rotation.x, -0.45 * rear + (moving ? 0.1 : Math.sin(t * 1.1) * 0.05) - 0.2 * lunge, 8, dt), Math.sin(t * 0.7) * (moving ? 0.06 : 0.2), 0);
+    // wings: unfurl while gliding, slow strong beats; the lion stretches out under her
+    const fly = !!st.glide;
+    this.wingK = damp(this.wingK, fly ? 1 : 0, fly ? 9 : 6, dt);
+    const beat = Math.sin(t * 5.5);
+    for (const w of this.wings) {
+      w.side.visible = this.wingK > 0.03;
+      w.flap.scale.setScalar(Math.max(0.001, this.wingK * 1.3));
+      w.flap.rotation.z = 0.36 + beat * 0.5 * this.wingK + (1 - this.wingK) * 0.9; // folded up against the body when small
+      w.flap.rotation.y = -0.25 * (1 - this.wingK) - 0.08 * beat;
+    }
+    if (fly) {
+      L.forEach((g, i) => { g.rotation.x = damp(g.rotation.x, i < 2 ? -0.95 : 0.85, 10, dt); });
+      b.rotation.x = damp(b.rotation.x, -0.1 + beat * 0.03, 8, dt);
+      b.position.y = damp(b.position.y, beat * -0.05, 8, dt);
+      j.armR.rotation.set(-0.6, 0, -0.5); j.elbowR.rotation.set(-0.6, 0, 0); // axe held low and back
+    }
     this.bTails.forEach((o, i) => {
       const w = Math.sin(t * (moving ? 3.2 : 1.6) + i * 0.9);
       o.g.rotation.y = o.yaw + w * 0.09;

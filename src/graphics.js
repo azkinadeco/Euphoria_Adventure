@@ -130,7 +130,8 @@ export class Graphics {
     const r = this.renderer;
     const mobile = matchMedia('(pointer: coarse)').matches;
 
-    r.setPixelRatio(Math.min(devicePixelRatio, mobile ? Math.min(P.pr, 1.75) : P.pr));
+    // phones: sharp output (up to 2x) is affordable once the scene is drawn only once per frame
+    r.setPixelRatio(Math.min(devicePixelRatio, mobile ? Math.min(P.pr, 2) : P.pr));
     r.setSize(innerWidth, innerHeight);
 
     this.composer?.dispose?.();
@@ -149,7 +150,9 @@ export class Graphics {
 
     // Stylized Ambient Occlusion (GTAOPass)
     // Tuned specifically for cel-shaded art: grounds objects without dirtying anime skin or clean textures
-    if (P.ao) {
+    // GTAO draws the whole scene a second time (normals) plus two full-screen passes: on a phone that
+    // halves the frame rate for a effect the cel shading barely shows, so touch devices skip it
+    if (P.ao && !mobile) {
       const ao = new GTAOPass(this.scene, this.camera, size.x, size.y);
       ao.blendIntensity = 0.42;
       ao.updateGtaoMaterial({
@@ -175,7 +178,7 @@ export class Graphics {
     // High-Fidelity Soft Anime Bloom
     // Only HDR light sources cross the threshold; lit snow and marble stay clean
     if (P.bloom) {
-      const scale = mobile ? 0.6 : 1.0;
+      const scale = mobile ? 0.5 : 1.0;
       this.bloom = new UnrealBloomPass(
         new THREE.Vector2(size.x * scale, size.y * scale),
         0.42, // strength

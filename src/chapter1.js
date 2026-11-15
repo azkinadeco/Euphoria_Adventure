@@ -226,11 +226,14 @@ export class Chapter1 {
     if (S.step === 'reef_go' && P.pos.distanceTo(RLOC.camp) < 12) {
       G.ui.dialog(SCRIPTS.reefIntro).then(() => {
         S.reefCamp = true; S.spawn = 'reef';
-        P.addMember('scylla');
-        const m = P.members.find((x) => x.id === 'scylla'); m.level = P.level; m.maxHp = m.calcMaxHp(P.level); m.hp = m.maxHp;
+        // addMember returns her even when the team of four is already full (trial hero on board): she
+        // then waits on the bench. Looking her up in the active team threw here and looped this dialog.
+        const m = P.addMember('scylla'); m.level = P.level; m.maxHp = m.calcMaxHp(P.level); m.hp = m.maxHp;
+        const benched = !P.members.includes(m);
         S.party = P.members.map((x) => x.id);
         G.ui.buildParty();
         G.ui.toast('Scylla bergabung ke party!', 'gold big');
+        if (benched) G.ui.toast('Tim penuh - atur party di menu untuk memasukkan Scylla', '');
         G.ui.toast(G.input.touch ? 'Tap potret Scylla untuk berenang di air dalam' : 'Tekan 4 untuk Scylla — hanya dia yang bisa berenang di air dalam', '');
         G._advance('reef_samples');
       });

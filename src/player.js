@@ -437,6 +437,8 @@ export class Player {
     }
     if (!this.swimming && (this.pos.y <= gh || (this.grounded && this.vy <= 0 && this.pos.y - gh < 0.45))) {
       if (!this.grounded && this.vy < -12) { sfx.land(); G.vfx.particles(this.pos, 8, 0xd8e8c0, { speed: 3, up: 1, life: 0.4 }); }
+      // small details: a puff of dust where she lands after a real fall
+      if (!this.grounded && this.vy < -7 && !this.swimming) G.vfx.particles(new THREE.Vector3(this.pos.x, gh + 0.08, this.pos.z), Math.min(16, Math.round(-this.vy)), 0xd8ccb4, { speed: 2.2, up: 0.9, life: 0.45, grav: 2, spread: 0.3 });
       this.pos.y = gh; this.vy = 0; this.grounded = true; this.doubleUsed = false; this.gliding = false;
       if (this.action === 'plunge') this._plungeImpact();
     } else if (!this.swimming) this.grounded = false;
@@ -447,12 +449,17 @@ export class Player {
       G.ui.toast(this.hero.id === 'luby' ? '“NYAAA! BASAH!” — kembali ke daratan' : 'Tercebur! Kembali ke daratan', '');
       G.vfx.particles(new THREE.Vector3(this.pos.x, 0.2, this.pos.z), 30, 0xd8f4ff, { speed: 4, up: 5, life: 0.6 });
     }
-    this.glider.visible = !!this.gliding;
+    this.glider.visible = !!this.gliding && !this.m.rig.ownWings; // a mount with its own wings needs no glider
     if (this.gliding && Math.random() < 0.3) G.vfx.particles(this.pos.clone().setY(this.pos.y + 1.2), 1, 0xffffff, { speed: 0.5, up: 0, life: 0.5, grav: 0 });
 
     this.root.position.copy(this.pos);
     this.root.rotation.y = this.facing + (this.action === 'charged' && !this.actionData?.mage ? Math.min(1, this.actionT / this.actionDur) * Math.PI * 4 : 0);
     this.sprinting = sprinting && this.speedNow > 6.5;
+    // ...and dust kicked up behind her heels while she sprints
+    if (this.sprinting && this.grounded && !this.swimming && (this._dustT = (this._dustT || 0) - dt) <= 0) {
+      this._dustT = 0.16;
+      G.vfx.particles(new THREE.Vector3(this.pos.x - Math.sin(this.facing) * 0.3, this.pos.y + 0.06, this.pos.z - Math.cos(this.facing) * 0.3), 2, 0xd8ccb4, { speed: 0.8, up: 0.7, life: 0.4, grav: 1.5, spread: 0.18 });
+    }
     this.luby.update(dt, {
       speed: this.speedNow, sprint: this.sprinting, grounded: this.grounded || this.action === 'pounce', vy: this.vy,
       action: this.action === 'ambush' || this.action === 'judgement' ? 'attack' : this.action === 'plunge' ? 'pounce' : this.action === 'charged' ? (this.actionData?.mage ? 'cast' : 'spin') : this.action,

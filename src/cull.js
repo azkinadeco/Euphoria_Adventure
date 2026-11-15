@@ -155,6 +155,10 @@ export function updateCull(camPos, dt) {
       const e0 = o.matrixWorld.elements;
       it.off = [_sph.center.x - e0[12], _sph.center.y - e0[13], _sph.center.z - e0[14]];
     }
+    if (it.frozen) { // its subtree is not being updated: refresh just this node, it may be moving (enemies, NPCs)
+      if (o.matrixAutoUpdate) o.updateMatrix();
+      o.matrixWorld.multiplyMatrices(o.parent.matrixWorld, o.matrix);
+    }
     const e = o.matrixWorld.elements, f = it.off;
     const x = e[12] + f[0], y = e[13] + f[1], z = e[14] + f[2];
     const dx = x - camPos.x, dy = y - camPos.y, dz = z - camPos.z;
@@ -165,7 +169,15 @@ export function updateCull(camPos, dt) {
       if (zo && zo !== activeZone && Math.sqrt(d2) - it.rad > NEAR_KEEP) far = true;
     }
     o.userData._far = far;
+    // A streamed-out subtree is skipped by the per-frame matrix update as well. Thousands of far
+    // props were recomposed every frame for nothing (about 85% of the scene graph), which is pure
+    // CPU time on a phone. Shown again, the next frame's update brings every matrix up to date.
+    if (far !== !!it.frozen) {
+      it.frozen = far;
+      if (far) o.updateMatrixWorld = NOOP; else { delete o.updateMatrixWorld; o.updateMatrixWorld(true); }
+    }
   }
 }
+const NOOP = () => {};
 
 export const cullCount = () => items.size;

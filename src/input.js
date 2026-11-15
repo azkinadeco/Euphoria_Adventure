@@ -47,10 +47,10 @@ export class Input {
     joy.addEventListener('touchstart', (e) => {
       const t = e.changedTouches[0]; joyId = t.identifier;
       const r = joy.getBoundingClientRect(); jc = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      this._joy(t, jc, knob); e.preventDefault();
+      this._joy(t, jc, knob); joy.classList.add('on'); e.preventDefault();
     }, { passive: false });
     joy.addEventListener('touchmove', (e) => { for (const t of e.changedTouches) if (t.identifier === joyId) this._joy(t, jc, knob); e.preventDefault(); }, { passive: false });
-    const endJoy = (e) => { for (const t of e.changedTouches) if (t.identifier === joyId) { joyId = null; this.move.x = this.move.y = 0; knob.style.transform = ''; } };
+    const endJoy = (e) => { for (const t of e.changedTouches) if (t.identifier === joyId) { joyId = null; this.move.x = this.move.y = 0; knob.style.transform = ''; joy.classList.remove('on'); } };
     joy.addEventListener('touchend', endJoy); joy.addEventListener('touchcancel', endJoy);
 
     // camera drag on canvas (anywhere not on a control)
