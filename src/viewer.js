@@ -81,9 +81,10 @@ function frame() {
   if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   document.getElementById('ref').style.display = bar.style.display = P.ref ? '' : 'none';
   if (view.play) { P.t += dt * 1.4; if (P.t >= 1) { P.t = 0.4; P.action = ''; view.play = false; } }
+  if (rig && P.idle != null) rig.idleT = P.idle;
   if (rig && !P.freeze) {
     rig.root.rotation.y = P.yaw;
-    rig.update(dt, { speed: P.speed, sprint: !!P.sprint, grounded: !P.air, vy: P.air > 1 ? -2 : 3, action: P.action || null, actionT: P.t, combo: P.combo, hurtT: P.hurt ? 1 : 0, dead: !!P.dead, dt });
+    rig.update(dt, { speed: P.speed, sprint: !!P.sprint, grounded: !P.air, vy: P.air > 1 ? -2 : 3, action: P.action || null, actionT: P.t, combo: P.combo, hurtT: P.hurt ? 1 : 0, look: P.look ?? null,  dead: !!P.dead, dt });
   }
   vfx.update?.(dt);
   const d = 5.2 / P.zoom;

@@ -120,7 +120,23 @@ export class Rig {
     } else if (this.idleT > 7) {
       // idle special: cat-paw wave ("nya~")
       const t = (this.idleT - 7) % 6;
-      if (t < 2.2) {
+      // each weapon style has its own way of passing the time (batch 54); Luby keeps her paw wave
+      if (t < 2.6 && blade) { // raise the blade and sight along its edge
+        const c = Math.sin(Math.min(1, t / 0.5) * Math.PI / 2) * (t > 2.1 ? (2.6 - t) / 0.5 : 1);
+        set('armR', -1.25 * c + 0.12 * (1 - c), 0.3 * c, -0.24 - 0.2 * c); set('elbowR', -0.22 - 1.1 * c); set('handR', 1.15 - 0.9 * c + Math.sin(t * 3) * 0.25 * c);
+        set('head', -0.04 + 0.1 * c, -0.35 * c, 0.12 * c); set('spine', 0, -0.1 * c, 0);
+        if (style !== 'dual') { set('armL', -0.6 * c, 0, 0.2 + 0.25 * c); set('elbowL', -0.35 - 1.2 * c); }
+      } else if (t < 2.6 && pole) { // lean on the planted shaft, free hand on the hip
+        const c = Math.sin(Math.min(1, t / 0.5) * Math.PI / 2) * (t > 2.1 ? (2.6 - t) / 0.5 : 1);
+        set('armL', 0.25 * c + 0.05, 0, 0.2 + 0.55 * c); set('elbowL', -0.35 - 1.5 * c);
+        set('hips', 0, 0, 0.09 * c); set('spine', 0, 0, -0.12 * c); set('head', -0.04, 0.25 * c, -0.1 * c);
+        set('legL', -0.04, 0, 0.03 + 0.1 * c); set('kneeR', 0.08 + 0.25 * c);
+      } else if (t < 2.6 && style === 'caster') { // a long stretch, arms overhead
+        const c = Math.sin(Math.min(1, t / 0.6) * Math.PI / 2) * (t > 2.0 ? (2.6 - t) / 0.6 : 1);
+        set('armL', -2.85 * c + 0.05, 0, 0.2 + 0.1 * c); set('armR', -2.85 * c + 0.05, 0, -0.2 - 0.1 * c);
+        set('elbowL', -0.35 - 0.5 * c * Math.sin(t * 2)); set('elbowR', -0.35 - 0.3 * c);
+        set('spine', -0.14 * c, 0, 0.05 * Math.sin(t * 2.4) * c); set('head', -0.22 * c, 0, 0); set('chest', -0.08 * c);
+      } else if (t < 2.2 && style === 'claw') {
         const w = Math.sin(t * 9) * 0.35;
         set('armR', -2.5, 0, -0.35 + w * 0.3); set('elbowR', -1.3 + w);
         set('handR', 0, 0, w);
@@ -128,6 +144,13 @@ export class Rig {
         set('spine', 0, -0.12, 0.05);
       }
     }
+
+    // glance at whatever has her attention (st.look = yaw of the target relative to her facing)
+    if (st.look != null && !st.action && !st.sprint && this.idleT < 7) {
+      const lk = Math.max(-1.1, Math.min(1.1, st.look));
+      this._look = damp(this._look || 0, lk, 4, dt);
+    } else this._look = damp(this._look || 0, 0, 5, dt);
+    if (Math.abs(this._look) > 0.01 && !st.action) { T.head[1] += this._look * 0.62; T.chest[1] += this._look * 0.18; }
 
     // ---- actions override ----
     const a = st.action, t = st.actionT || 0;

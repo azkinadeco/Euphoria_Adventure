@@ -232,6 +232,14 @@ export class Player {
     this.root.position.copy(this.pos); this.root.rotation.y = facing;
   }
 
+  /** yaw (relative to her facing) of the nearest enemy within 11 m, else of a nearby interactable; null if none in front */
+  _lookYaw() {
+    const e = this.nearestEnemy(11), p = e ? e.pos : this.game.nearInteract?.pos;
+    if (!p) return null;
+    const d = Math.atan2(p.x - this.pos.x, p.z - this.pos.z) - this.facing, r = Math.atan2(Math.sin(d), Math.cos(d));
+    return Math.abs(r) < 1.9 ? r : null;
+  }
+
   startAction(name, dur, data = null) {
     this.action = name; this.actionT = 0; this.actionDur = dur; this.actionData = data; this._hitDone = false; this._ticks = 0;
     // every lunge leaves speed lines in the hero's colour; a burst gathers an aura while it charges
@@ -449,7 +457,7 @@ export class Player {
       speed: this.speedNow, sprint: this.sprinting, grounded: this.grounded || this.action === 'pounce', vy: this.vy,
       action: this.action === 'ambush' || this.action === 'judgement' ? 'attack' : this.action === 'plunge' ? 'pounce' : this.action === 'charged' ? (this.actionData?.mage ? 'cast' : 'spin') : this.action,
       actionT: this.action === 'plunge' ? 0.5 : this.actionDur ? this.actionT / this.actionDur : 0, combo: this.action === 'ambush' || this.action === 'judgement' ? 3 : this.combo,
-      hurtT: this.hurtT, flipT: this.flipT, swim: this.swimming, glide: this.gliding,
+      hurtT: this.hurtT, flipT: this.flipT, swim: this.swimming, glide: this.gliding, look: this._lookYaw(),
     });
     this._trails(dt);
   }
