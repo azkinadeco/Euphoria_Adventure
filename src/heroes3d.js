@@ -195,7 +195,7 @@ function buildBody(rig, S) {
   // backOld is returned so a rig can add its own primitive tails for the kit to replace
   const backOld = [longH];
   applyKit(hs ? `kit_hs_${hs}_back` : 'kit_b_hairlong', head, { side: longH.material, tie: S.tie ?? S.hair2 ?? S.hair }, backOld,
-    { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, hs === 'twin' ? 0.19 : 0.1, 0); m.scale.set(1, hairL, 1); } }).then((m) => { rig.hairBack = m; });
+    { ol: 0.006, crease: 1.2, place: (m) => { m.position.set(0, hs === 'twin' ? 0.19 : 0.1, S.hairZ ?? 0); m.scale.set(S.hairW ?? 1, hairL, S.hairW ?? 1); } }) // hairW / hairZ: tuck the mane under a hood or in front of a back shield.then((m) => { rig.hairBack = m; });
   // glossy anime hair: a cel highlight in a lighter tint of the hair colour
   for (const m of new Set([S.hair, S.hair2 ?? S.hair, sides.material, longH.material])) {
     const u = m.userData;
@@ -343,7 +343,7 @@ export class MoraRig extends Rig {
     });
     const cloak = toon(0xffffff, { map: starTex, side: THREE.DoubleSide });
     const H = buildBody(this, {
-      skin, bottom: suit, chest: suit, waist: suit, hair: toon(0xf4a8d0), hair2: toon(0xffc8e4), hairColor: 0xf4a8d0, hairTip: 0xb4d4f6, hairLen: 0.78, hairStyle: 'straight',
+      skin, bottom: suit, chest: suit, waist: suit, hair: toon(0xf4a8d0), hair2: toon(0xffc8e4), hairColor: 0xf4a8d0, hairTip: 0xb4d4f6, hairLen: 0.78, hairStyle: 'straight', hairW: 0.8, hairZ: 0.012,
       thigh: hose, knee: hose, shin: hose, shoe: gold, hand: glove, foot: ['sandal', { skin: suit, shoe: gold }],
       face: faces({ iris: ['#5a1f7a', '#c060c8', '#ffc8e8'], lash: '#4a2a48', brow: '#d98ab4', mouth: 'smile', lip: '#d04a70', blush: 0.46 }),
     });
@@ -554,7 +554,7 @@ export class ValeriaRig extends Rig {
     weapon('kit_w_valsword', sw, { vsGrip: dark, vsGuard: gold, vsCore: gold, vsEdge: ice.material });
     // tower shield on the back
     const sh = part(new THREE.BoxGeometry(0.5, 0.85, 0.06), gold, { ol: 0.008 });
-    sh.position.set(0, -0.05, -0.17); chest.add(sh);
+    sh.position.set(0, -0.05, -0.3); chest.add(sh); // clear of her hair
     const emblem = new THREE.Mesh(new THREE.CircleGeometry(0.1, 12), new THREE.MeshBasicMaterial({ color: 0x9ee8ff }));
     add(sh, emblem, 0, 0.15, -0.035).rotation.y = Math.PI;
     const shG = holderFor(sh);
