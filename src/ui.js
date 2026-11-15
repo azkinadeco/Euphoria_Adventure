@@ -1,5 +1,6 @@
 // HUD, dialog (visual-novel style), toasts, damage numbers, minimap, menu.
 import * as THREE from 'three';
+import { VW, VH } from './screen.js';
 import { SPEAKERS, SIDE, QUESTS } from './story.js';
 import { ELEMENT_COLOR } from './heroes.js';
 import { LOC, MINIMAP } from './world.js';
@@ -656,7 +657,7 @@ export class UI {
     $('clock').textContent = (G.world.nightAmt > 0.5 ? '🌙 ' : '☀️ ') + G.world.clockString();
 
     // damage numbers follow world positions
-    const cam = G.camera, w = innerWidth, h = innerHeight, v = new THREE.Vector3();
+    const cam = G.camera, w = VW(), h = VH(), v = new THREE.Vector3();
     for (let i = this.nums.length - 1; i >= 0; i--) {
       const n = this.nums[i];
       n.t += dt;

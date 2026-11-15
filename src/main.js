@@ -1,5 +1,6 @@
 // Euphoria Adventure — open-world action RPG prototype (web first, mobile later).
 import * as THREE from 'three';
+import { VW, VH, onResize } from './screen.js';
 import { applyKit, pendingModels, modelsIdle } from './assets.js';
 import { updateCull, setCullScale, zoneSweep, setActiveZone, getActiveZone } from './cull.js';
 import { zoneOf, ZONES } from './zones.js';
@@ -52,13 +53,13 @@ class Game {
     const mobile = matchMedia('(pointer: coarse)').matches;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, mobile ? 1.5 : 1.75));
-    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setSize(VW(), VH());
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 1500);
+    this.camera = new THREE.PerspectiveCamera(55, VW() / VH(), 0.1, 1500);
     this.cam = { yaw: 2.6, pitch: 0.28, dist: 5.6, distTarget: 5.6, target: new THREE.Vector3(), shake: 0 };
 
     this.input = new Input(canvas);
@@ -123,9 +124,9 @@ class Game {
     this.blizzard = 0;
     this.chestTotal = this.state.chestTotal;
 
-    addEventListener('resize', () => {
+    onResize(() => {
       this._redrawFrozen = true; // canvas is cleared on resize: redraw the frozen frame once
-      this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix();
+      this.camera.aspect = VW() / VH(); this.camera.updateProjectionMatrix();
       this.graphics.resize();
       this.map?.resize();
     });
@@ -898,13 +899,13 @@ class Game {
   applyGfx(level, user = false) {
     this.gfx = level;
     this._redrawFrozen = true;
-    setCullScale(level === 'low' ? 0.75 : 1);
+    setCullScale(level === 'low' ? 0.75 : level === 'ultra' ? 1.35 : 1);
     const P = PRESETS[level];
     this.graphics.apply(level);
     const sun = this.world.sun;
     sun.castShadow = P.shadow > 0;
     if (P.shadow && sun.shadow.mapSize.x !== P.shadow) { sun.shadow.mapSize.set(P.shadow, P.shadow); sun.shadow.map?.dispose(); sun.shadow.map = null; }
-    const sc = sun.shadow.camera, ext = P.shadow >= 4096 ? 34 : 28;
+    const sc = sun.shadow.camera, ext = P.shadow >= 4096 ? 30 : 28; // 4K map over almost the same area: twice as sharp
     sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; sc.updateProjectionMatrix();
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     sun.shadow.radius = P.shadow >= 2048 ? 2.0 : 1.5;
@@ -912,9 +913,21 @@ class Game {
     this.world.nearGrass.setDensity(P.grass);
     this.ambient.setDensity(P.life);
     this.lightPool.setSize(P.lights);
-    this.world.fogFar = level === 'low' ? 380 : 540;
+    this.world.fogFar = level === 'low' ? 380 : level === 'ultra' ? 620 : 540;
+    this._anisotropy(level === 'ultra' ? 16 : level === 'high' ? 8 : 4);
     this.camera.far = level === 'low' ? 800 : 1500; this.camera.updateProjectionMatrix();
     if (user) { this.gfxAuto = false; try { localStorage.setItem('euphoria_adventure_gfx', level); } catch (e) { /* ignore */ } }
+  }
+
+  /** sharper textures at grazing angles (paths, decals, foliage cards) */
+  _anisotropy(n) {
+    n = Math.min(n, this.renderer.capabilities.getMaxAnisotropy());
+    this.scene.traverse((o) => {
+      for (const m of [].concat(o.material || [])) for (const k of ['map', 'alphaMap', 'emissiveMap']) {
+        const t = m[k];
+        if (t && t.generateMipmaps !== false && t.minFilter !== THREE.LinearFilter && t.minFilter !== THREE.NearestFilter && t.anisotropy !== n) { t.anisotropy = n; t.needsUpdate = true; }
+      }
+    });
   }
 
   _autoGfx(rawDt) {
@@ -1077,7 +1090,8 @@ class Game {
     this._tick(dt);
     // touch devices: the sun's shadow map is redrawn every other frame (a second full pass over every
     // shadow caster otherwise); the map and its matrix stay paired, so nothing swims
-    if (this.input.touch) { const sm = this.renderer.shadowMap; sm.autoUpdate = false; sm.needsUpdate = (this._frame = (this._frame || 0) + 1) % 2 === 0; }
+    if (this.gfx === 'ultra') this.renderer.shadowMap.autoUpdate = true;
+    else if (this.input.touch) { const sm = this.renderer.shadowMap; sm.autoUpdate = false; sm.needsUpdate = (this._frame = (this._frame || 0) + 1) % 2 === 0; }
     this.graphics.render();
   }
 

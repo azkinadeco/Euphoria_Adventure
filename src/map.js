@@ -1,6 +1,7 @@
 // Euphoria Adventure — Full-Screen Interactive World Map & Fast Travel System
 // cartographic world map with pan, zoom, waypoint pins, and one-click teleportation.
 import { sfx } from './sfx.js';
+import { VW, VH, pt, rotated } from './screen.js';
 import { MINIMAP, LOC } from './world.js';
 import { RLOC } from './reef.js';
 import { VLOC } from './volcano.js';
@@ -81,14 +82,15 @@ export class WorldMap {
     container.addEventListener('mousedown', (e) => {
       if (e.target.closest('#map-teleport-card')) return;
       this.isDragging = true;
-      this.dragStart = { x: e.clientX, y: e.clientY };
+      this.dragStart = pt(e.clientX, e.clientY);
       this.panStart = { x: this.pan.x, y: this.pan.y };
     });
 
     window.addEventListener('mousemove', (e) => {
       if (!this.active || !this.isDragging) return;
-      this.pan.x = this.panStart.x + (e.clientX - this.dragStart.x);
-      this.pan.y = this.panStart.y + (e.clientY - this.dragStart.y);
+      const q = pt(e.clientX, e.clientY);
+      this.pan.x = this.panStart.x + (q.x - this.dragStart.x);
+      this.pan.y = this.panStart.y + (q.y - this.dragStart.y);
       this.render();
     });
 
@@ -96,9 +98,9 @@ export class WorldMap {
       if (this.isDragging) {
         this.isDragging = false;
         // Check click on markers if drag distance was minimal
-        const dist = Math.hypot(e.clientX - this.dragStart.x, e.clientY - this.dragStart.y);
+        const q = pt(e.clientX, e.clientY), dist = Math.hypot(q.x - this.dragStart.x, q.y - this.dragStart.y);
         if (dist < 6) {
-          this._handleClick(e.clientX, e.clientY);
+          this._handleClick(q.x, q.y);
         }
       }
     });
@@ -115,7 +117,7 @@ export class WorldMap {
     container.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
         this.isDragging = true;
-        this.dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        this.dragStart = pt(e.touches[0].clientX, e.touches[0].clientY);
         this.panStart = { x: this.pan.x, y: this.pan.y };
       } else if (e.touches.length === 2) {
         touchStartDist = Math.hypot(
@@ -127,8 +129,9 @@ export class WorldMap {
 
     container.addEventListener('touchmove', (e) => {
       if (e.touches.length === 1 && this.isDragging) {
-        this.pan.x = this.panStart.x + (e.touches[0].clientX - this.dragStart.x);
-        this.pan.y = this.panStart.y + (e.touches[0].clientY - this.dragStart.y);
+        const q = pt(e.touches[0].clientX, e.touches[0].clientY);
+        this.pan.x = this.panStart.x + (q.x - this.dragStart.x);
+        this.pan.y = this.panStart.y + (q.y - this.dragStart.y);
         this.render();
       } else if (e.touches.length === 2 && touchStartDist > 0) {
         const curDist = Math.hypot(
@@ -196,8 +199,8 @@ export class WorldMap {
 
   resize() {
     if (!this.canvas) return;
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    this.canvas.width = VW();
+    this.canvas.height = VH();
     this.render();
   }
 
@@ -217,8 +220,9 @@ export class WorldMap {
 
   _handleClick(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();
-    const mx = clientX - rect.left;
-    const my = clientY - rect.top;
+    const o = rotated() ? pt(rect.right, rect.top) : { x: rect.left, y: rect.top }; // the canvas' own top-left corner
+    const mx = clientX - o.x;
+    const my = clientY - o.y;
 
     // Check click on waypoints
     const wps = this.g.waypoints();
@@ -267,8 +271,8 @@ export class WorldMap {
     // Position card near clicked point (clamped to screen boundaries)
     const cardW = 260;
     const cardH = 160;
-    const x = Math.min(window.innerWidth - cardW - 20, Math.max(20, screenX - cardW / 2));
-    const y = Math.min(window.innerHeight - cardH - 30, Math.max(70, screenY - cardH - 20));
+    const x = Math.min(VW() - cardW - 20, Math.max(20, screenX - cardW / 2));
+    const y = Math.min(VH() - cardH - 30, Math.max(70, screenY - cardH - 20));
 
     card.style.left = `${x}px`;
     card.style.top = `${y}px`;

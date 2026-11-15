@@ -1,6 +1,7 @@
 // Combat systems: combo counter & style rank, perfect dodge (slow-mo), lock-on, energy orbs,
 // burst cut-ins, impact feedback, attack tokens, elemental shields on elite enemies.
 import * as THREE from 'three';
+import { VW, VH } from './screen.js';
 import { sfx } from './sfx.js';
 import { ELEMENT_COLOR } from './heroes.js';
 
@@ -155,7 +156,7 @@ export class Combat {
     const v = this.lock.pos.clone().setY(this.lock.pos.y + Math.min(this.lock.tall * 0.55, 3)).project(G.camera);
     if (v.z > 1) { rt.classList.add('hidden'); return; }
     rt.classList.remove('hidden');
-    rt.style.left = ((v.x + 1) / 2) * innerWidth + 'px';
-    rt.style.top = ((1 - v.y) / 2) * innerHeight + 'px';
+    rt.style.left = ((v.x + 1) / 2) * VW() + 'px';
+    rt.style.top = ((1 - v.y) / 2) * VH() + 'px';
   }
 }

@@ -240,7 +240,7 @@ def wood(base, grain_axis=0, tint=0.0, seed=0.0):
 def build_sunbeam_rock():
     random.seed(3)
     # lathe-style boulder: steep stratified sides, rounded rim, flat sunny top at z = 1.0
-    seg, prof = 40, [(-0.45, 5.05), (-0.1, 5.15), (0.2, 5.0), (0.45, 4.95), (0.62, 4.8), (0.8, 4.68), (0.93, 4.5), (1.0, 4.2), (1.0, 3.2), (1.0, 2.0), (1.0, 0.8), (1.0, 0.0)]
+    seg, prof = 40, [(-0.45, 5.05), (-0.1, 5.15), (0.2, 5.0), (0.45, 4.95), (0.62, 4.8), (0.8, 4.68), (0.93, 4.5)] + [(1.0, 4.2 * (1 - k / 14)) for k in range(15)]   # fine rings on top: the paint is per vertex
     verts, faces = [], []
     for j, (z, r) in enumerate(prof):
         for i in range(seg):
@@ -257,6 +257,7 @@ def build_sunbeam_rock():
     rock = mesh('rock', verts, faces)
     sel([rock]); bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.mesh.remove_doubles(threshold=0.001); bpy.ops.mesh.normals_make_consistent(inside=False)
+    bpy.ops.mesh.subdivide(number_cuts=1)   # 0.65 m quads smeared the moss and strata
     bpy.ops.object.mode_set(mode='OBJECT')
 
     grassA, grassB = H(0x5d8f3a), H(0x86ad4a)
@@ -295,9 +296,9 @@ def build_sunbeam_rock():
         paint(b, lambda p, n, pc: mix(mix(stoneA, stoneB, nz(p, 2, 3) * 0.5 + 0.5), H(0x6f9a45), max(0, n.z - 0.6) * 1.5))
         parts.append(b)
     # Luby's nap blanket + pillow on the warm top
-    blanket = mesh('blanket', *grid(10, 8, lambda u, v: (-0.3 + u * 1.7, -1.4 + v * 1.25, 1.03 + math.sin(u * 9) * 0.015 + (0.04 if v > 0.88 else 0))))
+    blanket = mesh('blanket', *grid(33, 24, lambda u, v: (-0.3 + u * 1.7, -1.4 + v * 1.25, 1.03 + math.sin(u * 9) * 0.015 + (0.04 if v > 0.88 else 0))))
     modify(blanket, 'SOLIDIFY', thickness=0.04, offset=1)
-    paint(blanket, lambda p, n, pc: H(0xf3e6c8) if (int((p.x + 2) * 3.2) + int((p.y + 2) * 3.2)) % 2 else H(0xd86f74))
+    paint(blanket, lambda p, n, pc: H(0xf3e6c8) if (int((pc.x + 2) * 3.2) + int((pc.y + 2) * 3.2)) % 2 else H(0xd86f74))   # per face: crisp checks
     pillow = blob(0.32, (1.15, -0.78, 1.12), (1.0, 1.55, 0.42), sub=2, amp=0.05, seed=4)
     paint(pillow, flat(H(0xfff4dc), 0.04))
     parts += [blanket, pillow]

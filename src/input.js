@@ -1,4 +1,6 @@
 // Unified input: keyboard + mouse (pointer lock) + touch (virtual joystick, camera drag, buttons).
+import { pt } from './screen.js';
+
 export class Input {
   constructor(canvas) {
     this.canvas = canvas;
@@ -46,7 +48,7 @@ export class Input {
     let joyId = null, jc = { x: 0, y: 0 };
     joy.addEventListener('touchstart', (e) => {
       const t = e.changedTouches[0]; joyId = t.identifier;
-      const r = joy.getBoundingClientRect(); jc = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      const r = joy.getBoundingClientRect(); jc = pt(r.left + r.width / 2, r.top + r.height / 2); // centre maps exactly, even turned
       this._joy(t, jc, knob); joy.classList.add('on'); e.preventDefault();
     }, { passive: false });
     joy.addEventListener('touchmove', (e) => { for (const t of e.changedTouches) if (t.identifier === joyId) this._joy(t, jc, knob); e.preventDefault(); }, { passive: false });
@@ -55,12 +57,13 @@ export class Input {
 
     // camera drag on canvas (anywhere not on a control)
     const camTouches = new Map();
-    c.addEventListener('touchstart', (e) => { for (const t of e.changedTouches) camTouches.set(t.identifier, { x: t.clientX, y: t.clientY }); e.preventDefault(); }, { passive: false });
+    c.addEventListener('touchstart', (e) => { for (const t of e.changedTouches) camTouches.set(t.identifier, pt(t.clientX, t.clientY)); e.preventDefault(); }, { passive: false });
     c.addEventListener('touchmove', (e) => {
       for (const t of e.changedTouches) {
         const p = camTouches.get(t.identifier); if (!p) continue;
-        this.look.x += (t.clientX - p.x) * 1.6; this.look.y += (t.clientY - p.y) * 1.6;
-        p.x = t.clientX; p.y = t.clientY;
+        const q = pt(t.clientX, t.clientY);
+        this.look.x += (q.x - p.x) * 1.6; this.look.y += (q.y - p.y) * 1.6;
+        p.x = q.x; p.y = q.y;
       }
       e.preventDefault();
     }, { passive: false });
@@ -82,7 +85,8 @@ export class Input {
   }
 
   _joy(t, c, knob) {
-    let dx = t.clientX - c.x, dy = t.clientY - c.y;
+    const q = pt(t.clientX, t.clientY);
+    let dx = q.x - c.x, dy = q.y - c.y;
     const L = Math.hypot(dx, dy), R = 55;
     if (L > R) { dx *= R / L; dy *= R / L; }
     knob.style.transform = `translate(${dx}px, ${dy}px)`;

@@ -6,6 +6,7 @@
 // - Anime color grading: ACES-filmic curve shaping, lush fantasy greens,
 //   crystalline skies, golden sunlight warmth, lifted lavender shadows, and subtle lens dispersion
 import * as THREE from 'three';
+import { VW, VH } from './screen.js';
 import { wantedVisible } from './cull.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -16,10 +17,12 @@ import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 
 export const PRESETS = {
-  low: { post: true, pr: 1.15, shadow: 1024, bloom: true, ao: false, msaa: 0, fxaa: true, grass: 0.45, lights: 4, life: 0.5 },
-  med: { post: true, pr: 1.45, shadow: 2048, bloom: true, ao: false, msaa: 0, fxaa: true, grass: 0.75, lights: 6, life: 0.8 },
-  high: { post: true, pr: 1.85, shadow: 2048, bloom: true, ao: true, msaa: 0, fxaa: true, grass: 1.0, lights: 8, life: 1.0 },
-  ultra: { post: true, pr: 2.0, shadow: 4096, bloom: true, ao: true, msaa: 4, fxaa: true, grass: 1.4, lights: 8, life: 1.0 },
+  low: { post: true, pr: 1.15, shadow: 1024, bloom: true, ao: false, msaa: 0, fxaa: true, grass: 0.45, lights: 4, life: 0.5, sharp: 0 },
+  med: { post: true, pr: 1.45, shadow: 2048, bloom: true, ao: false, msaa: 0, fxaa: true, grass: 0.75, lights: 6, life: 0.8, sharp: 0.3 },
+  high: { post: true, pr: 1.85, shadow: 2048, bloom: true, ao: true, msaa: 0, fxaa: true, grass: 1.0, lights: 8, life: 1.0, sharp: 0.4 },
+  // ULTRA HD: the screen's native pixels (up to 3x; 1.5x supersampling on 1x monitors), MSAA, a 4K shadow map
+  // redrawn every frame, the longest draw distance, 16x texture filtering. Opt-in from the menu only.
+  ultra: { post: true, pr: 3.0, ss: 1.5, shadow: 4096, bloom: true, ao: true, msaa: 4, fxaa: true, grass: 1.4, lights: 8, life: 1.0, sharp: 0.5 },
 };
 export const PRESET_ORDER = ['low', 'med', 'high', 'ultra'];
 
@@ -40,6 +43,8 @@ const AnimeGradeShader = {
     uVignette: { value: 0.22 },
     uWarm: { value: 0.038 },
     uTint: { value: new THREE.Color(1, 1, 1) },
+    uSharp: { value: 0.4 },
+    uPx: { value: new THREE.Vector2(1 / 1920, 1 / 1080) },
   },
   vertexShader: `
     varying vec2 vUv;
@@ -55,6 +60,8 @@ const AnimeGradeShader = {
     uniform float uVignette;
     uniform float uWarm;
     uniform vec3 uTint;
+    uniform float uSharp;
+    uniform vec2 uPx;
     varying vec2 vUv;
 
     // ACES Filmic tone mapping curve
@@ -78,6 +85,16 @@ const AnimeGradeShader = {
       float bCh = texture2D(tDiffuse, vUv - caOff).b;
       float aCh = texture2D(tDiffuse, vUv).a;
       vec3 c = vec3(rCh, gCh, bCh);
+
+      // 0. Contrast-adaptive sharpening: restores the crispness FXAA and upscaling take away. The result
+      // is clamped to the local range, so line art gets sharper without white halos.
+      if (uSharp > 0.0) {
+        vec3 n1 = texture2D(tDiffuse, vUv + vec2(0.0, uPx.y)).rgb, n2 = texture2D(tDiffuse, vUv - vec2(0.0, uPx.y)).rgb;
+        vec3 n3 = texture2D(tDiffuse, vUv + vec2(uPx.x, 0.0)).rgb, n4 = texture2D(tDiffuse, vUv - vec2(uPx.x, 0.0)).rgb;
+        vec3 mid = vec3(c.r, gCh, c.b);
+        vec3 lo = min(mid, min(min(n1, n2), min(n3, n4))), hi = max(mid, max(max(n1, n2), max(n3, n4)));
+        c = clamp(c + (c - (n1 + n2 + n3 + n4) * 0.25) * uSharp, lo, hi);
+      }
 
       // Relative luminance
       float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -131,8 +148,10 @@ export class Graphics {
     const mobile = matchMedia('(pointer: coarse)').matches;
 
     // phones: sharp output (up to 2x) is affordable once the scene is drawn only once per frame
-    r.setPixelRatio(Math.min(devicePixelRatio, mobile ? Math.min(P.pr, 2) : P.pr));
-    r.setSize(innerWidth, innerHeight);
+    // ULTRA lifts the phone cap to the panel's own 3x and supersamples 1x desktop monitors
+    const pr = Math.min(Math.max(devicePixelRatio, mobile ? 1 : (P.ss || 1)), mobile && name !== 'ultra' ? Math.min(P.pr, 2) : P.pr);
+    r.setPixelRatio(pr);
+    r.setSize(VW(), VH());
 
     this.composer?.dispose?.();
     this.composer = null;
@@ -142,7 +161,7 @@ export class Graphics {
     const size = r.getDrawingBufferSize(new THREE.Vector2());
     const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
-      samples: P.msaa || 0,
+      samples: mobile ? Math.min(P.msaa || 0, pr > 2.5 ? 0 : 2) : P.msaa || 0, // a 3x phone panel is dense enough for FXAA alone
     });
 
     const c = new EffectComposer(r, rt);
@@ -192,6 +211,8 @@ export class Graphics {
 
     // Anime color grading
     this.grade = new ShaderPass(AnimeGradeShader);
+    this.grade.uniforms.uSharp.value = P.sharp || 0;
+    this.grade.uniforms.uPx.value.set(1 / size.x, 1 / size.y);
     c.addPass(this.grade);
 
     // High-Sample FXAA Anti-Aliasing Pass
@@ -208,10 +229,11 @@ export class Graphics {
   }
 
   resize() {
-    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setSize(VW(), VH());
     if (!this.composer) return;
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
-    this.composer.setSize(innerWidth, innerHeight);
+    this.composer.setSize(VW(), VH());
+    this.grade?.uniforms.uPx.value.set(1 / size.x, 1 / size.y);
     if (this.fxaa) {
       this.fxaa.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y);
     }

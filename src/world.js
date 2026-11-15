@@ -632,7 +632,7 @@ export class World {
     if (!setInstancedDensity(this.grassMesh, g)) this.grassMesh.count = Math.floor(this.grassTotal * g);
     if (!setInstancedDensity(this.flowerMesh, Math.max(g, 0.4))) this.flowerMesh.count = Math.floor(this.flowerTotal * Math.max(g, 0.4));
     for (const o of this.outlineMeshes) o.visible = level !== 'low';
-    this.forestNear = { low: 0, med: 100 }[level] ?? 140;
+    this.forestNear = { low: 0, med: 100, ultra: 190 }[level] ?? 140;
     const blades = level === 'low' ? this.grassGeoLow : this.grassGeo;
     this.grassMesh.geometry = blades;
     if (this.nearGrass) this.nearGrass.im.geometry = blades;
@@ -671,8 +671,31 @@ export class World {
     this.bench = bench;
     upgrade('workbench', bench, [...bench.children], () => {}, { outline: 0.02 });
     // the famous sunbeam
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 2.6, 40, 20, 1, true),
-      new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    // a soft shaft: bright along its axis, melting away at the silhouette, the top and the ground, and
+    // fading out as the camera walks into it (a flat additive cone used to wash the whole screen yellow)
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 2.6, 40, 32, 1, true),
+      new THREE.ShaderMaterial({
+        transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false,
+        uniforms: { uCol: { value: new THREE.Color(0xfff1a8) }, uOp: { value: 0.2 }, uSoft: { value: 1 }, uTime: this.beamTime = { value: 0 } },
+        vertexShader: `varying vec3 vN; varying vec3 vV; varying float vH; varying vec3 vW; varying float vNear;
+          void main() {
+            vec4 w = modelMatrix * vec4(position, 1.0);
+            vW = w.xyz; vH = uv.y;
+            vN = normalize(mat3(modelMatrix) * normal); vV = normalize(cameraPosition - w.xyz);
+            vec3 ax = modelMatrix[3].xyz - cameraPosition;
+            vNear = smoothstep(4.0, 13.0, length(ax.xz));
+            gl_Position = projectionMatrix * viewMatrix * w;
+          }`,
+        fragmentShader: `uniform vec3 uCol; uniform float uOp; uniform float uSoft; uniform float uTime;
+          varying vec3 vN; varying vec3 vV; varying float vH; varying vec3 vW; varying float vNear;
+          void main() {
+            float f = abs(dot(normalize(vN), normalize(vV)));
+            float edge = mix(1.0, f * f * (3.0 - 2.0 * f), uSoft);
+            float h = smoothstep(0.0, 0.1, vH) * (1.0 - smoothstep(0.35, 1.0, vH));
+            float dust = 0.82 + 0.18 * sin(vW.y * 1.7 - uTime * 0.6 + sin(vW.x * 2.3 + vW.z * 1.9) * 2.0);
+            gl_FragColor = vec4(uCol * (uOp * edge * h * dust * vNear), 1.0);
+          }`,
+      }));
     beam.position.set(W.x - 4, W.y + 20, W.z - 3); beam.rotation.z = 0.18;
     s.add(beam); this.sunbeam = beam;
 
@@ -958,7 +981,7 @@ export class World {
     this.stars.material.opacity = night;
     this.sky.position.copy(focus);
     this.stars.position.copy(focus);
-    this.sunbeam.material.opacity = 0.08 * (1 - night);
+    this.sunbeam.material.uniforms.uOp.value = 0.2 * (1 - night); this.beamTime.value = this.time;
 
     for (let i = 0; i < this.cloudX.length; i++) { this.cloudX[i] += dt * (1.5 + (i % 3)); if (this.cloudX[i] > 700) this.cloudX[i] = -700; }
     { const a = this.cloudMesh.instanceMatrix.array, P = this.cloudPuffs; for (let i = 0; i < P.length; i++) a[i * 16 + 12] = this.cloudX[P[i].cloud] + P[i].x; this.cloudMesh.instanceMatrix.needsUpdate = true; }
