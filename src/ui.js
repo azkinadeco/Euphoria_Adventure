@@ -604,6 +604,7 @@ export class UI {
     $('shield-fill').style.width = Math.min(100, (P.m.shield / P.maxHp) * 100) + '%';
     if (this.partyEls) P.members.forEach((m, i) => {
       const el = this.partyEls[i];
+      if (!el) return; // a hero joined before the party bar was rebuilt: skip this frame instead of throwing
       el.classList.toggle('active', i === P.active);
       el.classList.toggle('dead', m.dead);
       el.querySelector('.pbar div').style.width = Math.max(0, m.hp / m.maxHp) * 100 + '%';
