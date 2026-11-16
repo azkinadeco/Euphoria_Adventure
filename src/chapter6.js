@@ -345,6 +345,7 @@ export class Chapter6 {
   exit() {
     const G = this.g, P = G.player, W = G.world;
     if (!this.active) return;
+    this.onRespawn(); // leaving mid-fight resets the boss; a started boss left behind blocked teleport everywhere
     this.active = false;
     W.realm = null;
     this.group.visible = false; this.campfire.group.visible = false;

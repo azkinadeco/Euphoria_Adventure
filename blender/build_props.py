@@ -423,7 +423,7 @@ def build_campfire():
         a = i / 11 * TAU + random.uniform(-0.1, 0.1)
         r = 0.86 + random.uniform(-0.05, 0.06)
         s = random.uniform(0.16, 0.24)
-        st = blob(s, (math.cos(a) * r, math.sin(a) * r, s * 0.45), (1.2, 1.0, 0.8), sub=1, amp=0.25, seed=i * 1.7)
+        st = blob(s, (math.cos(a) * r, math.sin(a) * r, s * 0.45), (1.2, 1.0, 0.8), sub=3, amp=0.25, seed=i * 1.7)
         def scol(p, n, pc):
             soot = max(0, -(n.x * p.x + n.y * p.y)) * 1.8
             return mix(mix(H(0x938c80), H(0xb2ab9c), nz(p, 4, 2) * 0.5 + 0.5), H(0x3b3530), min(0.7, soot))
@@ -432,7 +432,7 @@ def build_campfire():
         a = i / 6 * TAU + 0.3
         base = (math.cos(a) * 0.55, math.sin(a) * 0.55, 0.04)
         top = (math.cos(a + 0.6) * 0.06, math.sin(a + 0.6) * 0.06, 0.78)
-        lg = rod(base, top, 0.07 - (i % 2) * 0.01, 7)
+        lg = rod(base, top, 0.07 - (i % 2) * 0.01, 12)
         def lcol(p, n, pc):
             t = p.z / 0.78
             barkc = wood(H(0x6b4428), 2)(p, n, pc)
@@ -462,7 +462,7 @@ def build_campfire():
 
 def build_log_seat():
     random.seed(9)
-    R, Lh, ring_n, seg = 0.29, 0.8, 16, 9
+    R, Lh, ring_n, seg = 0.29, 0.8, 30, 26   # dense enough that the vertex paint reads as bark, not blotches
     verts, faces = [], []
     for j in range(seg + 1):
         x = -Lh + j / seg * 2 * Lh
@@ -497,9 +497,12 @@ def build_log_seat():
             rr = Vector((p.y, p.z - R)).length
             ring = math.sin(rr * 70) * 0.5 + 0.5
             return mix(mix(cut, H(0xa97b48), ring * 0.45), H(0x6b4428), max(0, rr - R * 0.82) * 25)
-        c = mix(barkc, mul(barkc, 0.6), abs(math.sin(math.atan2(p.z - R, p.y) * 7 + p.x * 1.3)) ** 6)
-        if n.z > 0.55 and nz(p, 2.5, 4) > 0.05:
-            c = mix(c, H(0x6f9a45), 0.8)
+        a = math.atan2(p.z - R, p.y)
+        groove = abs(math.sin(a * 8 + p.x * 0.9 + nz(p, 3.0, 7) * 1.4)) ** 2.2    # long bark furrows (broad enough for the vertex spacing)
+        c = mix(mix(barkc, mul(barkc, 1.18), nz(p, 6, 2) * 0.5 + 0.5), mul(barkc, 0.52), groove)
+        moss = (n.z - 0.5) * 2.2 + nz(p, 3.0, 4) * 0.9 + nz(p, 9, 6) * 0.25          # soft-edged cap, fine fringe
+        if moss > 0:
+            c = mix(c, mix(H(0x5f8c3c), H(0x86ad4a), nz(p, 9, 8) * 0.5 + 0.5), min(1.0, moss * 0.7) * 0.8)
         return c
     paint(lg, col)
     stub = rod((0.25, 0.1, R + 0.15), (0.35, 0.32, R + 0.32), 0.05, 7)

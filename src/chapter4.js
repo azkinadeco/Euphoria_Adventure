@@ -247,6 +247,7 @@ export class Chapter4 {
   exit() {
     const G = this.g, P = G.player, W = G.world;
     if (!this.active) return;
+    this.onRespawn(); // leaving mid-fight resets the boss; a started boss left behind blocked teleport everywhere
     this.active = false;
     W.realm = null;
     this.group.visible = false; this.campfire.group.visible = false;
@@ -262,6 +263,7 @@ export class Chapter4 {
   questTarget(step) {
     const S = this.g.state, P = this.g.player;
     if (step === 'void_go') return this.active ? V(VOIDR.gate.x, 0, VOIDR.gate.z) : FLOC.peak;
+    if (step === 'asgard_go') return this.active ? V(VOIDR.central.x, 0, VOIDR.central.z - 16) : FLOC.peak; // the Stair of Light
     if (!this.active) return null;
     if (step === 'void_anchors') { let b = null, bd = Infinity; VOIDR.anchors.forEach((a, i) => { if (!S.anchors[i]) { const d = Math.hypot(a.x - P.pos.x, a.z - P.pos.z); if (d < bd) { bd = d; b = V(a.x, 0, a.z); } } }); return b; }
     if (step === 'void_boss') return V(VOIDR.central.x, 0, VOIDR.central.z);

@@ -72,7 +72,7 @@ export class Input {
 
     const btn = (id, ev) => {
       const el = document.getElementById(id);
-      el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof ev === 'function') ev(); else this.events.push(ev); el.classList.add('down'); }, { passive: false });
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof ev === 'function') ev(); else this.events.push(ev); el.classList.add('down'); el.classList.remove('ping'); void el.offsetWidth; el.classList.add('ping'); }, { passive: false });
       el.addEventListener('touchend', () => el.classList.remove('down'));
     };
     btn('t-attack', () => { this.events.push('attack'); this.attackHeld = true; }); btn('t-jump', 'jump'); btn('t-lock', 'lock'); btn('t-dash', 'dash'); btn('t-interact', 'interact'); btn('t-sight', 'sight');

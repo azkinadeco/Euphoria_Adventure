@@ -146,12 +146,13 @@ export function terrainMat() {
   const tex = detailTexture();
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uDetail = { value: tex };
+    sh.uniforms.uCloud = SKY_SHADE.uCloud;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vTW;\nvarying float vUp;')
       .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
         vTW = (modelMatrix * vec4(transformed, 1.0)).xyz; vUp = normal.y;`);
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D uDetail;\nvarying vec3 vTW;\nvarying float vUp;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uDetail;\nuniform vec2 uCloud;\nvarying vec3 vTW;\nvarying float vUp;')
       .replace('#include <color_fragment>', `#include <color_fragment>
         vec3 base = diffuseColor.rgb;
         vec2 p = vTW.xz;
@@ -186,9 +187,11 @@ export function terrainMat() {
           vec3 stone = mix(base, vec3(dot(base, vec3(0.34))) * vec3(1.02, 0.98, 0.93) + 0.03, 0.55 * (1.0 - wSnow)) * (0.42 + 0.8 * cl.b * (0.6 + 0.8 * cl2.b)) * (0.76 + 0.48 * d0.b);
           ground = mix(ground, stone, wRock);
         }
+        // big soft cloud shadows drifting over the island (same field as the grass)
+        ground *= 1.0 - uCloud.y * smoothstep(0.52, 0.7, texture2D(uDetail, p * 0.0021 + uCloud.x * vec2(0.0032, 0.0019)).g);
         diffuseColor.rgb = ground;`);
   };
-  m.customProgramCacheKey = () => 'natureTerrainV3';
+  m.customProgramCacheKey = () => 'natureTerrainV4';
   return m;
 }
 
@@ -250,20 +253,42 @@ export function rockMat({ cover = null, amount = 0.7 } = {}) {
   return m;
 }
 /** grass shares the ground's normal and colour, so it melts into the terrain */
+// shared by every terrain and grass material: cloud shadows (time, strength) and the hero's position
+export const SKY_SHADE = { uCloud: { value: new THREE.Vector2(0, 0) }, uPush: { value: new THREE.Vector3(0, -999, 0) } };
 export function grassMat(wind) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uWind = wind;
+    sh.uniforms.uCloud = SKY_SHADE.uCloud; sh.uniforms.uPush = SKY_SHADE.uPush; sh.uniforms.uDetail = { value: detailTexture() };
     normalsFromAttribute(sh);
-    sh.vertexShader = 'uniform float uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    sh.vertexShader = 'uniform float uWind;\nuniform vec3 uPush;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vec4 ip = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
       float gust = sin(uWind * 0.8 + (ip.x + ip.z) * 0.06) * 0.5 + 0.5;
       float w = sin(uWind * 2.1 + ip.x * 0.23 + ip.z * 0.17) + sin(uWind * 3.6 + ip.x * 0.5 - ip.z * 0.34) * 0.4;
       float k = position.y * position.y * (0.25 + gust * 0.55);
       transformed.x += w * k * 0.5 + gust * k * 0.35;
-      transformed.z += w * k * 0.28;`);
+      transformed.z += w * k * 0.28;
+      vGh = position.y;
+      // blades round the hero bend away from her feet (instance space ~ world space: grass is unrotated-ish, scale ~1)
+      vec2 pd = ip.xz - uPush.xz; float pl = length(pd);
+      float push = (1.0 - smoothstep(0.35, 1.25, pl)) * step(abs(ip.y - uPush.y), 1.6) * position.y * position.y * 1.6;
+      transformed.xz += normalize(pd + vec2(1e-4)) * push;
+      transformed.y -= push * 0.35;
+      vec4 cw = modelMatrix * instanceMatrix * vec4(transformed, 1.0); vGw = cw.xz;`);
+    sh.vertexShader = 'varying vec2 vGw;\n' + sh.vertexShader;
+    sh.vertexShader = 'varying float vGh;\n' + sh.vertexShader;
+    // sunlight through the blades: looking toward the sun, the upper blades glow warm yellow-green
+    // (the anime back-lit meadow); the roots stay in their own shade
+    sh.fragmentShader = 'varying float vGh;\nvarying vec2 vGw;\nuniform vec2 uCloud;\nuniform sampler2D uDetail;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', `
+      outgoingLight *= 1.0 - uCloud.y * smoothstep(0.52, 0.7, texture2D(uDetail, vGw * 0.0021 + uCloud.x * vec2(0.0032, 0.0019)).g);
+      #if ( NUM_DIR_LIGHTS > 0 )
+        float gBack = pow(max(dot(-normalize(vViewPosition), directionalLights[0].direction), 0.0), 4.0);
+        outgoingLight += diffuseColor.rgb * vec3(1.15, 1.1, 0.55) * directionalLights[0].color * gBack * smoothstep(0.08, 0.6, vGh) * 0.55;
+      #endif
+      outgoingLight *= mix(0.78, 1.0, smoothstep(0.0, 0.22, vGh)); // contact shade at the root
+      #include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => 'natureGrass';
+  m.customProgramCacheKey = () => 'natureGrass3';
   return m;
 }
 

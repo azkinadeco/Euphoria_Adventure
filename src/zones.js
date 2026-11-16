@@ -25,7 +25,7 @@ const OUTER = [
 
 /** zone id at a world position, or null (sky realms, open sea, the floes between islands) */
 export function zoneOf(x, y, z) {
-  if (y > 60) return null; // floating realms keep their own enter/leave logic
+  if (y > 100) return null; // floating realms (Void 160 m, Asgard 260 m, Rift 280 m) keep their own enter/leave logic; the Frost summit (~61 m) is still Frostvale
   const dm = Math.hypot(x - MAIN.x, z - MAIN.z);
   if (dm < MAIN.r) {
     if (Math.hypot(x - MAIN.x, z - MAIN.z) < GLADE_R) return 'glade';

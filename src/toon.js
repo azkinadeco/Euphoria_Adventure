@@ -8,6 +8,7 @@
 // - View-space distance-compensated anime ink outlines with depth biasing
 // - Multi-layered painterly terrain shader with geological cliff banding
 import * as THREE from 'three';
+import { detailTexture } from './nature.js';
 
 let _grad = null;
 const _shaders = new WeakMap(); // toon material -> its compiled shader (live uniform updates)
@@ -96,6 +97,7 @@ export function toon(color, opts = {}) {
     grad = null, // [hex, y0, y1]: blend to a second colour along the mesh's own y (two-tone hair tips)
     glyph = null, // [hex, cell, y0, y1, axis x]: glowing rectilinear circuit glyphs on a limb (rig-space, like net)
     shadeMix = 0, // 0 = world look (ramp only); characters get coloured cel shadows via charaLook()
+    detail = 0, // 0..1: world-space grain (stone / bark / moss) over vertex paint, so props stay crisp up close
     ...rest
   } = opts;
   delete rest.flatShading; // toon materials have no flat mode; the option only reaches the cache key
@@ -169,6 +171,29 @@ export function toon(color, opts = {}) {
           float gL = gH < 0.24 ? bar : gH < 0.5 ? post : gH < 0.66 ? max(bar * step(gF.x, gW), post * step(gF.y, gW)) : gH < 0.78 ? max(bar * step(-gW, gF.x), post * step(-gW, gF.y)) : 0.0;
           float gM = smoothstep(1.25, 0.95, abs(gA)) * step(uGly.y, vGlyP.y) * step(vGlyP.y, uGly.z);
           totalEmissiveRadiance += uGlyCol * gL * gM;
+        }`);
+    }
+    if (detail) {
+      // triplanar: three projections of the shared terrain detail texture blended by the world normal.
+      // The vertex paint gives the colour, this only adds grain; it fades with distance (no shimmer).
+      shader.uniforms.uDet = { value: detailTexture() };
+      shader.uniforms.uDetK = { value: detail };
+      shader.vertexShader = 'varying vec3 vDetP;\nvarying vec3 vDetN;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        vec4 dP = vec4(transformed, 1.0); vec3 dN = objectNormal;
+        #ifdef USE_INSTANCING
+          dP = instanceMatrix * dP; dN = mat3(instanceMatrix) * dN;
+        #endif
+        vDetP = (modelMatrix * dP).xyz; vDetN = normalize(mat3(modelMatrix) * dN);`);
+      shader.fragmentShader = 'varying vec3 vDetP;\nvarying vec3 vDetN;\nuniform sampler2D uDet;\nuniform float uDetK;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        {
+          vec3 w = pow(abs(normalize(vDetN)), vec3(4.0)); w /= (w.x + w.y + w.z);
+          vec4 a = texture2D(uDet, vDetP.zy * 1.7) * w.x + texture2D(uDet, vDetP.xz * 1.7) * w.y + texture2D(uDet, vDetP.xy * 1.7) * w.z;
+          vec4 b = texture2D(uDet, vDetP.zy * 0.43 + 0.3) * w.x + texture2D(uDet, vDetP.xz * 0.43 + 0.3) * w.y + texture2D(uDet, vDetP.xy * 0.43 + 0.3) * w.z;
+          vec3 c = diffuseColor.rgb;
+          float green = clamp((c.g - max(c.r, c.b)) * 8.0, 0.0, 1.0);          // moss / grass paint
+          float g = mix(a.b * 0.7 + b.b * 0.3, a.r * 0.6 + b.r * 0.4, green); // stone grain or leafy grain
+          float fade = 1.0 - smoothstep(18.0, 45.0, length(vDetP - cameraPosition));
+          diffuseColor.rgb = c * (1.0 + (g - 0.5) * 0.85 * uDetK * fade);
         }`);
     }
     if (grad) {
@@ -279,7 +304,7 @@ export function toon(color, opts = {}) {
   // would split identical shaders into separate programs, so only keep a key someone set explicitly
   const origKey = Object.prototype.hasOwnProperty.call(mat, 'customProgramCacheKey') ? mat.customProgramCacheKey.bind(mat) : () => '';
   // spec/face/rim are uniforms (flatShading is already part of three's own key): one program per variant
-  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '') + (grad ? ':grad' : '') + (glyph ? ':glyph' : '');
+  mat.customProgramCacheKey = () => origKey() + ':hdAnimeCel' + (net ? ':net' : '') + (grad ? ':grad' : '') + (glyph ? ':glyph' : '') + (detail ? ':det' : '');
 
   return mat;
 }

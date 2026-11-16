@@ -68,7 +68,7 @@ export class Combat {
       const d = e.pos.distanceTo(P.pos);
       if (d > 32) continue;
       const to = e.pos.clone().sub(cam.position).normalize();
-      const score = d * (1.6 - to.dot(fwd));
+      const score = d * (1.6 - to.dot(fwd)) + (e.invuln || e.phased ? 1000 : 0);
       if (score < bs) { bs = score; best = e; }
     }
     this.lock = best;

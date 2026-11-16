@@ -250,14 +250,16 @@ export class Player {
 
   nearestEnemy(maxD, preferFront = true) {
     const L = this.game.combat?.lock;
-    if (L && !L.dead && Math.hypot(L.pos.x - this.pos.x, L.pos.z - this.pos.z) < maxD * 1.5) return L;
+    if (L && !L.dead && !L.invuln && !L.phased && Math.hypot(L.pos.x - this.pos.x, L.pos.z - this.pos.z) < maxD * 1.5) return L;
     let best = null, bd = Infinity;
     const fx = Math.sin(this.facing), fz = Math.cos(this.facing);
     for (const e of this.game.enemies) {
       if (e.dead || e.dormant) continue;
       const dx = e.pos.x - this.pos.x, dz = e.pos.z - this.pos.z, d = Math.hypot(dx, dz);
       if (d > maxD) continue;
-      const score = d - (preferFront ? ((dx * fx + dz * fz) / (d + 0.01)) * 3 : 0);
+      // immune targets (a sheathed / shielded boss) only if nothing breakable is in reach: attacks and
+      // skills snap to the cursed blades, roots or crystals that actually end the immune phase
+      const score = d - (preferFront ? ((dx * fx + dz * fz) / (d + 0.01)) * 3 : 0) + (e.invuln || e.phased ? 1000 : 0);
       if (score < bd) { bd = score; best = e; }
     }
     return best;

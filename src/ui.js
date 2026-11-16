@@ -87,8 +87,11 @@ export class UI {
     wrap.classList.toggle('hidden', P.members.length < 2);
     this.onSwitch();
   }
+  /** restart a one-shot CSS animation class */
+  _pulse(el, cls) { if (!el) return; el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
   onSwitch() {
     const H = this.game.player.hero;
+    this._pulse($('char-portrait'), 'swap');
     $('char-img').src = H.portrait;
     $('char-nm').textContent = H.name;
     $('char-elem').textContent = '✦ ' + H.element;
@@ -175,18 +178,22 @@ export class UI {
       $('dlg-choices').innerHTML = '';
       $('dlg-hint').style.display = '';
       this._setPortraits(spk);
-      let i = 0, done = false;
+      let i = 0, done = false, wait = 0;
       textEl.textContent = '';
+      $('dlg-hint').classList.add('typing');
       const iv = setInterval(() => {
+        if (wait > 0) { wait--; return; }
         i += 2;
         textEl.textContent = text.slice(0, i);
-        if (i >= text.length) { clearInterval(iv); done = true; }
+        const ch = text[i - 1] || '', ch2 = text[i - 2] || '';
+        if ('.!?…'.includes(ch) || '.!?…'.includes(ch2)) wait = 7; else if (',;:—'.includes(ch) || ',;:—'.includes(ch2)) wait = 3;
+        if (i >= text.length) { clearInterval(iv); done = true; $('dlg-hint').classList.remove('typing'); }
       }, 30);
       sfx.ui();
       const finish = () => { cleanup(); resolve(); };
       this._advance = (force) => {
         if (force) { clearInterval(iv); finish(); return; }
-        if (!done) { clearInterval(iv); textEl.textContent = text; done = true; } else finish();
+        if (!done) { clearInterval(iv); textEl.textContent = text; done = true; $('dlg-hint').classList.remove('typing'); } else finish();
       };
       const onKey = (e) => { if (['Space', 'Enter', 'KeyF'].includes(e.code)) { e.preventDefault(); this._advance(); } };
       const onClick = () => this._advance();
@@ -240,6 +247,10 @@ export class UI {
     $('btn-map').onclick = () => this.game.map.toggle();
     $('m-map').onclick = () => { this.toggleMenu(false); this.game.map.open(); };
     $('m-cook').onclick = () => { this.toggleMenu(false); this.game.cooking.open(); };
+    // food in the bottom bar: a tap eats it (phones had no way to eat; PC keeps Z/X/C/V/B)
+    for (const k of ['berry', 'fish', 'grilled', 'cool', 'soup']) {
+      $('inv-' + k).onclick = () => { const G = this.game; if (G.playing && !G.inputLocked && !G.paused && !G.player.dead) { this._pulse($('inv-' + k), 'tap'); G.eat(k); } };
+    }
     $('minimap-wrap').onclick = (e) => {
       if (e.target.id === 'weather-badge' || e.target.closest('#weather-badge')) return;
       this.game.map.open();
@@ -337,6 +348,7 @@ export class UI {
     const grid = $('wish-results-grid');
     wrap.classList.remove('hidden');
     grid.innerHTML = '';
+    requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' })); // results sit below the banner on phones
     for (const r of res.results) {
       const card = document.createElement('div');
       card.className = `wish-card r-${r.rarity}`;
@@ -532,7 +544,7 @@ export class UI {
           </div>
         </div>
         <div class="bounty-item-action">
-          <button class="bounty-hunt-btn ${done ? 'done' : isTarget ? 'tracking' : ''}">${done ? '✓ Selesai' : !open ? '🔒 ' + b.unlockText : isTarget ? 'Sedang Diburu' : 'Mulai Berburu'}</button>
+          <button class="bounty-hunt-btn ${done ? 'done' : isTarget ? 'tracking' : !open ? 'locked' : ''}" ${!open && !done ? 'disabled' : ''}>${done ? '✓ Selesai' : !open ? '🔒 ' + b.unlockText : isTarget ? 'Sedang Diburu' : 'Mulai Berburu'}</button>
         </div>
       `;
       const btn = card.querySelector('.bounty-hunt-btn');
@@ -576,6 +588,16 @@ export class UI {
     if (show) document.exitPointerLock?.();
   }
 
+  /** bar fill + damage trail: the trail holds for a beat after a hit, then drains to the fill */
+  _trail(key, trailEl, p, dt) {
+    const T = (this._trails ??= {}), s = (T[key] ??= { w: p, hold: 0 });
+    if (p > s.w) s.w = p; // healed: no trail
+    else if (p < s.w) { if (s.last !== undefined && p < s.last - 1e-4) s.hold = 0.45; if ((s.hold -= dt) <= 0) s.w = Math.max(p, s.w - dt * 0.7); }
+    s.last = p;
+    const v = (s.w * 100).toFixed(2) + '%';
+    if (trailEl && trailEl.style.width !== v) trailEl.style.width = v;
+  }
+
   // ---------------- per-frame HUD ----------------
   update(dt) {
     const G = this.game, P = G.player, S = G.state;
@@ -583,10 +605,14 @@ export class UI {
     // bars
     const hpP = Math.max(0, P.hp / P.maxHp);
     $('hp-fill').style.width = hpP * 100 + '%';
+    this._trail('hp' + P.m.id, $('hp-trail'), hpP, dt);
     $('hp-fill').classList.toggle('low', hpP < 0.3);
+    $('hurt-vignette').classList.toggle('low', hpP > 0 && hpP < 0.3); // heartbeat at the screen edge
     $('hp-text').textContent = `${Math.ceil(Math.max(0, P.hp))}/${P.maxHp}`;
     $('hunger-fill').style.width = P.hunger + '%';
     $('exp-fill').style.width = (P.exp / P.expNeed()) * 100 + '%';
+    if (this._exp !== undefined && P.exp > this._exp) this._pulse($('exp-fill').parentElement, 'gain');
+    this._exp = P.exp;
     $('char-lv').textContent = 'Lv.' + P.level;
     const ring = $('stamina-ring');
     ring.classList.toggle('show', P.stamina < 99.5);
@@ -638,6 +664,7 @@ export class UI {
     // quest
     const Q = QUESTS[S.step];
     $('quest-chapter').textContent = Q.ch || 'PROLOG · WHISPERING WOODS';
+    if ($('quest-title').textContent !== Q.title) { if (this._questSeen) this._pulse($('quest-tracker'), 'pulse'); this._questSeen = true; }
     $('quest-title').textContent = Q.title;
     $('quest-desc').textContent = Q.desc(S);
 
@@ -652,7 +679,17 @@ export class UI {
     const bossOn = !!boss;
     if (bossOn) $('boss-name').textContent = boss.def.name;
     $('boss-bar').classList.toggle('hidden', !bossOn);
-    if (bossOn) $('boss-fill').style.width = (boss.hp / boss.maxHp) * 100 + '%';
+    if (bossOn) {
+      // immune phase: say what has to break, and how many are left
+      const ADD = { kali: ['cursedblade', 'Pedang Terkutuk'], ygg: ['voidroot', 'Akar Hampa'], sovereign: ['eclipsecore', 'Inti Gerhana'], sage: ['bloodcrystal', 'Kristal Darah'] }[boss.type];
+      const left = boss.invuln && ADD ? G.enemies.filter((e) => e.type === ADD[0] && !e.dead).length : 0;
+      const hint = boss.invuln ? (ADD && left ? `KEBAL · hancurkan ${ADD[1]} (sisa ${left})` : 'KEBAL') : boss.breakT > 0 ? 'TERGUNCANG · serang sekarang!' : '';
+      if ($('boss-hint').textContent !== hint) $('boss-hint').textContent = hint;
+      $('boss-hint').classList.toggle('hidden', !hint);
+      $('boss-hint').classList.toggle('open', !boss.invuln);
+      $('boss-bar').classList.toggle('immune', !!boss.invuln);
+    }
+    if (bossOn) { const bp = Math.max(0, boss.hp / boss.maxHp); $('boss-fill').style.width = bp * 100 + '%'; this._trail('boss' + boss.def.name, $('boss-trail'), bp, dt); }
 
     $('clock').textContent = (G.world.nightAmt > 0.5 ? '🌙 ' : '☀️ ') + G.world.clockString();
 
@@ -680,9 +717,21 @@ export class UI {
     g.save();
     g.clearRect(0, 0, N, N);
     g.beginPath(); g.arc(N / 2, N / 2, N / 2, 0, Math.PI * 2); g.clip();
-    g.fillStyle = '#2a6f98'; g.fillRect(0, 0, N, N);
-    g.imageSmoothingEnabled = true;
-    g.drawImage(img, ix - sw / 2, iz - sw / 2, sw, sw, 0, 0, N, N);
+    // in a sky / pocket realm the island picture would show unrelated sea and forest: draw the
+    // realm's own sky with a faint grid instead, and keep enemies + the quest marker
+    const realm = G.map?.realmName?.();
+    if (realm) {
+      const RC = { 'Void Rift': ['#2a1446', '#0d0618'], 'Celestial Asgard': ['#5a4a1e', '#1c2a44'], 'Ashen Battlefield': ['#4a2a22', '#141010'] }[realm] || ['#33205a', '#100a20'];
+      const gr = g.createRadialGradient(N / 2, N / 2, 4, N / 2, N / 2, N / 2); gr.addColorStop(0, RC[0]); gr.addColorStop(1, RC[1]);
+      g.fillStyle = gr; g.fillRect(0, 0, N, N);
+      g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 1;
+      const step = 30 * (N / RANGE), ox = (-P.pos.x * (N / RANGE)) % step, oz = (-P.pos.z * (N / RANGE)) % step;
+      for (let k = -1; k < N / step + 1; k++) { g.beginPath(); g.moveTo(ox + k * step, 0); g.lineTo(ox + k * step, N); g.stroke(); g.beginPath(); g.moveTo(0, oz + k * step); g.lineTo(N, oz + k * step); g.stroke(); }
+    } else {
+      g.fillStyle = '#2a6f98'; g.fillRect(0, 0, N, N);
+      g.imageSmoothingEnabled = true;
+      g.drawImage(img, ix - sw / 2, iz - sw / 2, sw, sw, 0, 0, N, N);
+    }
     const toMap = (x, z) => [N / 2 + (x - P.pos.x) * (N / RANGE), N / 2 + (z - P.pos.z) * (N / RANGE)];
     const icon = (x, z, txt, size = 14) => {
       let [mx, my] = toMap(x, z);
@@ -691,16 +740,23 @@ export class UI {
       g.font = size + 'px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText(txt, mx, my);
     };
+    if (!realm) {
     icon(LOC.workshop.x, LOC.workshop.z, '🔧', 12);
     icon(LOC.camp.x, LOC.camp.z, '🔥', 12);
     icon(LOC.den.x, LOC.den.z, '💀', 13);
     if (G.state.bridgeOpen) { icon(RLOC.camp.x, RLOC.camp.z, '⛺', 12); icon(RLOC.lair.x, RLOC.lair.z, '👑', 13); }
     if (G.state.floesOpen) { icon(-362, 26, '🏘', 12); icon(-540, -52, '⛰', 12); }
+    }
     for (const e of G.enemies) {
       if (e.dead) continue;
       const [mx, my] = toMap(e.pos.x, e.pos.z);
       if (Math.hypot(mx - N / 2, my - N / 2) > N / 2) continue;
-      g.fillStyle = e.isBoss ? '#ff5ce1' : e.type === 'spire' ? '#c07aff' : '#ff4d6d';
+      if (e.static) { // objectives (spires, seals, roots, cursed blades…): gold diamonds
+        g.fillStyle = '#ffd66b'; g.strokeStyle = '#000'; g.lineWidth = 1;
+        g.beginPath(); g.moveTo(mx, my - 4.5); g.lineTo(mx + 4, my); g.lineTo(mx, my + 4.5); g.lineTo(mx - 4, my); g.closePath(); g.fill(); g.stroke();
+        continue;
+      }
+      g.fillStyle = e.isBoss ? (e.invuln ? '#9a9ab0' : '#ff5ce1') : e.type === 'spire' ? '#c07aff' : '#ff4d6d';
       g.beginPath(); g.arc(mx, my, e.isBoss ? 5 : e.type === 'spire' ? 4 : 2.5, 0, Math.PI * 2); g.fill();
     }
     const qm = G.questTarget();

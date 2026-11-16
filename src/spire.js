@@ -254,7 +254,7 @@ export class Spire {
       const ang = (k / wave.count) * Math.PI * 2 + Math.PI / 6;
       const dist = 6 + Math.random() * 8;
       const pos = V(C.x + Math.cos(ang) * dist, C.y, C.z + Math.sin(ang) * dist);
-      const e = new Enemy(G, wave.type, pos, { leash: this.radius + 6, elite: wave.elite });
+      const e = new Enemy(G, wave.type, pos, { leash: this.radius + 6, elite: wave.elite, arena: true });
       e.realmMob = true;
       e.spireMob = true;
       e.aggro = true;

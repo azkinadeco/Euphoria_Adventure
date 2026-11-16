@@ -665,6 +665,7 @@ export class Enemy {
     this.stun = 0; this.flash = 0; this.dead = false; this.deadT = 0;
     this.zone = opts.zone;
     this.leash = opts.leash || 40;
+    this.arena = !!opts.arena; // Spire / Rift wave: never gives up and walks home to heal
     this.aggro = false;
     this.aura = null;   // {el, t} — elemental aura for reactions
     this.slowT = 0;     // Mora's Chronos Ring
@@ -858,20 +859,24 @@ export class Enemy {
     if (this.burnT > 0) {
       this.burnT -= dt; this.burnTick -= dt;
       if (Math.random() < 0.3) G.vfx.particles(this.pos.clone().setY(this.pos.y + this.tall * 0.5), 1, 0xff7a2a, { speed: 1, up: 2, life: 0.5, grav: -2 });
-      if (this.burnTick <= 0) { this.burnTick = 0.5; this.hit(this.burnDmg, {}); if (this.dead) return false; }
+      if (this.burnTick <= 0) { this.burnTick = 0.5; this.hit(this.burnDmg, { element: 'FIRE' }); if (this.dead) return false; }
     }
 
     const toP = new THREE.Vector3(P.pos.x - this.pos.x, 0, P.pos.z - this.pos.z);
     const dist = toP.length();
     const homeD = Math.hypot(this.pos.x - this.home.x, this.pos.z - this.home.z);
     if (!this.aggro && dist < this.def.aggro && !P.dead) this.aggro = true;
-    if (this.aggro && (P.dead || homeD > this.leash || dist > this.def.aggro * 2.2)) {
+    if (this.arena && !P.dead && !this.static) this.aggro = true;
+    if (this.aggro && !this.arena && (P.dead || homeD > this.leash || dist > this.def.aggro * 2.2)) {
       this.aggro = false; this.state = 'return'; this.cancelTele();
     }
 
     if (this.stun > 0) {
       this.state = 'stunned';
     } else if (this.state === 'stunned') { this.state = 'chase'; this.t = 0; }
+    // a vanish ('phase') only lasts while that state runs: if a stun or the leash replaced the state
+    // mid-vanish, the enemy used to stay untouchable ("Kebal") for good
+    if (this.phased && this.state !== 'phase') this.phased = false;
     this.poiseT -= dt; if (this.poiseT <= 0) this.poise = this.maxPoise;
     if (this.shredT > 0) this.shredT -= dt;
     this.flinch = Math.max(0, this.flinch - dt);
@@ -907,8 +912,10 @@ export class Enemy {
     this.pos.addScaledVector(this.vel, dt);
     this.vel.multiplyScalar(Math.exp(-6 * dt));
     W.collide(this.pos, this.radius * 0.6);
-    let gh = Math.max(W.groundAt(this.pos.x, this.pos.z), -0.6);
-    if (W.realm && gh < -50) { this.pos.x += (this.home.x - this.pos.x) * 0.15; this.pos.z += (this.home.z - this.pos.z) * 0.15; gh = this.home.y; }
+    const rawGh = W.groundAt(this.pos.x, this.pos.z);
+    let gh = Math.max(rawGh, -0.6);
+    // knocked off a sky island: drift back over the arena
+    if (W.realm && rawGh < -50) { this.pos.x += (this.home.x - this.pos.x) * 0.15; this.pos.z += (this.home.z - this.pos.z) * 0.15; gh = this.home.y; }
     if (this.floats) {
       this.pos.y = (W.realm ? gh : Math.max(gh, 0)) + (this.type === 'phantom' ? 2.8 : this.type === 'ghost' || this.type === 'frostsoul' || this.type === 'voidwisp' || this.type === 'ashwraith' ? 0.45 : this.type === 'voideye' ? 2.2 : 1.3) + Math.sin(this.t * 2) * 0.25; this.grounded = true;
     } else {
@@ -929,10 +936,14 @@ export class Enemy {
     if (this.shieldMesh && this.shield.hp > 0) { this.shieldMesh.rotation.y += dt; this.shieldMesh.material.opacity = 0.22 + Math.sin(this.t * 3) * 0.06; }
     if (this.eliteCrown) this.eliteCrown.rotation.z += dt * 2;
 
+    // hit pop: a short squash-and-stretch round the spawn scale (bosses barely, they are huge)
+    if (!this._s0) this._s0 = this.root.scale.clone();
+    { const k = this.flash > 0 ? Math.sin((this.flash / 0.12) * Math.PI) * (this.isBoss ? 0.035 : 0.13) : 0;
+      this.root.scale.set(this._s0.x * (1 + k), this._s0.y * (1 - k * 0.8), this._s0.z * (1 + k)); }
     for (const mt of this.model.mats) mt.emissive && mt.emissive.setRGB(this.flash > 0 ? 0.9 : (this.stun > 0 ? 0.25 : 0), this.flash > 0 ? 0.9 : (this.stun > 0 ? 0.25 : 0), this.flash > 0 ? 0.9 : 0.05);
 
     if (this.bar.parent) {
-      const show = this.aggro && this.hp < this.maxHp;
+      const show = (this.aggro || this.static) && this.hp < this.maxHp; // objectives (aggro 0) show their HP too
       this.bar.visible = show;
       if (show) {
         this.bar.position.set(this.pos.x, this.pos.y + this.tall, this.pos.z);
@@ -1363,6 +1374,7 @@ export class Enemy {
         this['sh' + th] = true; this.invuln = true; this.state = 'rest'; this.t = 0;
         G.spawnBloodCrystals(C, 3);
         G.ui.toast('Evy menyerap darah — hancurkan 3 Kristal Darah!', 'gold big'); sfx.roar();
+        break; // one shield phase at a time, even if a big hit skipped past both thresholds
       }
     }
     if (phase2 && !this.enraged) { this.enraged = true; G.summonAdds(this.pos, 3, 'ghost'); G.ui.toast('“Darahmu akan menyempurnakan ritualku!”', 'gold'); }
@@ -1630,6 +1642,10 @@ export class Enemy {
     M.rig.update(dt, { speed: Math.min(spd, 8) / 1.9, sprint: spd > 9, grounded: true, vy: 0, action: anim, actionT: Math.min(1, this.t / 0.8), combo: (this.sl || 0) % 3 + 1, dt });
     if (!this.started) return;
     this.stun = Math.min(this.stun, 0.6);
+    // the sheath phase (invulnerable) must survive anything that rewrites the state: a stun that was
+    // still running when she crossed 60% / 25%, or the leash "return". Before, the state left 'sheath',
+    // the "all cursed blades broken?" check below never ran again and Kali stayed immune for good.
+    if (this.invuln && this.state !== 'sheath') { this.state = 'sheath'; this.stun = 0; this.t = 0; }
     // pending sword rain
     if (this.rains) {
       for (let i = this.rains.length - 1; i >= 0; i--) {
@@ -1780,6 +1796,7 @@ export class Enemy {
         G.spawnVoidRoots(this.home, 4);
         G.summonAdds(this.pos, 2, 'voideye');
         G.ui.toast('Ygg-Naar menutup matanya — hancurkan 4 Akar Void!', 'gold big'); sfx.roar();
+        break; // one shield phase at a time
       }
     }
     this.cd = (this.cd ?? 2) - dt;
@@ -1987,7 +2004,7 @@ export class Enemy {
     }
 
     // Phase 3 shield transition
-    if (phase3 && !this.phase3Triggered) {
+    if (phase3 && !this.phase3Triggered && !this.invuln) { // not in the same frame as phase 2
       this.phase3Triggered = true; this.invuln = true; this.state = 'rest'; this.t = 0;
       G.ui.toast('ECLIPSE CLIMAX: Gerhana Total Menyala! Hancurkan 3 Inti Eclipse!', 'gold big');
       sfx.roar();

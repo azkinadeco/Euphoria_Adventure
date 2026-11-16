@@ -708,8 +708,36 @@ class Game {
   // ======================================================================
   // story flow
   // ======================================================================
+  /**
+   * Roll the quest forward when its goal is already met. A save taken while a victory scene or a
+   * "chapter middle" dialog was playing has the goal flags set but the old step, and objectives
+   * destroyed before their step began are never counted again: both used to leave the story stuck.
+   */
+  _repairStep() {
+    const S = this.state, all = (a) => Array.isArray(a) && a.length > 0 && a.every(Boolean);
+    for (let i = 0; i < 10; i++) {
+      const s = S.step || '';
+      const n = s === 'den' && S.boss ? 'reef_go'
+        : s.startsWith('reef_') && S.reefDone ? 'volc_go'
+        : s === 'reef_samples' && all(S.samples) ? 'reef_spires'
+        : s === 'reef_spires' && all(S.spires) ? 'reef_boss'
+        : s.startsWith('volc_') && S.volcDone ? 'frost_go'
+        : s === 'volc_lanterns' && all(S.lanterns) ? 'volc_seals'
+        : s === 'volc_seals' && all(S.seals) ? 'volc_boss'
+        : s.startsWith('frost_') && S.frostDone ? 'void_go'
+        : s === 'frost_souls' && all(S.souls) ? 'frost_peak'
+        : s.startsWith('void_') && S.voidDone ? 'asgard_go'
+        : s === 'void_anchors' && all(S.anchors) ? 'void_boss'
+        : s === 'asgard_bifrost' && all(S.prisms) ? 'asgard_boss'
+        : null;
+      if (!n) return;
+      S.step = n;
+    }
+  }
+
   _advance(step) {
     this.state.step = step;
+    this._repairStep();
     this.ui.questFlash();
     sfx.quest();
     const titles = { rebuild: 'Semua onderdil terkumpul!', camp: 'Quest baru: Jejak Ungu', den: 'Jalan sudah bersih! Serbu sarangnya!', free: 'Prolog selesai!' };
@@ -768,9 +796,14 @@ class Game {
     const P = this.player, S = this.state;
     P.dead = false; P.healAll(0.6, true); P.hunger = Math.max(P.hunger, 40); P.iframes = 2;
     P.m.rig.root.visible = false; P.active = 0; P.m.rig.root.visible = true; this.ui.onSwitch();
-    if (S.spawn === 'asgard') { if (!this.ch5.active) this.ch5.enter(false); } else if (this.ch5.active) this.ch5.exit();
-    if (S.spawn === 'void') { if (!this.ch4.active) this.ch4.enter(false); } else if (this.ch4.active) this.ch4.exit();
-    if (S.spawn === 'ash') { if (!this.ch6.active) this.ch6.enter(false); } else if (this.ch6.active) this.ch6.exit();
+    // leave every realm that is not the spawn first: exit() clears world.realm, so an exit after the
+    // spawn realm's enter() used to drop the hero into the sea under it
+    if (S.spawn !== 'asgard' && this.ch5.active) this.ch5.exit();
+    if (S.spawn !== 'void' && this.ch4.active) this.ch4.exit();
+    if (S.spawn !== 'ash' && this.ch6.active) this.ch6.exit();
+    if (S.spawn === 'asgard' && !this.ch5.active) this.ch5.enter(false);
+    if (S.spawn === 'void' && !this.ch4.active) this.ch4.enter(false);
+    if (S.spawn === 'ash' && !this.ch6.active) this.ch6.enter(false);
     const sp = S.spawn === 'ash' ? new THREE.Vector3(ASH.camp.x, 0, ASH.camp.z - 6) : S.spawn === 'asgard' ? new THREE.Vector3(ASGARD.plaza.x, ASGARD.plaza.y + 0.5, ASGARD.plaza.z + 14) : S.spawn === 'void' ? new THREE.Vector3(VOIDR.gate.x, 0, VOIDR.gate.z + 6) : S.spawn === 'frost' ? FLOC.village.clone().add(new THREE.Vector3(6, 0, 0)) : S.spawn === 'volc' ? VLOC.outpost.clone().add(new THREE.Vector3(0, 0, 3)) : S.spawn === 'reef' ? RLOC.camp.clone().add(new THREE.Vector3(0, 0, 3)) : S.spawn === 'camp' ? LOC.camp.clone().add(new THREE.Vector3(0, 0, 3)) : new THREE.Vector3(LOC.workshop.x + 1, 0, LOC.workshop.z + 3);
     this.ch1.onRespawn();
     this.ch2.onRespawn();
@@ -834,6 +867,7 @@ class Game {
     this.ch5.onLoad();
     if (this.state.asgardDone) { P.addMember('commander'); }
     this.ch6.onLoad();
+    this._repairStep();
     if (this.state.ashDone) P.addMember('kali');
     if (d.heroArtifacts) {
       for (const m of P.roster) {
@@ -1167,7 +1201,7 @@ class Game {
       if (qt) this.beacon.position.set(qt.x, this.world.groundAt(qt.x, qt.z), qt.z);
       this.ui.update(dt);
       this._autosaveT = (this._autosaveT || 0) + dt;
-      if (this._autosaveT > 30) { this._autosaveT = 0; if (!this.player.dead) this.save(); }
+      if (this._autosaveT > 30) { this._autosaveT = 0; if (!this.player.dead && !this.ui.dialogOpen) this.save(); } // never mid-scene
     } else {
       // title screen: Luby napping in the sunbeam
       this.player.luby.update(dt, { speed: 0, grounded: true });

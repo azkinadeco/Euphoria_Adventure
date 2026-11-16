@@ -29,8 +29,9 @@ const BASE = import.meta.env.BASE_URL + 'assets/models/';
 let toonMat = null, emitMat = null;
 const mats = () => {
   if (!toonMat) {
-    toonMat = toon(0xffffff, { vertexColors: true, rimStrength: 0.3 });
+    toonMat = toon(0xffffff, { vertexColors: true, rimStrength: 0.3, detail: 1 });
     emitMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+    toonMat.userData.weathered = true; // has its own detail grain: weatherProps() must not stack a second one
   }
   return { toonMat, emitMat };
 };
@@ -81,6 +82,35 @@ export function upgrade(name, parent, old, place, opts) {
 // Soft teardrop flame layers (shared by every campfire). Additive, so overlapping
 // layers bloom into a bright core.
 let _flameGeo = null;
+let _sparkTex = null;
+function sparkTex() {
+  if (_sparkTex) return _sparkTex;
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  return (_sparkTex = new THREE.CanvasTexture(c));
+}
+const _flameT = { value: 0 };
+// each layer keeps its MeshBasicMaterial (colour / opacity stay editable, Abadonia recolours hers);
+// the shader only shapes it: soft silhouette, flickering torn tips, a hotter base
+function flameShader(m) {
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uFlT = _flameT;
+    sh.vertexShader = 'varying vec2 vFl;\nvarying vec3 vFlN;\nvarying vec3 vFlV;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vFl = uv; vFlN = normalize(normalMatrix * normal); vFlV = -(modelViewMatrix * vec4(transformed, 1.0)).xyz;`);
+    sh.fragmentShader = 'varying vec2 vFl;\nvarying vec3 vFlN;\nvarying vec3 vFlV;\nuniform float uFlT;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', `
+      float fh = vFl.y, fa = vFl.x * 6.2832;
+      float fn = sin(fa * 3.0 + fh * 7.0 - uFlT * 9.0) * 0.5 + sin(fa * 5.0 - fh * 11.0 - uFlT * 13.0) * 0.3 + sin(fa * 2.0 + uFlT * 5.0) * 0.2;
+      float fEdge = smoothstep(0.0, 0.55, abs(dot(normalize(vFlN), normalize(vFlV))));
+      float fTip = 1.0 - smoothstep(0.42 + fn * 0.18, 0.98, fh);
+      outgoingLight *= mix(1.45, 0.75, fh);
+      diffuseColor.a *= fEdge * fTip * (0.8 + fn * 0.3) * smoothstep(0.0, 0.08, fh);
+      #include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'flameV2';
+  return m;
+}
 export function flameLayers(parent) {
   if (!_flameGeo) {
     const pts = [];
@@ -91,18 +121,36 @@ export function flameLayers(parent) {
     _flameGeo = new THREE.LatheGeometry(pts, 12);
   }
   const layers = [[0xff5a14, 0.5, 1.05, 0.55], [0xff9a2a, 0.36, 0.85, 0.7], [0xffe27a, 0.22, 0.6, 0.9]];
-  return layers.map(([color, w, h, op], i) => {
-    const m = new THREE.Mesh(_flameGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  const out = layers.map(([color, w, h, op], i) => {
+    const m = new THREE.Mesh(_flameGeo, flameShader(new THREE.MeshBasicMaterial({ color, transparent: true, opacity: Math.min(1, op * 1.35), blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })));
     m.scale.set(w / 0.42 * 0.5, h, w / 0.42 * 0.5);
     m.position.y = 0.12 + i * 0.03;
     m.userData.base = { w: m.scale.x, h };
     parent.add(m);
     return m;
   });
+  // a few embers drift up out of the fire, wobbling, and wink out
+  const N = 12, seed = Array.from({ length: N }, () => [Math.random(), Math.random() * 6.283, 0.5 + Math.random() * 0.8]);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+  const sp = new THREE.Points(geo, new THREE.PointsMaterial({ color: new THREE.Color(0xffa040).multiplyScalar(2.2), size: 0.07, map: sparkTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+  sp.frustumCulled = false; sp.userData.seed = seed; sp.material.userData.hdr = true;
+  parent.add(sp);
+  out.sparks = sp;
+  return out;
 }
 
 /** flicker animation for flameLayers() */
 export function flickerFlames(flames, t) {
+  _flameT.value = performance.now() / 1000;
+  const sp = flames.sparks;
+  if (sp && sp.visible) {
+    const a = sp.geometry.attributes.position, sd = sp.userData.seed;
+    for (let i = 0; i < sd.length; i++) {
+      const [ph, ang, sp2] = sd[i], k = (t * 0.55 * sp2 + ph) % 1, r = 0.12 + k * 0.35;
+      a.setXYZ(i, Math.cos(ang + k * 4) * r * 0.6 + Math.sin(t * 3 + i) * 0.05 * k, 0.25 + k * 1.9, Math.sin(ang + k * 4) * r * 0.6);
+    }
+    a.needsUpdate = true;
+  }
   flames.forEach((f, i) => {
     const b = f.userData.base;
     const k = 1 + Math.sin(t * (8.3 + i * 3.1)) * 0.12 + Math.sin(t * (13.7 + i * 5)) * 0.07;

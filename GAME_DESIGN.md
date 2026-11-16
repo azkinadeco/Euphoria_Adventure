@@ -339,6 +339,56 @@ public/assets/      Potret dari Euphoria Online
 - Batch 57 (ketahanan + regresi): `UI.update` melewati slot party yang belum punya elemen (hero bergabung sebelum bar party dibangun ulang) alih-alih melempar error tiap frame. Regresi game penuh setelah batch 48-56: boot, game baru, 13 hero bergantian menyerang + E + Q - tanpa error konsol, 93 program shader.
 - Batch 58 (perbaikan dari uji main di iPhone): (1) BUG cerita berulang di kamp karang - dengan hero trial tim sudah 4 orang, `addMember("scylla")` menaruhnya di bangku dan pencarian di tim aktif melempar error sehingga `_advance("reef_samples")` tak pernah jalan; kini memakai nilai balik `addMember` + toast "tim penuh". (2) Abadonia meluncur dengan sayap jurang singanya (membran ungu + tulang jari, terlipat di darat, mengepak saat `st.glide`; `rig.ownWings` menyembunyikan glider). (3) Kontrol sentuh ditata sebagai satu busur di kanan-bawah: serang di pojok, dash / E / lompat di cincin dalam, Q / lari / kunci / mata di cincin luar; label tombol keyboard disembunyikan di sentuh. (4) HUD ringkas: potret 44 px, teks misi 11.5 / 10 px, minimap 116 px (88 px di HP), tombol atas 30 px. (5) Performa HP: pass GTAO (menggambar scene dua kali) dimatikan di perangkat sentuh, shadow map digambar tiap 2 frame, subtree yang di-stream keluar tidak lagi dihitung matriksnya tiap frame (`updateMatrixWorld` no-op selama jauh), batas pixel ratio HP naik ke 2x, HP ber-GPU kuat mulai di HIGH. Terukur pada HIGH mode sentuh: 3,6 jt -> 1,6 jt segitiga/frame, 760 -> ~260-500 draw call, update matriks 6,8 -> 2,1 ms.
 - Batch 59 (poles detail kecil, tanpa fitur baru): saat dialog, kontrol sentuh + skill + inventori + tombol atas + minimap + misi memudar keluar (`body.dlg`) dan tombol SKIP tak lagi menimpa minimap; petunjuk dialog "ketuk" di sentuh; nama hero dipotong elipsis agar tidak menabrak potret party; joystick redup saat diam dan menyala saat disentuh; tanpa kilat abu / seleksi teks saat tombol ditekan lama; bayangan teks HUD lebih tegas; kepulan debu saat mendarat dan debu tumit saat sprint.
+Batch 111 - Regresi penuh 13 hero + build.
+Batch 110 - Minimap: objektif sebagai berlian emas, bos kebal abu-abu.
+Batch 109 - Bidikan otomatis & lock-on memilih target yang bisa dilukai saat bos kebal.
+Batch 108 - Musuh gelombang Menara Ujian & Rift tidak lagi menyerah lalu pulih penuh.
+Batch 107 - Satu fase perisai per pukulan (Evy, Ygg-Naar, Sovereign); damage bakar ikut kebal-elemen bounty Magma; musuh yang terlempar dari pulau langit kembali ke arena.
+Batch 106 - Objektif statis (pedang terkutuk, akar, inti, kristal, segel, menara karang) kini menampilkan bar HP.
+Batch 105 - Keluar dari alam (Void / Asgard / Ash) saat melawan bos mereset bos; sebelumnya bos tertinggal aktif dan teleport terkunci di mana-mana.
+Batch 104 - Bilah bos: saat kebal bergaris abu-abu dengan petunjuk KEBAL · hancurkan <objektif> (sisa N), saat BREAK hijau; di HP diturunkan ke bawah baris tombol atas.
+Batch 103 - Pengaman umum: musuh yang menghilang (phase) tidak bisa tetap kebal bila state-nya tertimpa.
+Batch 102 - Bug Kali: kalau Kali masih ter-stun (atau pemain menjauh) saat HP turun ke 60 / 25 persen, state sheath tertimpa sehingga Kali tetap kebal walau semua Pedang Terkutuk hancur (0 damage, tak terkalahkan). Kini fase sarung bertahan selama kebal; diuji fase 1, fase 2, dan kalah sampai tuntas.
+Batch 101 - Pemeriksaan ulang CSS semua jendela + regresi penuh 13 hero + build.
+Batch 100 - Ikon skill Abadonia (api & singa) kini punya ikon sendiri, bukan bintang generik.
+Batch 99 - Panel mode kamera lebih kecil di HP.
+Batch 98 - Doa Bintang: banner ringkas di HP dan hasil tarikan langsung terlihat (auto-scroll).
+Batch 97 - Autosave tidak berjalan saat dialog terbuka.
+Batch 96 - Perbaikan langkah quest otomatis (_repairStep) saat load dan setiap quest maju: save yang diambil saat adegan kemenangan / dialog tengah bab, atau objektif yang dihancurkan sebelum langkahnya, tidak lagi membuat cerita macet.
+Batch 95 - Bug simpan: Scylla hilang dari tim setiap kali game dimuat ulang (joinParty menimpa state.party). Kini dikembalikan berdasarkan progres cerita (reefCamp / setelah reef_samples).
+Batch 94 - Minimap di alam langit (Void, Asgard, Ash, Rift, Spire) tidak lagi menggambar pulau Whispering Woods yang salah: latar warna alam + grid, musuh dan penanda misi tetap tampil.
+Batch 93 - Regresi penuh 13 hero + build produksi.
+Batch 92 - Tab Bekal menjelaskan bahwa bekal dimakan dengan mengetuk ikonnya.
+Batch 91 - Respawn lintas alam (istirahat di Asgard lalu mati di Void/Ash) tidak lagi menjatuhkan hero ke laut; penanda misi Tangga Cahaya setelah bos Void; puncak Frostvale (61 m) tetap zona Frostvale. Teleport ke 12 lokasi diuji: semua mendarat di tanah.
+Batch 90 - Peta: label tidak saling tumpuk (prioritas: waypoint, wilayah, POI, sektor); ketuk pin di HP tidak lagi langsung teleport (ghost click); pinch lalu lepas satu jari tidak melompat; di alam langit peta menunjukkan Kamu di <alam>.
+Batch 89 - Kotak dialog lebih pendek di HP landscape.
+Batch 88 - Menara Ujian & Artefak ringkas di HP; judul & subjudul dipendekkan.
+Batch 87 - Layar judul di HP hanya menampilkan petunjuk kontrol HP.
+Batch 86 - Bug HP: makanan di bar bawah kini bisa diketuk untuk dimakan (sebelumnya hanya tombol Z/X/C/V/B di PC).
+Batch 85 - Papan Buronan ringkas di HP (deskripsi disembunyikan, ikon & teks lebih kecil), tombol buronan terkunci jadi abu-abu dan tidak bisa ditekan.
+Batch 84 - Minigame memancing diberi gaya lengkap (sebelumnya bar tegangan & zona target tidak terlihat): panel menunggu gigitan, tanda !, bar tegangan, progres, kartu tangkapan; kontrol sentuh disembunyikan saat memancing.
+Batch 83 - Peta dunia diperbaiki: modal peta tidak punya CSS sehingga tidak tampil dan game membeku. Kini layar penuh, tutup dengan X / M / Esc, zoom berporos di tengah layar, label wilayah di pulau yang benar (Infernal Citadel, Frostvale), minimap bisa diketuk.
+Batch 82 - Dapur: resep jadi kartu ringkas 2 kolom (nama pendek, efek satu baris, bahan berwarna sesuai stok), layar masak dengan bar emas + tombol Batal. Sebelumnya jendela Dapur sama sekali tanpa CSS.
+Batch 81 - Regresi penuh 13 hero + build produksi.
+Batch 80 - Bar EXP berkilau saat EXP bertambah.
+Batch 79 - Potret hero berkilat saat ganti hero.
+Batch 78 - Prompt interaksi muncul dengan fade lembut.
+Batch 77 - Angka damage kritikal masuk dengan hentakan dan sedikit putaran.
+Batch 76 - Toast di HP lebih kecil, boleh dua baris, dan lebih tinggi agar tidak menutupi tengah layar.
+Batch 75 - Panel quest menyala sekali saat langkah quest berganti.
+Batch 74 - HP di bawah 30 persen: vinyet merah berdetak seperti jantung di tepi layar.
+Batch 73 - Musuh memantul (squash-and-stretch) setiap terkena pukulan; bos hanya sedikit.
+Batch 72 - Bara api: 12 percikan naik berayun dari setiap api flameLayers (dimatikan di kapak Abadonia).
+Batch 71 - Regresi penuh 13 hero + build produksi.
+Batch 70 - Dialog: jeda alami setelah tanda baca, petunjuk lanjut muncul setelah kalimat selesai diketik.
+Batch 69 - Bayangan awan besar bergerak pelan di tanah dan rumput (SKY_SHADE.uCloud, 0 saat malam). Catatan: world.cloudShade sudah dipakai sistem awan, kekuatan bayangan pakai cloudShadowK.
+Batch 68 - Rumput tersibak di sekitar hero yang sedang dimainkan (SKY_SHADE.uPush).
+Batch 67 - Tombol sentuh: cincin denyut + mengecil saat diketuk.
+Batch 66 - Bilah HP pemain dan bos punya jejak damage: potongan yang hilang tetap terang 0,45 dtk lalu menyusut.
+Batch 65 - Rumput: cahaya tembus warna kuning-hijau saat menghadap matahari + bayangan kontak di pangkal.
+Batch 64 - Api hidup: shader pada flameLayers (tepi lembut, ujung api berkedip-sobek, dasar lebih panas); warna/opacity tetap bisa diubah (api ungu Abadonia).
+Batch 63 - Kursi kayu kamp dibangun ulang 30x26 segmen: alur kulit kayu memanjang + lumut bertepi lembut; batu api unggun lebih halus, kayu bakar lebih bulat.
+Batch 62 - toon() opsi detail: butiran triplanar world-space (batu / kulit kayu / lumut) di atas cat vertex untuk semua prop Blender (materi prop bersama di assets.js), memudar setelah 18-45 m.
 Batch 61 - Intro studio ONIX (logo hitam landscape, min 3,6 dtk) sebelum layar start; game selalu landscape: HP tegak memutar seluruh halaman 90 derajat (html.rot), ukuran logis di window.__scr / src/screen.js, media query CSS diganti kelas :where(html.mwXXX/mhXXX), unit vw/vh jadi --lw/--lh, sentuhan dipetakan lewat pt(); ukuran dicek ulang tiap resize/rotasi + 2x per detik; Android: layar penuh + kunci landscape di ketukan pertama.
 Batch 60 - ULTRA HD: preset Ultra di menu (resolusi native sampai 3x, supersampling 1.5x di monitor 1x, MSAA, shadow map 4K tiap frame, jarak gambar 1.35x, filter tekstur 16x); penajaman adaptif di shader grading untuk semua preset di atas LOW; sunbeam jadi shader lembut (tepi memudar, hilang saat kamera masuk) menggantikan kerucut aditif yang menguningkan layar; Sunbeam Rock dicat pada mesh 4x lebih rapat.
 - Performa: GPU terintegrasi/software (Intel/Iris/SwiftShader…) otomatis mulai di preset LOW; `_autoGfx` kini memakai waktu frame mentah dan juga aktif di layar judul (3 frame >0,4 dtk → LOW). Ini memperbaiki tombol "Mulai dari awal" yang terasa tidak bisa diklik di Mac Intel + Retina.

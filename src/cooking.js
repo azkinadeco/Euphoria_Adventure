@@ -1,10 +1,12 @@
 // Euphoria Adventure — Gourmet Culinary Cooking System
 // cooking minigame with timing slider, gourmet recipes, and combat buff management.
 import { sfx } from './sfx.js';
+import { icon } from './icons.js';
 
 export const RECIPES = [
   {
     id: 'skewer',
+    short: 'Sate Ikan Bakar', icon: 'skewer', color: '#ffb36b', fx: 'HP +50% · Kenyang +50',
     name: '🍢 Crispy Grilled Skewer',
     desc: 'Tusukan ikan panggang dengan bumbu berry karamel. Renyah di luar, lembut di dalam.',
     req: { fish: 1, berry: 2, pepper: 0 },
@@ -13,6 +15,7 @@ export const RECIPES = [
   },
   {
     id: 'frost_juice',
+    short: 'Es Mint Gletser', icon: 'drink', color: '#7fd8ff', fx: 'Kebal panas · 4 mnt',
     name: '🧊 Chilled Mint Frost',
     desc: 'Minuman dingin menyegarkan dengan sari berry gletser. Meredakan sengatan panas lava.',
     req: { fish: 1, berry: 3, pepper: 0 },
@@ -21,6 +24,7 @@ export const RECIPES = [
   },
   {
     id: 'chili_stew',
+    short: 'Sup Cabai Pedas', icon: 'soup', color: '#ff7a5a', fx: 'Kebal dingin · 4 mnt',
     name: '🍲 Sizzling Chili Stew',
     desc: 'Sup rempah pedas membakar yang menghangatkan sekujur tubuh hingga ke tulang.',
     req: { fish: 1, berry: 1, pepper: 1 },
@@ -29,6 +33,7 @@ export const RECIPES = [
   },
   {
     id: 'sunfin_delight',
+    short: 'Ikan Mentega Madu', icon: 'fish', color: '#ffd66b', fx: 'ATK +25% · Crit +15% · 5 mnt',
     name: '🐟 Golden Sunfin Delight',
     desc: 'Fillet ikan berlapis mentega madu selestial. Mengobarkan semangat juang para petualang.',
     req: { fish: 2, berry: 3, pepper: 0 },
@@ -37,6 +42,7 @@ export const RECIPES = [
   },
   {
     id: 'adeptus_stew',
+    short: 'Pesta Agung', icon: 'crown', color: '#e8a8ff', fx: 'ATK +35% · Crit +15% · CDMG +30%',
     name: '👑 Pesta Agung Euphoria',
     desc: 'Hidangan legendaris yang memadukan kehangatan rempah dan kelembutan daging pilihan.',
     req: { fish: 3, berry: 4, pepper: 2 },
@@ -45,6 +51,7 @@ export const RECIPES = [
   },
   {
     id: 'sunbeam_salad',
+    short: 'Salad Padang', icon: 'berry', color: '#9fe86a', fx: 'Stamina -40% · 5 mnt',
     name: '🥗 Sunbeam Meadow Salad',
     desc: 'Campuran berry segar dan dedaunan beraroma mint liar. Meringankan setiap langkah kaki.',
     req: { fish: 0, berry: 4, pepper: 0 },
@@ -85,8 +92,7 @@ export class CookingManager {
       wrap.innerHTML = `
         <div class="modal-card cooking-card">
           <button class="modal-close" id="cook-close">✕</button>
-          <h2>🍳 Dapur Petualang (Gourmet Cooking)</h2>
-          <p class="modal-sub">Masak hidangan lezat di atas api unggun untuk mendapatkan berkah statistik petualangan!</p>
+          <div class="ck-head"><i class="ck-pot">${icon('pot')}</i><div><h2>Dapur</h2><div id="ck-inv" class="ck-inv"></div></div></div>
           <div class="cook-body">
             <div id="cook-recipe-list" class="cook-recipe-list"></div>
             <div id="cook-station" class="cook-station hidden">
@@ -98,8 +104,8 @@ export class CookingManager {
                 <div class="cs-perfect-zone" id="cs-perfect-zone"></div>
                 <div class="cs-needle" id="cs-needle"></div>
               </div>
-              <div class="cs-hint">Tekan <b>SPASI</b> atau tombol <b>MASAK SEKARANG</b> saat sendok berada di area kuning!</div>
-              <button id="cs-btn-cook" class="cs-btn-cook">MASAK SEKARANG!</button>
+              <div class="cs-hint">Hentikan di zona emas untuk hasil sempurna (+30% durasi)</div>
+              <div class="cs-row"><button id="cs-btn-back" class="cs-btn-back">Batal</button><button id="cs-btn-cook" class="cs-btn-cook">MASAK</button></div>
             </div>
           </div>
         </div>
@@ -122,6 +128,7 @@ export class CookingManager {
     };
 
     $('cs-btn-cook')?.addEventListener('click', triggerStop);
+    $('cs-btn-back')?.addEventListener('click', () => { this.currentRecipe = null; $('cook-station').classList.add('hidden'); $('cook-recipe-list').classList.remove('hidden'); });
     window.addEventListener('keydown', (e) => {
       if (this.active && this.currentRecipe && e.code === 'Space') {
         triggerStop();
@@ -153,39 +160,19 @@ export class CookingManager {
   _renderRecipeList() {
     const wrap = document.getElementById('cook-recipe-list');
     wrap.innerHTML = '';
-    const S = this.g.state;
-
+    wrap.classList.remove('hidden');
+    const inv = this.g.state.inv, have = (k) => inv[k] || 0;
+    const chip = (k, n) => `<span class="ck-chip ${n ? (have(k) >= n ? 'ok' : 'no') : ''}">${icon(k)}${n !== undefined ? n : have(k)}</span>`;
+    document.getElementById('ck-inv').innerHTML = chip('fish') + chip('berry') + chip('pepper');
     for (const r of RECIPES) {
-      const card = document.createElement('div');
-      card.className = 'cook-item-card';
-
-      const hasFish = (S.inv.fish || 0) >= r.req.fish;
-      const hasBerry = (S.inv.berry || 0) >= r.req.berry;
-      const hasPepper = (S.inv.pepper || 0) >= r.req.pepper;
-      const canCook = hasFish && hasBerry && hasPepper;
-
-      card.innerHTML = `
-        <div class="cook-item-info">
-          <div class="cook-item-name">${r.name}</div>
-          <div class="cook-item-desc">${r.desc}</div>
-          <div class="cook-item-buff">✨ ${r.buffDesc}</div>
-          <div class="cook-item-reqs">
-            <span class="${hasFish ? 'ok' : 'missing'}">🐟 ${r.req.fish} (${S.inv.fish || 0})</span>
-            <span class="${hasBerry ? 'ok' : 'missing'}">🫐 ${r.req.berry} (${S.inv.berry || 0})</span>
-            ${r.req.pepper > 0 ? `<span class="${hasPepper ? 'ok' : 'missing'}">🌶️ ${r.req.pepper} (${S.inv.pepper || 0})</span>` : ''}
-          </div>
-        </div>
-        <button class="cook-item-btn ${canCook ? 'active' : 'disabled'}">${canCook ? 'Pilih Masak' : 'Bahan Kurang'}</button>
-      `;
-
-      card.querySelector('button').onclick = () => {
-        if (canCook) {
-          this.startMinigame(r);
-        } else {
-          this.g.ui.toast('Bahan tidak mencukupi untuk hidangan ini!');
-        }
-      };
-
+      const can = ['fish', 'berry', 'pepper'].every((k) => have(k) >= (r.req[k] || 0));
+      const card = document.createElement('button');
+      card.className = 'ck-card' + (can ? '' : ' off');
+      card.style.setProperty('--c', r.color);
+      card.title = r.desc;
+      card.innerHTML = `<i class="ck-ico">${icon(r.icon)}</i><span class="ck-txt"><b>${r.short}</b><small>${r.fx}</small></span>
+        <span class="ck-req">${['fish', 'berry', 'pepper'].filter((k) => r.req[k]).map((k) => chip(k, r.req[k])).join('')}</span>`;
+      card.onclick = () => { if (can) this.startMinigame(r); else { sfx.ui(); this.g.ui.toast('Bahan belum cukup'); } };
       wrap.appendChild(card);
     }
   }
@@ -196,8 +183,10 @@ export class CookingManager {
     this.needleDir = 1;
 
     document.getElementById('cook-station').classList.remove('hidden');
-    document.getElementById('cs-dish-name').textContent = recipe.name;
-    document.getElementById('cs-dish-desc').textContent = `${recipe.desc} — Efek: ${recipe.buffDesc}`;
+    document.getElementById('cook-recipe-list').classList.add('hidden');
+    document.getElementById('cook-station').style.setProperty('--c', recipe.color);
+    document.getElementById('cs-dish-name').innerHTML = `<i class="ck-ico">${icon(recipe.icon)}</i>${recipe.short}`;
+    document.getElementById('cs-dish-desc').textContent = recipe.fx;
 
     const pz = document.getElementById('cs-perfect-zone');
     pz.style.left = `${this.perfectMin}%`;
@@ -224,10 +213,10 @@ export class CookingManager {
 
     if (isDelicious) {
       sfx.wishGold();
-      this.g.ui.toast(`🌟 MASAKAN SEMPURNA! ${r.name} (Lezat +30% Durasi)!`, 'gold');
+      this.g.ui.toast(`Sempurna! ${r.short} · +30% durasi`, 'gold');
     } else {
       sfx.wishPurple();
-      this.g.ui.toast(`Berhasil memasak ${r.name}!`, 'gold');
+      this.g.ui.toast(`${r.short} siap`, 'gold');
     }
 
     this.g.vfx.particles(this.g.player.pos.clone(), 25, isDelicious ? 0xffd700 : 0x70d6ff, { speed: 4, up: 5, life: 0.6 });

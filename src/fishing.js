@@ -114,6 +114,7 @@ export class FishingManager {
       wrap.id = 'fishing-overlay';
       wrap.className = 'fishing-overlay hidden';
       wrap.innerHTML = `
+        <div id="fish-wait" class="fish-wait hidden"><span class="fw-bob"></span>Menunggu ikan menggigit…<small>ketuk layar saat tanda ! muncul</small></div>
         <div id="fish-alert" class="fish-alert hidden">!</div>
         <div id="fish-hud" class="fish-hud hidden">
           <div class="fish-header">
@@ -127,7 +128,7 @@ export class FishingManager {
           <div class="fish-progress-wrap">
             <div id="fish-progress-fill" class="fish-progress-fill"></div>
           </div>
-          <div class="fish-controls-tip">Tahan SPASI / Klik untuk menaikkan tegangan tali</div>
+          <div class="fish-controls-tip">Tahan tombol agar penanda tetap di zona hijau</div>
           <button id="fish-reel-btn" class="fish-reel-btn">TARIK TALI</button>
         </div>
         <div id="fish-result-card" class="fish-result-card hidden">
@@ -190,12 +191,14 @@ export class FishingManager {
     document.exitPointerLock?.();
 
     this.dom.classList.remove('hidden');
+    document.body.classList.add('fishing');
+    document.getElementById('fish-wait').classList.remove('hidden');
     document.getElementById('fish-alert').classList.add('hidden');
     document.getElementById('fish-hud').classList.add('hidden');
     document.getElementById('fish-result-card').classList.add('hidden');
 
     sfx.swing();
-    this.g.ui.toast(`🎣 Memulai memancing di ${spot.name}...`);
+
   }
 
   endFishing() {
@@ -204,6 +207,8 @@ export class FishingManager {
     this.state = 'idle';
     this.g.inputLocked = false;
     this.dom.classList.add('hidden');
+    document.body.classList.remove('fishing');
+    document.getElementById('fish-wait').classList.add('hidden');
     document.getElementById('fish-hud').classList.add('hidden');
     document.getElementById('fish-alert').classList.add('hidden');
     document.getElementById('fish-result-card').classList.add('hidden');
@@ -216,6 +221,7 @@ export class FishingManager {
 
     const alert = document.getElementById('fish-alert');
     alert.classList.remove('hidden');
+    document.getElementById('fish-wait').classList.add('hidden');
 
     // Pick candidate fish from spot
     const pool = this.currentSpot.species;
@@ -268,7 +274,7 @@ export class FishingManager {
     $('frc-name').style.color = fish.color;
     $('frc-stars').textContent = '⭐'.repeat(fish.stars);
     $('frc-desc').textContent = fish.desc;
-    $('frc-reward').textContent = `+${fish.stars} 🐟 Ikan Segar · +${fish.stars * 40} EXP · +${fish.starlight} ✦ Starlight Crystals`;
+    $('frc-reward').textContent = `+${fish.stars} ikan · +${fish.stars * 40} EXP · +${fish.starlight} Starlight`;
 
     this.g.vfx.particles(this.g.player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 30, 0x54a0ff, { speed: 5, up: 4, life: 0.6 });
     this.g.save();

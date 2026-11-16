@@ -909,6 +909,7 @@ export class AbadoniaRig extends Rig {
       const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(k); parent.add(g);
       const fl = flameLayers(g);
       [0x6a20e0, 0xa050ff, 0xe0b0ff].forEach((c, i) => { fl[i].material.color.setHex(c); fl[i].material.opacity *= 0.75; });
+      fl.sparks.visible = false; // embers would trail off the swinging axe
       return fl;
     };
     this.fires = [fire(ax, 0, 1.25, -0.06, 0.95), fire(ax, 0.22, 1.2, 0, 0.55), fire(ax, -0.22, 1.2, 0, 0.55)];

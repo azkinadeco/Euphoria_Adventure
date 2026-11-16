@@ -7,6 +7,9 @@ import { RLOC } from './reef.js';
 import { VLOC } from './volcano.js';
 import { FLOC } from './frost.js';
 import { MAIN, GLADE_R, ZONES } from './zones.js';
+import { REEF } from './reef.js';
+import { VOLC } from './volcano.js';
+import { FROST } from './frost.js';
 
 export class WorldMap {
   constructor(game) {
@@ -30,9 +33,9 @@ export class WorldMap {
       wrap.className = 'map-modal hidden';
       wrap.innerHTML = `
         <div class="map-header">
-          <div class="map-title">🗺️ Peta Benua Euphoria</div>
-          <div class="map-hint">Tarik untuk menggeser · Putar roda untuk zoom · Klik pin untuk Teleport</div>
-          <button id="map-close" class="map-close-btn">✕ Tutup (M)</button>
+          <div class="map-title">Peta Euphoria<small id="map-where"></small></div>
+          <div class="map-hint">Geser untuk melihat · ketuk pin untuk teleport</div>
+          <button id="map-close" class="map-close-btn" aria-label="Tutup peta">✕</button>
         </div>
         <div id="map-canvas-container" class="map-canvas-container">
           <canvas id="map-canvas"></canvas>
@@ -64,6 +67,8 @@ export class WorldMap {
     const $ = (id) => document.getElementById(id);
 
     $('map-close')?.addEventListener('click', () => this.close());
+    // the game loop is frozen while the map is open, so the map closes itself on M / Esc
+    addEventListener('keydown', (e) => { if (this.active && (e.code === 'KeyM' || e.code === 'Escape')) { e.preventDefault(); e.stopPropagation(); this.close(); } }, true);
     $('map-btn-zin')?.addEventListener('click', () => this.zoom(1.3));
     $('map-btn-zout')?.addEventListener('click', () => this.zoom(0.77));
     $('map-btn-recenter')?.addEventListener('click', () => this.recenterOnPlayer());
@@ -148,16 +153,40 @@ export class WorldMap {
     }, { passive: false });
 
     container.addEventListener('touchend', (e) => {
-      if (this.isDragging && e.touches.length === 0) {
+      if (e.touches.length === 1) {
+        // one finger left after a pinch: continue panning from here instead of jumping
+        this.isDragging = true; touchStartDist = 0;
+        this.dragStart = pt(e.touches[0].clientX, e.touches[0].clientY);
+        this.panStart = { x: this.pan.x, y: this.pan.y };
+      } else if (e.touches.length === 0 && this.isDragging) {
         this.isDragging = false;
+        // a short tap on a pin opens its card (touch has no mouseup)
+        const t = e.changedTouches[0], q = t && pt(t.clientX, t.clientY);
+        if (q && Math.hypot(q.x - this.dragStart.x, q.y - this.dragStart.y) < 8) {
+          // consume the tap: otherwise the browser's emulated click lands on the card that just
+          // opened under the finger and presses "Teleport" by itself (scoped to the map only)
+          e.preventDefault();
+          this._handleClick(q.x, q.y);
+        }
       }
     });
   }
 
   zoom(factor) {
-    const newScale = Math.min(3.2, Math.max(0.65, this.scale * factor));
-    this.scale = newScale;
+    // keep the world point under the screen centre where it is
+    const cw = this.canvas.width, ch = this.canvas.height;
+    const [wx, wz] = this._canvasToWorld(cw / 2, ch / 2);
+    this.scale = Math.min(3.2, Math.max(0.65, this.scale * factor));
+    const ppm = (MINIMAP.N / MINIMAP.size) * this.scale;
+    this.pan.x = cw / 2 - (wx - MINIMAP.x0) * ppm;
+    this.pan.y = ch / 2 - (wz - MINIMAP.z0) * ppm;
     this.render();
+  }
+
+  /** name of the sky / pocket realm the hero is in, or null on the islands */
+  realmName() {
+    const G = this.g;
+    return G.ch4?.active ? 'Void Rift' : G.ch5?.active ? 'Celestial Asgard' : G.ch6?.active ? 'Ashen Battlefield' : G.spire?.active ? 'Celestial Spire' : G.rift?.active ? 'Starlight Rift' : null;
   }
 
   recenterOnPlayer() {
@@ -180,8 +209,20 @@ export class WorldMap {
     document.getElementById('map-teleport-card')?.classList.add('hidden');
 
     this.resize();
-    this.recenterOnPlayer();
+    const realm = this.realmName();
+    document.getElementById('map-where').textContent = realm ? 'Kamu di ' + realm + ' · pilih pin untuk kembali' : '';
+    if (realm) { this.pan.x = 0; this.pan.y = 0; this.scale = 1; this.zoom(1); this._center(LOC.workshop.x, LOC.workshop.z); } else this.recenterOnPlayer();
     sfx.ui();
+    // light 2D loop while open: the quest diamond pulses
+    const loop = () => { if (!this.active) return; this.render(); this._raf = requestAnimationFrame(loop); };
+    cancelAnimationFrame(this._raf); this._raf = requestAnimationFrame(loop);
+  }
+
+  _center(x, z) {
+    const ppm = (MINIMAP.N / MINIMAP.size) * this.scale;
+    this.pan.x = this.canvas.width / 2 - (x - MINIMAP.x0) * ppm;
+    this.pan.y = this.canvas.height / 2 - (z - MINIMAP.z0) * ppm;
+    this.render();
   }
 
   close() {
@@ -202,6 +243,29 @@ export class WorldMap {
     this.canvas.width = VW();
     this.canvas.height = VH();
     this.render();
+  }
+
+  /** queue a text label; _flushLabels draws them by priority (1 = most important) and drops any
+   * that would overlap one already placed, after trying a nudge below / above */
+  _label(text, x, y, font, color, prio, alpha = 1) { this._labels.push({ text, x, y, font, color, prio, alpha }); }
+  _flushLabels(ctx) {
+    const boxes = [], hit = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+    ctx.save();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 4;
+    for (const L of this._labels.sort((a, b) => a.prio - b.prio)) {
+      ctx.font = L.font;
+      const w = ctx.measureText(L.text).width + 6, h = (parseFloat(L.font.match(/(\d+(\.\d+)?)px/)?.[1]) || 12) + 2;
+      let placed = null;
+      for (const dy of [0, h * 0.9, -h * 0.9]) {
+        const b = { x0: L.x - w / 2, x1: L.x + w / 2, y0: L.y + dy - h / 2, y1: L.y + dy + h / 2 };
+        if (!hit(b)) { placed = b; L.y += dy; break; }
+      }
+      if (!placed) continue;
+      boxes.push(placed);
+      ctx.globalAlpha = L.alpha; ctx.fillStyle = L.color;
+      ctx.fillText(L.text, L.x, L.y);
+    }
+    ctx.restore();
   }
 
   _worldToCanvas(wx, wz) {
@@ -287,6 +351,7 @@ export class WorldMap {
     const cw = this.canvas.width;
     const ch = this.canvas.height;
 
+    this._labels = [];
     // Background deep ocean
     ctx.fillStyle = '#0a1420';
     ctx.fillRect(0, 0, cw, ch);
@@ -318,11 +383,10 @@ export class WorldMap {
 
     // Region Name Labels
     const regions = [
-      { name: 'WHISPERING WOODS', sub: 'Hutan Bisikan', x: 12, z: -250, col: '#8fe63a' },
-      { name: 'SUNKEN REEF', sub: 'Karang Tenggelam', x: 420, z: 40, col: '#4fb4f0' },
-      { name: 'CALDERA CRATER', sub: 'Kawah Membara', x: -140, z: 310, col: '#ff7a2a' },
-      { name: 'FROSTVALE GLACIER', sub: 'Gletser Salju Abadi', x: -280, z: -270, col: '#9ee8ff' },
-      { name: 'CELESTIAL ASGARD', sub: 'Benteng Langit', x: 0, z: -980, col: '#ffd700' },
+      { name: 'WHISPERING WOODS', sub: 'Hutan Bisikan', x: MAIN.x, z: MAIN.z - MAIN.r * 0.82, col: '#8fe63a' },
+      { name: 'SUNKEN REEF', sub: 'Karang Tenggelam', x: REEF.x, z: REEF.z - REEF.r * 0.75, col: '#4fb4f0' },
+      { name: 'INFERNAL CITADEL', sub: 'Pulau Vulkanik', x: VOLC.x, z: VOLC.z - VOLC.r * 0.75, col: '#ff7a2a' },
+      { name: 'FROSTVALE', sub: 'Gletser Salju Abadi', x: FROST.x, z: FROST.z - FROST.r * 0.8, col: '#9ee8ff' },
     ];
 
     for (const r of regions) {
@@ -333,10 +397,8 @@ export class WorldMap {
       ctx.fillStyle = r.col;
       ctx.shadowColor = 'rgba(0,0,0,0.8)';
       ctx.shadowBlur = 6;
-      ctx.fillText(r.name, cx, cz - 10);
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#e0d8ea';
-      ctx.fillText(r.sub, cx, cz + 8);
+      this._label(r.name, cx, cz - 10, ctx.font, r.col, 2);
+      this._label(r.sub, cx, cz + 8, '12px sans-serif', '#e0d8ea', 4);
       ctx.restore();
     }
 
@@ -380,14 +442,13 @@ export class WorldMap {
       ctx.fillStyle = '#ffffff';
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 4;
-      ctx.fillText(w.name, cx, cz + 20);
+      this._label(w.name, cx, cz + 20, ctx.font, '#ffffff', 1);
 
       ctx.restore();
     }
 
     // Spire & Bounty Board pins
     const poi = [
-      { name: '⚔️ Menara Ujian (Spire)', x: 0, z: -1200, col: '#bf55ec' },
       { name: '📜 Papan Buronan', x: LOC.workshop.x + 3.8, z: LOC.workshop.z - 2.8, col: '#ffaa00' },
       { name: '🎣 Danau Bintang', x: 55, z: -105, col: '#00d2d3' },
       { name: '🎣 Dermaga Laguna', x: 420, z: 45, col: '#00d2d3' },
@@ -400,7 +461,7 @@ export class WorldMap {
       ctx.fillStyle = p.col;
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 5;
-      ctx.fillText(p.name, cx, cz);
+      this._label(p.name, cx, cz, ctx.font, p.col, 3);
       ctx.restore();
     }
 
@@ -431,9 +492,10 @@ export class WorldMap {
       ctx.restore();
     }
 
+    this._flushLabels(ctx);
     // Player location and orientation arrow
     const P = this.g.player;
-    if (P) {
+    if (P && !this.realmName()) { // in a sky realm the island map has no "you are here"
       const [px, pz] = this._worldToCanvas(P.pos.x, P.pos.z);
       const cy = this.g.cam.yaw;
 
@@ -520,7 +582,7 @@ export class WorldMap {
       ctx.font = `${id === cur ? 'bold ' : ''}${fs}px "Cinzel", Georgia, sans-serif`;
       ctx.fillStyle = hex(Z.col);
       ctx.globalAlpha = id === cur ? 1 : 0.8;
-      ctx.fillText(Z.name.toUpperCase(), x, y);
+      this._label(Z.name.toUpperCase(), x, y, ctx.font, hex(Z.col), id === cur ? 3 : 5, ctx.globalAlpha);
     }
     ctx.globalAlpha = 1;
     // waystones

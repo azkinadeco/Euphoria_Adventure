@@ -4,7 +4,7 @@ import { zoneInstanced, setInstancedDensity } from './cull.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon, part, outlineMaterial , terrainMat } from './toon.js';
 import { upgrade, flameLayers, flickerFlames, loadGeometry, scatter } from './assets.js';
-import { broadTree, pineTree, plantForest, updateForest, addForestRoots, foliageMat, leafTexture, needleTexture, barkMat, rockGeo, rockMat, grassClump, grassMat, flowerGeo, flowerMat, softDot, bushGeo, weatherProps, collectFarCull, updateFarCull } from './nature.js';
+import { SKY_SHADE, broadTree, pineTree, plantForest, updateForest, addForestRoots, foliageMat, leafTexture, needleTexture, barkMat, rockGeo, rockMat, grassClump, grassMat, flowerGeo, flowerMat, softDot, bushGeo, weatherProps, collectFarCull, updateFarCull } from './nature.js';
 
 import { fbm, rng, smooth } from './noise.js';
 import { VLight } from './lights.js';
@@ -937,6 +937,8 @@ export class World {
     this.scene.fog.near = 85; this.scene.fog.far = this.fogFar ?? 540;
     this.dayT = (this.dayT + dt / this.DAY_LEN) % 1;
     this.windUniform.value = this.time;
+    SKY_SHADE.uPush.value.copy(focus);
+    SKY_SHADE.uCloud.value.set(this.time, 0.2 * (1 - (this.nightAmt || 0)) * (this.cloudShadowK ?? 1));
     this.waterUniforms.uTime.value = this.time;
 
     // Dynamic sun/moon orbit

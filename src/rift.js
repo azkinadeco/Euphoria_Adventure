@@ -109,7 +109,7 @@ export class Rift {
     for (const [type, n, elite] of list) for (let i = 0; i < n; i++) {
       const a = (k++ / total) * Math.PI * 2 + this.wave;
       const p = new THREE.Vector3(ARENA.x + Math.cos(a) * 15, ARENA.y, ARENA.z + Math.sin(a) * 15);
-      const e = new Enemy(G, type, p, { leash: 999, elite });
+      const e = new Enemy(G, type, p, { leash: 999, elite, arena: true });
       e.maxHp *= scale; e.hp = e.maxHp; e.dmg *= 0.9 + scale * 0.25; e.aggro = true; e.rift = true; e.home.copy(new THREE.Vector3(ARENA.x, ARENA.y, ARENA.z));
       if (e.shield) { e.shield.hp *= scale; e.shield.max = e.shield.hp; }
       G.enemies.push(e); this.enemies.push(e);

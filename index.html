@@ -105,7 +105,7 @@
       <div id="char-portrait"><img id="char-img" src="assets/portraits/luby.png" alt="" /></div>
       <div id="char-info">
         <div id="char-name"><span id="char-nm">Luby</span> <span class="elem" id="char-elem">✦ WIND</span> <span id="char-lv">Lv.1</span></div>
-        <div class="bar hp"><div id="hp-fill"></div><div id="shield-fill"></div><span id="hp-text">100/100</span></div>
+        <div class="bar hp"><i class="trail" id="hp-trail"></i><div id="hp-fill"></div><div id="shield-fill"></div><span id="hp-text">100/100</span></div>
         <div class="bar hunger"><div id="hunger-fill"></div><span class="bar-label"><i data-ico="meat"></i>Lapar</span></div>
         <div class="bar exp"><div id="exp-fill"></div></div>
         <div id="status-line"></div>
@@ -148,7 +148,7 @@
     </div>
 
     <div id="prompt" class="hidden"><span class="key">F</span><i class="p-hand" data-ico="hand"></i><span id="prompt-text"></span></div>
-    <div id="boss-bar" class="hidden"><div id="boss-name">Gumi Wolf · Nine Tails</div><div class="bar"><div id="boss-fill"></div></div></div>
+    <div id="boss-bar" class="hidden"><div id="boss-name">Gumi Wolf · Nine Tails</div><div class="bar"><i class="trail" id="boss-trail"></i><div id="boss-fill"></div></div><div id="boss-hint" class="hidden"></div></div>
     <div id="toasts"></div>
     <div id="dmg-layer"></div>
     <div id="hurt-vignette"></div>
@@ -208,8 +208,8 @@
       <button id="btn-new" class="ghost hidden">Mulai dari awal</button>
       <div id="loading">Membangun dunia…</div>
       <div class="controls-help">
-        <b>PC:</b> WASD gerak · Mouse kamera · Klik kiri serang (tahan = charged, di udara = plunge) · Tab / klik tengah = lock-on · <b>E</b> Skill · <b>Q</b> Burst · <b>1-4</b> ganti hero · Spasi lompat (2x = Cat Leap) · Shift lari · Klik kanan / Ctrl dash · <b>F</b> interaksi · Z/X/C/V/B makan & minum · lompat 3x di udara = glider<br/>
-        <b>HP:</b> joystick kiri · geser kanan untuk kamera · tombol di kanan bawah
+        <span class="pc-help"><b>PC:</b> WASD gerak · Mouse kamera · Klik kiri serang (tahan = charged, di udara = plunge) · Tab / klik tengah = lock-on · <b>E</b> Skill · <b>Q</b> Burst · <b>1-4</b> ganti hero · Spasi lompat (2x = Cat Leap) · Shift lari · Klik kanan / Ctrl dash · <b>F</b> interaksi · Z/X/C/V/B makan & minum · lompat 3x di udara = glider<br/></span>
+        <b>HP:</b> joystick kiri · geser kanan untuk kamera · tombol di kanan bawah · ketuk makanan di bawah untuk makan
       </div>
     </div>
   </div>
@@ -240,7 +240,7 @@
       <div class="mc-body">
         <div class="mc-pane" data-pane="party"><div class="mc-note">Pilih maksimal 4 hero untuk dibawa.</div><div id="team"></div><button id="team-apply" class="mc-btn primary">Terapkan Party</button></div>
         <div class="mc-pane" data-pane="tp"><div id="tp"></div></div>
-        <div class="mc-pane" data-pane="cook"><div class="mc-note">Masak bekal di dekat api unggun · <span id="cook-hint"></span></div><div id="cook"></div></div>
+        <div class="mc-pane" data-pane="cook"><div class="mc-note">Bekal dimasak di api unggun, lalu dimakan kapan saja (ketuk ikonnya di bar bawah) · <span id="cook-hint"></span></div><div id="cook"></div></div>
         <div class="mc-pane" data-pane="set">
           <div class="mc-row"><div class="mc-label">Kualitas grafis</div>
             <div class="mc-seg" id="m-gfx"><button data-gfx="auto">Otomatis</button><button data-gfx="low">Rendah</button><button data-gfx="med">Sedang</button><button data-gfx="high">Tinggi</button><button data-gfx="ultra">Ultra HD</button></div>
@@ -294,7 +294,7 @@
     <div class="modal-card">
       <button class="modal-close" id="spire-close">✕</button>
       <h2>⚔️ Menara Ujian · Celestial Spire</h2>
-      <p style="color:#d0c0e8; font-size:13px; margin-bottom:16px;">Tantangan 6 lantai pertarungan berwaktu. Dapatkan hingga 18 ⭐ Bintang &amp; ribuan Starlight Crystals!</p>
+      <p class="modal-sub">6 lantai pertarungan berwaktu · kumpulkan sampai 18 bintang.</p>
       <div id="spire-floors-list"></div>
     </div>
   </div>
@@ -303,8 +303,8 @@
   <div id="bounty-modal" class="custom-modal hidden">
     <div class="modal-card bounty-card">
       <button class="modal-close" id="bounty-close">✕</button>
-      <h2>📜 Papan Buronan Adventurer</h2>
-      <p style="color:#d0c0e8; font-size:13px; margin-bottom:16px;">Kalahkan monster mutasi purba untuk memperoleh Starlight Crystals &amp; Artifak Bintang 5!</p>
+      <h2>📜 Papan Buronan</h2>
+      <p class="modal-sub">Kalahkan monster buronan untuk Starlight &amp; artifak bintang 5.</p>
       <div id="bounty-list"></div>
     </div>
   </div>

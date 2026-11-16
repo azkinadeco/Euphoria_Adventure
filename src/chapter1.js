@@ -262,7 +262,8 @@ export class Chapter1 {
     const S = this.g.state;
     if (S.reefDone && this.queen) { this.queen.dead = true; this.queen.remove(); this.g.enemies = this.g.enemies.filter((e) => e !== this.queen); this.queen = null; }
     this.spires.forEach((e, i) => { if (e && S.spires[i]) { e.dead = true; e.remove(); this.g.enemies = this.g.enemies.filter((x) => x !== e); } });
-    if (S.party.includes('scylla')) this.g.player.addMember('scylla');
+    // joinParty() rewrites state.party on every load (without her), so go by the story: she joins at the reef camp
+    if (S.reefCamp || this.g.after('reef_samples') || S.party.includes('scylla')) this.g.player.addMember('scylla');
   }
 
   static get steps() { return REEF_STEPS; }
