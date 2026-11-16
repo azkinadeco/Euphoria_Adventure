@@ -4,7 +4,7 @@ import { zoneInstanced, setInstancedDensity } from './cull.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { toon, part, outlineMaterial , terrainMat } from './toon.js';
 import { upgrade, flameLayers, flickerFlames, loadGeometry, scatter } from './assets.js';
-import { SKY_SHADE, broadTree, pineTree, plantForest, updateForest, addForestRoots, foliageMat, leafTexture, needleTexture, barkMat, rockGeo, rockMat, grassClump, grassMat, flowerGeo, flowerMat, softDot, bushGeo, weatherProps, collectFarCull, updateFarCull } from './nature.js';
+import { SKY_SHADE, detailTexture, broadTree, pineTree, plantForest, updateForest, addForestRoots, foliageMat, leafTexture, needleTexture, barkMat, rockGeo, rockMat, grassClump, grassMat, flowerGeo, flowerMat, softDot, bushGeo, weatherProps, collectFarCull, updateFarCull } from './nature.js';
 
 import { fbm, rng, smooth } from './noise.js';
 import { VLight } from './lights.js';
@@ -139,6 +139,7 @@ export class World {
       sunCol: { value: new THREE.Color(0xfff4d0) },
       night: { value: 0 },
       time: { value: 0 },
+      cloudTex: { value: detailTexture() },
     };
     this.skyUniforms.top = this.skyUniforms.zenith;
 
@@ -146,7 +147,7 @@ export class World {
     const mat = new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false, uniforms: this.skyUniforms,
       vertexShader: `varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position.z = gl_Position.w; }`,
-      fragmentShader: `uniform vec3 zenith; uniform vec3 midSky; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night; uniform float time; varying vec3 vDir;
+      fragmentShader: `uniform vec3 zenith; uniform vec3 midSky; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunCol; uniform float night; uniform float time; uniform sampler2D cloudTex; varying vec3 vDir;
         void main(){
           float y = max(vDir.y, 0.0);
           // Multi-stop anime celestial gradient
@@ -166,6 +167,20 @@ export class World {
           float moonDisc = smoothstep(0.9986, 0.9996, md) * 2.8;
           float moonHalo = pow(md, 36.0) * 0.35 + pow(md, 8.0) * 0.12;
           c += vec3(0.85, 0.92, 1.0) * (moonDisc + moonHalo) * night;
+
+          // Thin drifting cloud layer (two octaves of the shared noise texture, projected on a flat
+          // sky plane): bright where the sun lights it, blue-grey cores, gone at the horizon
+          if (vDir.y > 0.0) {
+            vec2 cuv = vDir.xz / (vDir.y + 0.12);
+            float cn = texture2D(cloudTex, cuv * 0.085 + vec2(time * 0.0035, time * 0.0012)).g * 0.62
+                     + texture2D(cloudTex, cuv * 0.24 + vec2(time * 0.006, -time * 0.002)).g * 0.38;
+            float cov = smoothstep(0.5, 0.74, cn) * smoothstep(0.02, 0.2, vDir.y);
+            float clit = pow(max(dot(normalize(vDir), sDir), 0.0), 3.0);
+            vec3 ccol = mix(mix(horizon, vec3(1.0), 0.7), sunCol * 1.1 + 0.08, clit * 0.55 * (1.0 - night));
+            ccol *= mix(1.0, 0.8, smoothstep(0.68, 0.92, cn));
+            ccol = mix(ccol, vec3(0.16, 0.2, 0.32), night * 0.85);
+            c = mix(c, ccol, cov * mix(0.82, 0.45, night));
+          }
 
           // Atmospheric ground wrap below horizon
           if (vDir.y < 0.0) {

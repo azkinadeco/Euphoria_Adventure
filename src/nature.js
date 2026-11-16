@@ -223,9 +223,14 @@ export function foliageMat(wind, tex, { snow = 0, lift = 0.1, key = 'a', sway = 
       .replace('#include <color_fragment>', `#include <color_fragment>
         ${snow > 0 ? `diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.96), smoothstep(0.05, 0.6, vUp) * smoothstep(0.3, 0.62, sampledDiffuseColor.g) * ${snow.toFixed(2)});` : ''}`)
       .replace('#include <opaque_fragment>', `outgoingLight += diffuseColor.rgb * ${lift.toFixed(2)};
+        // sunlight through the canopy: looking toward the sun, leaves glow a warm yellow-green
+        #if ( NUM_DIR_LIGHTS > 0 )
+          float lBack = pow(max(dot(-normalize(vViewPosition), directionalLights[0].direction), 0.0), 5.0);
+          outgoingLight += diffuseColor.rgb * vec3(1.1, 1.08, 0.6) * directionalLights[0].color * lBack * 0.45;
+        #endif
         #include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => `natureLeaf_${key}_${snow}_${lift}_${sway}`;
+  m.customProgramCacheKey = () => `natureLeaf2_${key}_${snow}_${lift}_${sway}`;
   return m;
 }
 export function barkMat(color = 0x8a6a4e) {

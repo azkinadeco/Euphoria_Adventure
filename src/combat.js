@@ -122,7 +122,7 @@ export class Combat {
   update(realDt) {
     const G = this.g, P = G.player;
     // timers
-    if (this.slowT > 0) { this.slowT -= realDt; if (this.slowT <= 0) G.graphics.mood({ tint: new THREE.Color(1, 1, 1) }); }
+    if (this.slowT > 0) { this.slowT -= realDt; if (this.slowT <= 0) G.graphics.mood({ reset: true }); }
     this.enemyScale = this.slowT > 0 ? 0.25 : 1;
     if (this.globalSlowT > 0) this.globalSlowT -= realDt;
     if (this.comboT > 0) { this.comboT -= realDt; if (this.comboT <= 0) { this.combo = 0; this.comboDmg = 0; $('combo')?.classList.add('hidden'); } }

@@ -327,7 +327,7 @@ export class Chapter6 {
     W.terrain.visible = false; W.water.visible = false; if (W.sky) W.sky.visible = false;
     if (W.grassMesh) W.grassMesh.visible = false;
     W.nearGrass?.setDensity(0);
-    G.graphics.mood({ tint: new THREE.Color(1.06, 0.95, 0.92), bloom: 0.4 });
+    G.graphics.mood({ region: true, tint: new THREE.Color(1.06, 0.95, 0.92), bloom: 0.4 });
     this.savedDay = W.dayT;
     this._refillMobs();
     if (teleport) {
@@ -354,7 +354,7 @@ export class Chapter6 {
     if (W.grassMesh) W.grassMesh.visible = true;
     W.nearGrass?.setDensity(G.graphics?.P?.grass ?? 1);
     W.dayT = this.savedDay ?? W.dayT;
-    G.graphics.mood({ tint: new THREE.Color(1, 1, 1), bloom: 0.42 });
+    G.graphics.mood({ region: true, tint: new THREE.Color(1, 1, 1), bloom: 0.42 });
     P.placeAt(this.savePos.clone());
     G.cam.target.copy(P.pos);
     setMusicMood('normal');

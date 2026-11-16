@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { sfx } from './sfx.js';
 
 export const PHOTO_FILTERS = {
-  default: { name: 'Normal', sat: 1.15, tint: [1, 1, 1], bloom: 0.60 },
+  default: { name: 'Normal', sat: 1.08, tint: [1, 1, 1], bloom: 0.42 },
   vivid: { name: 'Vivid Anime', sat: 1.45, tint: [1.05, 1.02, 1.08], bloom: 0.85 },
   nocturne: { name: 'Nocturne', sat: 0.65, tint: [0.65, 0.78, 1.15], bloom: 0.70 },
   sunset: { name: 'Golden Hour', sat: 1.25, tint: [1.18, 0.95, 0.82], bloom: 0.95 },
@@ -171,8 +171,9 @@ export class PhotoMode {
     this.g.camera.rotation.z = 0;
     this.g.camera.updateProjectionMatrix();
 
-    // Restore visual filter
+    // Restore visual filter (and the current region's own tint / bloom)
     this.applyFilter('default');
+    this.g.graphics?.mood({ reset: true });
 
     document.getElementById('hud')?.classList.remove('hidden');
     this.dom.classList.add('hidden');

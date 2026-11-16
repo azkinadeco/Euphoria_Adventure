@@ -215,7 +215,7 @@ export class Spire {
     this.active = true;
     G.world.realm = this;
     this.group.visible = true;
-    G.graphics.mood({ bloom: 0.34 });
+    G.graphics.mood({ region: true, bloom: 0.34 });
 
     // Hide main world ground/water
     G.world.terrain.visible = false;
@@ -337,7 +337,7 @@ export class Spire {
     this.active = false;
     G.world.realm = null;
     this.group.visible = false;
-    G.graphics.mood({ bloom: 0.42 });
+    G.graphics.mood({ region: true, bloom: 0.42 });
 
     G.world.terrain.visible = true;
     G.world.water.visible = true;

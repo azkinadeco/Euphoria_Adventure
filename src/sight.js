@@ -123,11 +123,7 @@ export class ElementalSight {
     sfx.sightOff();
 
     // Restore vibrant anime color grading
-    this.g.graphics.mood({
-      sat: 1.15,
-      tint: new THREE.Color(1.0, 1.0, 1.0),
-      bloom: 0.60,
-    });
+    this.g.graphics.mood({ reset: true });
 
     for (const m of this.markerPool) {
       m.group.visible = false;

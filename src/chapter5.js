@@ -438,7 +438,7 @@ export class Chapter5 {
     G.world.realm = this;
     this.group.visible = true;
     this.campfire.group.visible = true;
-    G.graphics.mood({ bloom: 0.34 });
+    G.graphics.mood({ region: true, bloom: 0.34 });
 
     // Hide main world ground/water
     G.world.terrain.visible = false;
@@ -472,7 +472,7 @@ export class Chapter5 {
     G.world.realm = null;
     this.group.visible = false;
     this.campfire.group.visible = false;
-    G.graphics.mood({ bloom: 0.42 });
+    G.graphics.mood({ region: true, bloom: 0.42 });
 
     G.world.terrain.visible = true;
     G.world.water.visible = true;

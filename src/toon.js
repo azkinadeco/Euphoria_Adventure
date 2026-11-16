@@ -178,13 +178,14 @@ export function toon(color, opts = {}) {
       // The vertex paint gives the colour, this only adds grain; it fades with distance (no shimmer).
       shader.uniforms.uDet = { value: detailTexture() };
       shader.uniforms.uDetK = { value: detail };
-      shader.vertexShader = 'varying vec3 vDetP;\nvarying vec3 vDetN;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      shader.vertexShader = 'varying vec3 vDetP;\nvarying vec3 vDetN;\nvarying float vDetY;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+        vDetY = position.y; // model space: props stand on their origin
         vec4 dP = vec4(transformed, 1.0); vec3 dN = objectNormal;
         #ifdef USE_INSTANCING
           dP = instanceMatrix * dP; dN = mat3(instanceMatrix) * dN;
         #endif
         vDetP = (modelMatrix * dP).xyz; vDetN = normalize(mat3(modelMatrix) * dN);`);
-      shader.fragmentShader = 'varying vec3 vDetP;\nvarying vec3 vDetN;\nuniform sampler2D uDet;\nuniform float uDetK;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      shader.fragmentShader = 'varying vec3 vDetP;\nvarying vec3 vDetN;\nvarying float vDetY;\nuniform sampler2D uDet;\nuniform float uDetK;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         {
           vec3 w = pow(abs(normalize(vDetN)), vec3(4.0)); w /= (w.x + w.y + w.z);
           vec4 a = texture2D(uDet, vDetP.zy * 1.7) * w.x + texture2D(uDet, vDetP.xz * 1.7) * w.y + texture2D(uDet, vDetP.xy * 1.7) * w.z;
@@ -194,6 +195,8 @@ export function toon(color, opts = {}) {
           float g = mix(a.b * 0.7 + b.b * 0.3, a.r * 0.6 + b.r * 0.4, green); // stone grain or leafy grain
           float fade = 1.0 - smoothstep(18.0, 45.0, length(vDetP - cameraPosition));
           diffuseColor.rgb = c * (1.0 + (g - 0.5) * 0.85 * uDetK * fade);
+          // contact shade: the bottom of a prop darkens where it meets the ground (cheap baked-AO look)
+          diffuseColor.rgb *= mix(0.66, 1.0, smoothstep(-0.05, 0.45, vDetY));
         }`);
     }
     if (grad) {

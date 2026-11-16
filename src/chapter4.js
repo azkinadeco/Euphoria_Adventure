@@ -255,7 +255,7 @@ export class Chapter4 {
     P.placeAt(this.returnPos || FLOC.peak.clone());
     G.cam.target.copy(P.pos);
     W.dayT = this.savedDay ?? W.dayT;
-    G.graphics.mood({ tint: new THREE.Color(1, 1, 1) });
+    G.graphics.mood({ region: true, tint: new THREE.Color(1, 1, 1) });
     setMusicMood('normal');
   }
 

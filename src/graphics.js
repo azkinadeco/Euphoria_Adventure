@@ -16,6 +16,54 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 
+// ---------------------------------------------------------------------------------------------
+// Atmospheric fog (every material that uses scene.fog). Instead of a flat distance fade:
+// - height falloff: haze pools in valleys and over the sea, hill tops and cliffs stay clear
+//   (measured from the camera's height, so the sky realms keep working);
+// - a softer curve, so the middle distance already turns a little blue, as in painted anime skies;
+// - sun inscatter: on lit surfaces the haze glows warm toward the sun and stays cool away from it.
+// Pure per-pixel maths in the existing shaders - no extra pass, no extra draw call.
+THREE.ShaderChunk.fog_pars_vertex = `
+#ifdef USE_FOG
+  varying float vFogDepth;
+  varying float vFogY;
+#endif`;
+THREE.ShaderChunk.fog_vertex = `
+#ifdef USE_FOG
+  vFogDepth = - mvPosition.z;
+  vFogY = ((mvPosition.xyz - viewMatrix[3].xyz) * mat3(viewMatrix)).y; // world height, from view space
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `
+#ifdef USE_FOG
+  uniform vec3 fogColor;
+  varying float vFogDepth;
+  varying float vFogY;
+  #ifdef FOG_EXP2
+    uniform float fogDensity;
+  #else
+    uniform float fogNear;
+    uniform float fogFar;
+  #endif
+#endif`;
+THREE.ShaderChunk.fog_fragment = `
+#ifdef USE_FOG
+  #ifdef FOG_EXP2
+    float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
+  #else
+    float fogLin = clamp( ( vFogDepth - fogNear ) / ( fogFar - fogNear ), 0.0, 1.0 );
+    float fogFactor = 1.0 - pow( 1.0 - fogLin, 1.7 ); // eases in sooner, reaches full at fogFar
+  #endif
+  float fogH = exp( - max( vFogY - ( cameraPosition.y - 4.0 ), 0.0 ) / 38.0 );
+  fogFactor *= mix( 0.45, 1.0, fogH );
+  vec3 fogCol = fogColor;
+  #if NUM_DIR_LIGHTS > 0 && ( defined( LAMBERT ) || defined( TOON ) || defined( PHONG ) || defined( STANDARD ) )
+    float fogSun = pow( max( dot( normalize( - vViewPosition ), directionalLights[ 0 ].direction ), 0.0 ), 6.0 );
+    vec3 fogSunCol = directionalLights[ 0 ].color / max( max( directionalLights[ 0 ].color.r, directionalLights[ 0 ].color.g ), 0.001 );
+    fogCol = mix( fogCol * vec3( 0.94, 0.97, 1.03 ), fogCol * mix( vec3( 1.0 ), fogSunCol * vec3( 1.12, 1.0, 0.82 ), 0.55 ), fogSun );
+  #endif
+  gl_FragColor.rgb = mix( gl_FragColor.rgb, fogCol, fogFactor );
+#endif`;
+
 export const PRESETS = {
   low: { post: true, pr: 1.15, shadow: 1024, bloom: true, ao: false, msaa: 0, fxaa: true, grass: 0.45, lights: 4, life: 0.5, sharp: 0 },
   med: { post: true, pr: 1.45, shadow: 2048, bloom: true, ao: false, msaa: 0, fxaa: true, grass: 0.75, lights: 6, life: 0.8, sharp: 0.3 },
@@ -38,8 +86,8 @@ export const PRESET_ORDER = ['low', 'med', 'high', 'ultra'];
 const AnimeGradeShader = {
   uniforms: {
     tDiffuse: { value: null },
-    uSat: { value: 1.02 },
-    uContrast: { value: 1.04 },
+    uSat: { value: 1.08 },
+    uContrast: { value: 1.06 },
     uVignette: { value: 0.22 },
     uWarm: { value: 0.038 },
     uTint: { value: new THREE.Color(1, 1, 1) },
@@ -226,6 +274,7 @@ export class Graphics {
     }
 
     this.composer = c;
+    this.mood({ reset: true }); // a preset change rebuilds the passes: keep the region's look
   }
 
   resize() {
@@ -240,7 +289,14 @@ export class Graphics {
   }
 
   /** mood hooks for regions (tint/saturation/bloom) */
-  mood({ tint, sat, bloom } = {}) {
+  /**
+   * region: a realm / area sets its own look (remembered); reset: a temporary effect (Aether Sight,
+   * photo filter, slow-mo) ends - back to the base look plus the current region's tint & bloom.
+   * Before, ending Aether Sight left saturation 1.15 and bloom 0.6 on for the rest of the session.
+   */
+  mood({ tint, sat, bloom, region = false, reset = false } = {}) {
+    if (region) this.regionMood = { tint: tint ? tint.clone() : new THREE.Color(1, 1, 1), bloom: bloom ?? 0.42 };
+    if (reset) { const R = this.regionMood || { tint: new THREE.Color(1, 1, 1), bloom: 0.42 }; tint = R.tint; bloom = R.bloom; sat = 1.08; }
     if (this.grade) {
       if (tint) this.grade.uniforms.uTint.value.copy(tint);
       if (sat !== undefined) this.grade.uniforms.uSat.value = sat;
