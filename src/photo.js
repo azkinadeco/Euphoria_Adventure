@@ -7,6 +7,7 @@
 // - One-click high-res snapshot capture & download with shutter flash
 import * as THREE from 'three';
 import { sfx } from './sfx.js';
+import { icon } from './icons.js';
 
 export const PHOTO_FILTERS = {
   default: { name: 'Normal', sat: 1.08, tint: [1, 1, 1], bloom: 0.42 },
@@ -46,8 +47,8 @@ export class PhotoMode {
         </div>
         <div id="photo-controls" class="photo-controls">
           <div class="pc-header">
-            <span>📷 Mode Kamera</span>
-            <button id="pc-close" class="pc-btn-close">✕ Keluar</button>
+            <span>${icon('camera')} Mode Kamera</span>
+            <button id="pc-close" class="pc-btn-close">${icon('close')} Keluar</button>
           </div>
           <div class="pc-row">
             <label>Field of View (FOV)</label>
@@ -72,8 +73,8 @@ export class PhotoMode {
             </div>
           </div>
           <div class="pc-actions">
-            <button id="pc-snap" class="pc-btn-snap">📸 Ambil Foto</button>
-            <button id="pc-toggle-ui" class="pc-btn-sub">👁️ Sembunyikan UI (Klik layar untuk kembali)</button>
+            <button id="pc-snap" class="pc-btn-snap">${icon('camera')} Ambil Foto</button>
+            <button id="pc-toggle-ui" class="pc-btn-sub">${icon('eye')} Sembunyikan UI <small>(${matchMedia('(pointer: coarse)').matches ? 'ketuk' : 'klik'} layar untuk kembali)</small></button>
           </div>
         </div>
       `;
@@ -158,7 +159,7 @@ export class PhotoMode {
     this.dom.classList.remove('hidden');
 
     sfx.ui();
-    this.g.ui?.toast('📷 Mode Kamera dibuka. Gerakkan mouse / layar untuk mengatur sudut pandang.', 'gold');
+    this.g.ui?.toast(matchMedia('(pointer: coarse)').matches ? 'Mode Kamera · geser layar untuk mengatur sudut' : 'Mode Kamera · gerakkan mouse untuk mengatur sudut', 'gold');
   }
 
   close() {
@@ -198,6 +199,21 @@ export class PhotoMode {
     try {
       const canvas = this.g.renderer.domElement;
       const dataUrl = canvas.toDataURL('image/png');
+      const timeName = `Euphoria_Adventure_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+      // phones (iPhone Safari): a download link lands in Files, not Photos; the share sheet has
+      // "Save Image". Built synchronously so the tap still counts as the user gesture share() needs.
+      if (navigator.canShare && matchMedia('(pointer: coarse)').matches) {
+        const bin = atob(dataUrl.split(',')[1]), u8 = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+        const file = new File([u8], timeName, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: 'Euphoria Adventure' })
+            .then(() => this.g.ui?.toast('Foto dibagikan / disimpan', 'gold'))
+            .catch(() => { /* closed the sheet */ });
+          this.dom.style.display = 'block';
+          return;
+        }
+      }
       const a = document.createElement('a');
       a.href = dataUrl;
       const timeStr = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
@@ -205,7 +221,7 @@ export class PhotoMode {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      this.g.ui?.toast('📸 Foto berhasil disimpan ke galeri!', 'gold');
+      this.g.ui?.toast('Foto diunduh', 'gold');
     } catch (err) {
       console.warn('Screenshot download blocked by browser:', err);
       this.g.ui?.toast('Foto berhasil diambil!', 'gold');

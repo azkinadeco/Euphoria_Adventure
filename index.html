@@ -6,6 +6,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#0d1a10" />
   <title>Euphoria Adventure</title>
+  <meta name="description" content="Euphoria Adventure — action RPG anime 3D di browser. Jelajahi hutan, pantai, gunung api dan alam beku bersama Luby dan para hero." />
+  <meta property="og:title" content="Euphoria Adventure" />
+  <meta property="og:description" content="Action RPG anime 3D yang bisa dimainkan langsung di browser HP dan PC." />
+  <meta property="og:image" content="icons/icon-512.png" />
+  <meta property="og:type" content="website" />
   <meta name="apple-mobile-web-app-title" content="Euphoria" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -167,7 +172,7 @@
         <button id="t-jump" class="tb" aria-label="Lompat"><i data-ico="jump"></i></button>
         <button id="t-dash" class="tb" aria-label="Dash"><i data-ico="dash"></i></button>
         <button id="t-sprint" class="tb" aria-label="Lari"><i data-ico="bolt"></i></button>
-        <button id="t-sight" class="tb" aria-label="Mata Aether"><i data-ico="eye"></i></button>
+        <button id="t-sight" class="tb" aria-label="Mata Aether: tahan untuk lihat sekeliling"><i data-ico="eye"></i></button>
         <button id="t-interact" class="tb hidden" aria-label="Interaksi"><i data-ico="hand"></i></button>
         <button id="t-lock" class="tb" aria-label="Kunci target"><i data-ico="target"></i></button>
       </div>
@@ -175,7 +180,7 @@
     <div id="hud-top-row">
     <div id="starlight-hud" class="starlight-hud"><i data-ico="sparkle"></i><span id="starlight-num">1600</span></div>
     <button id="btn-map" title="Peta Dunia (M)" class="hud-top-btn map-btn"><i data-ico="map"></i><span class="key-hint">M</span></button>
-    <button id="btn-sight" title="Mata Aether (T)" class="hud-top-btn sight-btn"><i data-ico="eye"></i><span class="key-hint">T</span></button>
+    <button id="btn-sight" title="Mata Aether — tahan untuk lihat sekeliling (T / Alt)" class="hud-top-btn sight-btn"><i data-ico="eye"></i><span class="key-hint">T</span></button>
     <button id="btn-photo" title="Mode Kamera (P)" class="hud-top-btn photo-btn"><i data-ico="camera"></i><span class="key-hint">P</span></button>
     <button id="btn-wish" title="Wish (F3)" class="hud-top-btn wish-btn"><i data-ico="star"></i><span class="lbl">Wish</span></button>
     </div>
@@ -200,18 +205,15 @@
 
   <!-- ================= TITLE ================= -->
   <div id="title">
-    <div class="title-inner">
-      <div class="title-sub">EUPHORIA ONLINE · STORY</div>
-      <h1>Euphoria<br/><span>Adventure</span></h1>
-      <div class="title-tag">Prolog — <i>Whispering Woods</i></div>
+    <div class="tt-shade"></div>
+    <div class="tt-logo" role="img" aria-label="Euphoria Adventure"><i class="tt-shine"></i></div>
+    <div class="tt-actions">
       <button id="btn-start" disabled>MEMUAT…</button>
+      <div class="tt-load"><i id="tt-load-bar"></i></div>
+      <div id="loading"></div>
       <button id="btn-new" class="ghost hidden">Mulai dari awal</button>
-      <div id="loading">Membangun dunia…</div>
-      <div class="controls-help">
-        <span class="pc-help"><b>PC:</b> WASD gerak · Mouse kamera · Klik kiri serang (tahan = charged, di udara = plunge) · Tab / klik tengah = lock-on · <b>E</b> Skill · <b>Q</b> Burst · <b>1-4</b> ganti hero · Spasi lompat (2x = Cat Leap) · Shift lari · Klik kanan / Ctrl dash · <b>F</b> interaksi · Z/X/C/V/B makan & minum · lompat 3x di udara = glider<br/></span>
-        <b>HP:</b> joystick kiri · geser kanan untuk kamera · tombol di kanan bawah · ketuk makanan di bawah untuk makan
-      </div>
     </div>
+    <div class="tt-foot"><span>© ONIX Studio</span><span id="tt-ver">v1.0</span></div>
   </div>
 
   <!-- ================= MENU ================= -->
@@ -242,8 +244,22 @@
         <div class="mc-pane" data-pane="tp"><div id="tp"></div></div>
         <div class="mc-pane" data-pane="cook"><div class="mc-note">Bekal dimasak di api unggun, lalu dimakan kapan saja (ketuk ikonnya di bar bawah) · <span id="cook-hint"></span></div><div id="cook"></div></div>
         <div class="mc-pane" data-pane="set">
+          <div class="mc-sub">Grafis</div>
           <div class="mc-row"><div class="mc-label">Kualitas grafis</div>
             <div class="mc-seg" id="m-gfx"><button data-gfx="auto">Otomatis</button><button data-gfx="low">Rendah</button><button data-gfx="med">Sedang</button><button data-gfx="high">Tinggi</button><button data-gfx="ultra">Ultra HD</button></div>
+          </div>
+          <div class="mc-sub">Suara</div>
+          <div class="mc-row"><div class="mc-label">Musik</div><div class="mc-seg" data-pref="music"><button data-v="0">Mati</button><button data-v="0.35">Pelan</button><button data-v="0.7">Sedang</button><button data-v="1">Penuh</button></div></div>
+          <div class="mc-row"><div class="mc-label">Efek suara</div><div class="mc-seg" data-pref="sfx"><button data-v="0">Mati</button><button data-v="0.35">Pelan</button><button data-v="0.7">Sedang</button><button data-v="1">Penuh</button></div></div>
+          <div class="mc-sub">Kamera &amp; layar</div>
+          <div class="mc-row"><div class="mc-label">Kecepatan kamera</div><div class="mc-seg" data-pref="sens"><button data-v="0.6">Pelan</button><button data-v="1">Normal</button><button data-v="1.5">Cepat</button></div></div>
+          <div class="mc-row"><div class="mc-label">Geser atas-bawah</div><div class="mc-seg" data-pref="invY"><button data-v="false">Normal</button><button data-v="true">Terbalik</button></div></div>
+          <div class="mc-row"><div class="mc-label">Guncangan layar</div><div class="mc-seg" data-pref="shake"><button data-v="0">Mati</button><button data-v="0.5">Sedikit</button><button data-v="1">Penuh</button></div></div>
+          <div class="mc-sub">Cerita</div>
+          <div class="mc-row"><div class="mc-label">Kecepatan teks</div><div class="mc-seg" data-pref="text"><button data-v="0.6">Lambat</button><button data-v="1">Normal</button><button data-v="1.8">Cepat</button><button data-v="0">Instan</button></div></div>
+          <div class="mc-sub">Lainnya</div>
+          <div class="mc-row"><div class="mc-label">Kontrol</div>
+            <div class="controls-help"><span class="pc-help">WASD gerak · Mouse kamera · Roda mouse zoom · Alt tahan = lihat sekitar · Klik kiri serang (tahan = charged) · Tab lock-on · <b>E</b> Skill · <b>Q</b> Burst · <b>1-4</b> ganti hero · Spasi lompat · Shift lari · Ctrl dash · <b>F</b> interaksi · <b>T</b> Mata Aether</span><span class="touch-help">Joystick kiri gerak · geser layar = kamera · cubit layar = zoom · tahan tombol mata lalu geser = lihat sekitar sambil jalan</span></div>
           </div>
           <div class="mc-row"><div class="mc-label">Progres</div>
             <div class="mc-actions"><button id="m-save" class="mc-btn primary"><i data-ico="save"></i>Simpan</button><button id="m-reset" class="mc-btn danger"><i data-ico="trash"></i><span>Hapus save</span></button></div>
@@ -256,12 +272,12 @@
 
   <!-- ================= WISH MODAL ================= -->
   <div id="wish-modal" class="custom-modal hidden">
-    <div class="modal-card">
-      <button class="modal-close" id="wish-close">✕</button>
-      <h2>🌟 Doa Bintang · Panggilan Sang Penakluk</h2>
+    <div class="modal-card wish-panel">
+      <button class="modal-close" id="wish-close" aria-label="Tutup"><i data-ico="close"></i></button>
+      <div class="mh"><span class="mh-ico"><i data-ico="star"></i></span><div><h2>Doa Bintang</h2><div class="mh-sub">Panggilan Sang Penakluk</div></div></div>
       <div class="wish-banner-box">
         <div class="wish-banner-title">✦ PANGGILAN SANG PENAKLUK ✦</div>
-        <div class="wish-banner-sub">Peluang tinggi Senjata Bintang 5 Legendaris &amp; Artifak Bintang 5 Langka!</div>
+        <div class="wish-banner-sub">Peluang tinggi Senjata Bintang 5 Legendaris &amp; Artefak Bintang 5 Langka!</div>
         <div id="wish-pity-text" style="font-size:12px; color:#ffd700; margin-bottom:12px;">Pity Garansi Bintang 5: 15 tarikan</div>
         <div class="wish-buttons">
           <button class="wish-btn" id="wish-1">Tarik 1× (160 ✦)</button>
@@ -269,7 +285,7 @@
         </div>
       </div>
       <div id="wish-results-wrap" class="hidden">
-        <h3 style="color:#ffd700; margin-top:14px;">Hasil Doa Bintang:</h3>
+        <div class="mh-sec">Hasil Doa Bintang</div>
         <div id="wish-results-grid" class="wish-results-grid"></div>
       </div>
     </div>
@@ -277,24 +293,23 @@
 
   <!-- ================= ARTIFACT MODAL ================= -->
   <div id="artifact-modal" class="custom-modal hidden">
-    <div class="modal-card">
-      <button class="modal-close" id="art-close">✕</button>
-      <h2>🛡️ Artifak &amp; Perlengkapan Hero</h2>
+    <div class="modal-card art-card">
+      <button class="modal-close" id="art-close" aria-label="Tutup"><i data-ico="close"></i></button>
+      <div class="mh"><span class="mh-ico"><i data-ico="shield"></i></span><div><h2>Artefak &amp; Senjata</h2><div class="mh-sub">Perlengkapan tiap hero</div></div></div>
       <div id="art-hero-tabs" class="art-hero-tabs"></div>
       <div id="art-slots" class="art-slots-grid"></div>
       <div id="art-weapons" class="art-weapons"></div>
       <div id="art-bonus-box" class="art-bonus-box"></div>
-      <h3>Inventaris Artifak (Klik untuk pasang / lepas):</h3>
+      <div class="mh-sec">Inventaris artefak <small><span class="pc-help">klik</span><span class="touch-help">ketuk</span> untuk pasang / lepas</small></div>
       <div id="art-inv-list" class="art-inv-list"></div>
     </div>
   </div>
 
   <!-- ================= SPIRE MODAL ================= -->
   <div id="spire-modal" class="custom-modal hidden">
-    <div class="modal-card">
-      <button class="modal-close" id="spire-close">✕</button>
-      <h2>⚔️ Menara Ujian · Celestial Spire</h2>
-      <p class="modal-sub">6 lantai pertarungan berwaktu · kumpulkan sampai 18 bintang.</p>
+    <div class="modal-card spire-card">
+      <button class="modal-close" id="spire-close" aria-label="Tutup"><i data-ico="close"></i></button>
+      <div class="mh"><span class="mh-ico"><i data-ico="tower"></i></span><div><h2>Menara Ujian</h2><div class="mh-sub">Celestial Spire · 6 lantai berwaktu · kumpulkan sampai 18 bintang</div></div></div>
       <div id="spire-floors-list"></div>
     </div>
   </div>
@@ -302,9 +317,8 @@
   <!-- ================= BOUNTY MODAL ================= -->
   <div id="bounty-modal" class="custom-modal hidden">
     <div class="modal-card bounty-card">
-      <button class="modal-close" id="bounty-close">✕</button>
-      <h2>📜 Papan Buronan</h2>
-      <p class="modal-sub">Kalahkan monster buronan untuk Starlight &amp; artifak bintang 5.</p>
+      <button class="modal-close" id="bounty-close" aria-label="Tutup"><i data-ico="close"></i></button>
+      <div class="mh"><span class="mh-ico"><i data-ico="scroll"></i></span><div><h2>Papan Buronan</h2><div class="mh-sub">Kalahkan monster buronan untuk Starlight &amp; artefak bintang 5</div></div></div>
       <div id="bounty-list"></div>
     </div>
   </div>

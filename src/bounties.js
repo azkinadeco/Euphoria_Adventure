@@ -223,7 +223,7 @@ export class BountyManager {
 
     sfx.wishGold();
     this.g.ui.banner(`BURONAN SELESAI!\n${b.name} Ditumbangkan!`);
-    this.g.ui.toast(`✦ +${b.rewardStarlight} Starlight Crystals & 1 Artifak 5★ ${art.setName} diperoleh!`, 'gold');
+    this.g.ui.toast(`✦ +${b.rewardStarlight} Starlight Crystals & 1 Artefak 5★ ${art.setName} diperoleh!`, 'gold');
     this.g.save();
   }
 }

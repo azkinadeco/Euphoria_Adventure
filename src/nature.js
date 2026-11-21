@@ -279,6 +279,9 @@ export function grassMat(wind) {
       float push = (1.0 - smoothstep(0.35, 1.25, pl)) * step(abs(ip.y - uPush.y), 1.6) * position.y * position.y * 1.6;
       transformed.xz += normalize(pd + vec2(1e-4)) * push;
       transformed.y -= push * 0.35;
+      // blades right in front of a low camera fold down instead of filling the bottom of the screen
+      float camN = smoothstep(1.0, 3.0, length(ip.xz - cameraPosition.xz)) + step(2.6, cameraPosition.y - ip.y);
+      transformed *= vec3(1.0, clamp(camN, 0.0, 1.0), 1.0);
       vec4 cw = modelMatrix * instanceMatrix * vec4(transformed, 1.0); vGw = cw.xz;`);
     sh.vertexShader = 'varying vec2 vGw;\n' + sh.vertexShader;
     sh.vertexShader = 'varying float vGh;\n' + sh.vertexShader;
@@ -293,7 +296,7 @@ export function grassMat(wind) {
       outgoingLight *= mix(0.78, 1.0, smoothstep(0.0, 0.22, vGh)); // contact shade at the root
       #include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => 'natureGrass3';
+  m.customProgramCacheKey = () => 'natureGrass4';
   return m;
 }
 

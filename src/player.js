@@ -8,6 +8,10 @@ import { HEROES, PARTY_ORDER, chaosEl } from './heroes.js';
 import { WEAPON_BY_ID } from './gacha.js';
 import { applyRim } from './toon.js';
 import { boostGlow } from './graphics.js';
+import { coldAt } from './frost.js';
+import { heatAt } from './volcano.js';
+import { REEF, bridgeDeck } from './reef.js';
+import { LOC } from './world.js';
 
 const _tb = new THREE.Vector3(), _tt = new THREE.Vector3();
 
@@ -469,6 +473,26 @@ export class Player {
       hurtT: this.hurtT, flipT: this.flipT, swim: this.swimming, glide: this.gliding, look: this._lookYaw(),
     });
     this._trails(dt);
+    this._footsteps();
+  }
+
+  /** a soft step each time a foot comes down (the rig's stride phase), coloured by the ground */
+  _footsteps() {
+    const rig = this.m.rig, ph = rig.phase || 0, n = Math.floor(ph / Math.PI);
+    const on = this.grounded && !this.swimming && !this.gliding && this.speedNow > 0.8 && !this.dead;
+    if (on && this._stepN !== undefined && n !== this._stepN) sfx.step(this._surface(), this.sprinting);
+    this._stepN = n;
+  }
+  _surface() {
+    const p = this.pos;
+    if (p.y > 100) return 'stone'; // floating realms: rock and marble
+    if (p.y < 0.25 && this.game.world.groundAt(p.x, p.z) < 0.05) return 'water';
+    if (bridgeDeck(p.x, p.z) !== null && p.y > 1) return 'wood';
+    if (coldAt(p.x, p.z) > 0.4) return 'snow';
+    if (heatAt(p.x, p.z) > 0.35) return 'stone';
+    if (Math.hypot(p.x - REEF.x, p.z - REEF.z) < REEF.r) return 'sand';
+    if (Math.hypot(p.x - LOC.workshop.x, p.z - LOC.workshop.z) < 9) return 'stone';
+    return 'grass';
   }
 
   /** glowing ribbons behind the weapon (or Luby's claws) while a swing is in the air */
@@ -1226,5 +1250,6 @@ export class Player {
       return;
     }
     this.dead = true; this.deadT = 0; this.action = null;
+    this.game.ui.downed?.(true);
   }
 }

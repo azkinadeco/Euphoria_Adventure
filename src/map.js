@@ -248,8 +248,10 @@ export class WorldMap {
   /** queue a text label; _flushLabels draws them by priority (1 = most important) and drops any
    * that would overlap one already placed, after trying a nudge below / above */
   _label(text, x, y, font, color, prio, alpha = 1) { this._labels.push({ text, x, y, font, color, prio, alpha }); }
+  /** keep labels off a marker drawn at (x, y) with radius r (pins, quest diamond, the player arrow) */
+  _block(x, y, r) { this._blocks.push({ x0: x - r, x1: x + r, y0: y - r, y1: y + r }); }
   _flushLabels(ctx) {
-    const boxes = [], hit = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+    const boxes = [...(this._blocks || [])], hit = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
     ctx.save();
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 4;
     for (const L of this._labels.sort((a, b) => a.prio - b.prio)) {
@@ -351,9 +353,17 @@ export class WorldMap {
     const cw = this.canvas.width;
     const ch = this.canvas.height;
 
-    this._labels = [];
-    // Background deep ocean
-    ctx.fillStyle = '#0a1420';
+    this._labels = []; this._blocks = [];
+    { const P = this.g.player; if (P) { const [px, pz] = this._worldToCanvas(P.pos.x, P.pos.z); this._block(px, pz, 11); } }
+    // Background: the same sea as the edge of the terrain picture, so the map has no hard rectangle edge
+    if (!this._sea) {
+      this._sea = '#0f3d66';
+      try {
+        const im = this.g.world?.minimapImage, c = document.createElement('canvas'); c.width = c.height = 1;
+        if (im) { const x = c.getContext('2d'); x.drawImage(im, 2, 2, 4, 4, 0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; this._sea = `rgb(${d[0]},${d[1]},${d[2]})`; }
+      } catch (e) { /* keep the default */ }
+    }
+    ctx.fillStyle = this._sea;
     ctx.fillRect(0, 0, cw, ch);
 
     // Draw world terrain minimap image with scaling
@@ -367,7 +377,10 @@ export class WorldMap {
       ctx.restore();
     }
 
-    // Grid coordinates lines (subtle fantasy map lat/long)
+    // soft vignette over everything: draws the eye to the middle and hides where the picture ends
+    { const g = ctx.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.35, cw / 2, ch / 2, Math.max(cw, ch) * 0.75);
+      g.addColorStop(0, 'rgba(4,10,20,0)'); g.addColorStop(1, 'rgba(4,10,20,.55)'); ctx.fillStyle = g; ctx.fillRect(0, 0, cw, ch); }
+        // Grid coordinates lines (subtle fantasy map lat/long)
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     for (let x = -600; x <= 600; x += 150) {
@@ -428,6 +441,7 @@ export class WorldMap {
       ctx.beginPath();
       ctx.arc(cx, cz, 12, 0, Math.PI * 2);
       ctx.fill();
+      this._block(cx, cz, 12);
       ctx.stroke();
 
       // Pin icon
@@ -487,9 +501,9 @@ export class WorldMap {
       ctx.stroke();
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffd700';
-      ctx.fillText('MISI', qx, qz + 24);
       ctx.restore();
+      this._block(qx, qz, 13);
+      this._label('MISI', qx, qz + 24, 'bold 11px sans-serif', '#ffd700', 0);
     }
 
     this._flushLabels(ctx);

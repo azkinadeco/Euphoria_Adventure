@@ -627,6 +627,11 @@ export class World {
   }
 
   /** is this point inside a tree canopy? (used to keep the camera out of foliage) */
+  /** big solid props the camera must not sit inside (den crystals...): upright cylinders */
+  blockerHit(x, y, z) {
+    for (const b of this.camBlockers) if (y > b.y0 && y < b.y1 && (x - b.x) ** 2 + (z - b.z) ** 2 < b.r2) return true;
+    return false;
+  }
   canopyHit(x, y, z) {
     const cx = Math.floor(x / 8), cz = Math.floor(z / 8);
     for (let i = -1; i <= 1; i++) for (let k = -1; k <= 1; k++) {
@@ -780,6 +785,7 @@ export class World {
       c.position.set(D.x + Math.cos(a) * rr, D.y + 0.5, D.z + Math.sin(a) * rr);
       c.scale.y = 2.2; c.rotation.set(Math.random() * 0.5, Math.random() * 3, Math.random() * 0.5); s.add(c);
       const cx = c.position.x, cz = c.position.z, ry = c.rotation.y;
+      (this.camBlockers ||= []).push({ x: cx, z: cz, r2: (sz * 1.6) ** 2, y0: D.y - 1, y1: D.y + sz * 5 });
       upgrade('crystal_violet', s, c, (m) => { m.position.set(cx, D.y - 0.05, cz); m.rotation.y = ry; m.scale.setScalar(sz * 1.5); }, { outline: 0.03 });
     }
     const denLight = new VLight(0xb86bff, 40, 40, 1.5); denLight.position.set(D.x, D.y + 4, D.z); s.add(denLight);

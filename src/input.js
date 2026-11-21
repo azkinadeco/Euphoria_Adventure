@@ -12,19 +12,29 @@ export class Input {
     this.touch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
     this.enabled = false;
     this.wheel = 0;
+    this.pinch = 0;             // accumulated two-finger spread (px): + = zoom in
+    this.freeLook = false;      // eye held: the camera looks around, the walk keeps its heading
     this.attackHeld = false;
     this._bind();
   }
 
   _bind() {
-    const map = { KeyE: 'skill', KeyQ: 'burst', Space: 'jump', KeyF: 'interact', Digit1: 'sw0', Digit2: 'sw1', Digit3: 'sw2', Digit4: 'sw3', KeyZ: 'eat1', KeyX: 'eat2', KeyC: 'eat3', KeyV: 'eat4', KeyB: 'eat5', Tab: 'lock', KeyT: 'sight', KeyP: 'photo', KeyM: 'map', ControlLeft: 'dash', Escape: 'menu', KeyR: 'dash' };
+    const map = { KeyE: 'skill', KeyQ: 'burst', Space: 'jump', KeyF: 'interact', Digit1: 'sw0', Digit2: 'sw1', Digit3: 'sw2', Digit4: 'sw3', KeyZ: 'eat1', KeyX: 'eat2', KeyC: 'eat3', KeyV: 'eat4', KeyB: 'eat5', Tab: 'lock', KeyP: 'photo', KeyM: 'map', ControlLeft: 'dash', Escape: 'menu', KeyR: 'dash' };
+    const lookKey = (c) => c === 'KeyT' || c === 'AltLeft' || c === 'AltRight';
     addEventListener('keydown', (e) => {
+      if (lookKey(e.code)) { this.freeLook = true; e.preventDefault(); }
       if (e.repeat) return;
       this.keys.add(e.code);
       if (map[e.code]) { this.events.push(map[e.code]); if (e.code === 'Space' || e.code === 'Tab') e.preventDefault(); }
     });
-    addEventListener('keyup', (e) => this.keys.delete(e.code));
-    addEventListener('blur', () => { this.keys.clear(); this.attackHeld = false; });
+    addEventListener('keyup', (e) => { this.keys.delete(e.code); if (lookKey(e.code)) this.freeLook = false; });
+    addEventListener('blur', () => { this.keys.clear(); this.attackHeld = false; this.freeLook = false; });
+    // HUD eye button (PC): hold = look around
+    const eye = document.getElementById('btn-sight');
+    if (eye) {
+      eye.addEventListener('mousedown', (e) => { e.preventDefault(); this.freeLook = true; });
+      addEventListener('mouseup', () => { if (!this.keys.has('KeyT') && !this.keys.has('AltLeft') && !this.keys.has('AltRight')) this.freeLook = false; });
+    }
 
     const c = this.canvas;
     c.addEventListener('mousedown', (e) => {
@@ -55,19 +65,27 @@ export class Input {
     const endJoy = (e) => { for (const t of e.changedTouches) if (t.identifier === joyId) { joyId = null; this.move.x = this.move.y = 0; knob.style.transform = ''; joy.classList.remove('on'); } };
     joy.addEventListener('touchend', endJoy); joy.addEventListener('touchcancel', endJoy);
 
-    // camera drag on canvas (anywhere not on a control)
+    // camera drag on canvas (anywhere not on a control); two fingers = pinch zoom (no turning then)
     const camTouches = new Map();
-    c.addEventListener('touchstart', (e) => { for (const t of e.changedTouches) camTouches.set(t.identifier, pt(t.clientX, t.clientY)); e.preventDefault(); }, { passive: false });
+    let pinchD = 0;
+    const spread = () => { const [a, b] = camTouches.values(); return Math.hypot(a.x - b.x, a.y - b.y); };
+    c.addEventListener('touchstart', (e) => {
+      for (const t of e.changedTouches) camTouches.set(t.identifier, pt(t.clientX, t.clientY));
+      if (camTouches.size === 2) pinchD = spread();
+      e.preventDefault();
+    }, { passive: false });
     c.addEventListener('touchmove', (e) => {
+      const two = camTouches.size >= 2;
       for (const t of e.changedTouches) {
         const p = camTouches.get(t.identifier); if (!p) continue;
         const q = pt(t.clientX, t.clientY);
-        this.look.x += (q.x - p.x) * 1.6; this.look.y += (q.y - p.y) * 1.6;
+        if (!two) { this.look.x += (q.x - p.x) * 1.6; this.look.y += (q.y - p.y) * 1.6; }
         p.x = q.x; p.y = q.y;
       }
+      if (two) { const d = spread(); this.pinch += d - pinchD; pinchD = d; }
       e.preventDefault();
     }, { passive: false });
-    const endCam = (e) => { for (const t of e.changedTouches) camTouches.delete(t.identifier); };
+    const endCam = (e) => { for (const t of e.changedTouches) camTouches.delete(t.identifier); if (camTouches.size === 2) pinchD = spread(); };
     c.addEventListener('touchend', endCam); c.addEventListener('touchcancel', endCam);
 
     const btn = (id, ev) => {
@@ -75,7 +93,24 @@ export class Input {
       el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); if (typeof ev === 'function') ev(); else this.events.push(ev); el.classList.add('down'); el.classList.remove('ping'); void el.offsetWidth; el.classList.add('ping'); }, { passive: false });
       el.addEventListener('touchend', () => el.classList.remove('down'));
     };
-    btn('t-attack', () => { this.events.push('attack'); this.attackHeld = true; }); btn('t-jump', 'jump'); btn('t-lock', 'lock'); btn('t-dash', 'dash'); btn('t-interact', 'interact'); btn('t-sight', 'sight');
+    btn('t-attack', () => { this.events.push('attack'); this.attackHeld = true; }); btn('t-jump', 'jump'); btn('t-lock', 'lock'); btn('t-dash', 'dash'); btn('t-interact', 'interact');
+    // eye: hold to look around while the walk keeps its heading; drag the same finger to turn the view
+    const eyeT = document.getElementById('t-sight');
+    let eyeId = null, eyeP = null;
+    eyeT.addEventListener('touchstart', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const t = e.changedTouches[0]; eyeId = t.identifier; eyeP = pt(t.clientX, t.clientY);
+      this.freeLook = true; eyeT.classList.add('down', 'on');
+    }, { passive: false });
+    eyeT.addEventListener('touchmove', (e) => {
+      for (const t of e.changedTouches) if (t.identifier === eyeId) {
+        const q = pt(t.clientX, t.clientY);
+        this.look.x += (q.x - eyeP.x) * 2.2; this.look.y += (q.y - eyeP.y) * 1.6; eyeP = q;
+      }
+      e.preventDefault();
+    }, { passive: false });
+    const endEye = (e) => { for (const t of e.changedTouches) if (t.identifier === eyeId) { eyeId = null; this.freeLook = false; eyeT.classList.remove('down', 'on'); } };
+    eyeT.addEventListener('touchend', endEye); eyeT.addEventListener('touchcancel', endEye);
     btn('t-sprint', () => { this.sprintToggle = !this.sprintToggle; document.getElementById('t-sprint').classList.toggle('on', this.sprintToggle); });
     btn('btn-e', 'skill'); btn('btn-q', 'burst');
     // hold attack button = charged attack

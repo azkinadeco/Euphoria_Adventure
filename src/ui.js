@@ -6,6 +6,7 @@ import { ELEMENT_COLOR } from './heroes.js';
 import { LOC, MINIMAP } from './world.js';
 import { RLOC } from './reef.js';
 import { sfx } from './sfx.js';
+import { prefs, setPref } from './prefs.js';
 import { performWish } from './gacha.js';
 import { ARTIFACT_SETS, SLOTS, upgradeArtifact } from './artifacts.js';
 import { WEAPON_BY_ID } from './gacha.js';
@@ -24,6 +25,15 @@ export class UI {
     this.mmTick = 0;
     this.dialogOpen = false;
     hydrateIcons(document);
+    // every menu / modal / title button answers with the same soft tick (the touch HUD has its own sounds)
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b || b.disabled || b.closest('#touch, #skills')) return;
+      sfx.ui();
+    }, true);
+    // small "saved" pill: autosave used to be silent, so players never knew whether progress was kept
+    this._saveInd = document.createElement('div'); this._saveInd.id = 'save-ind';
+    this._saveInd.innerHTML = `${icon('save')}<span>Tersimpan</span>`;
+    document.body.appendChild(this._saveInd);
     this._bindMenu();
   }
 
@@ -43,7 +53,7 @@ export class UI {
   trialCard(def) {
     return new Promise((resolve) => {
       document.exitPointerLock?.();
-      const el = document.createElement('div');
+      const el = document.createElement('div'); el.className = 'trial-card';
       el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,4,14,.72);padding:16px;font-family:inherit';
       const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
       const btn = 'border:0;border-radius:10px;padding:10px 18px;font:inherit;font-weight:700;cursor:pointer;';
@@ -178,15 +188,18 @@ export class UI {
       $('dlg-choices').innerHTML = '';
       $('dlg-hint').style.display = '';
       this._setPortraits(spk);
-      let i = 0, done = false, wait = 0;
+      let i = 0, acc = 0, done = false, wait = 0;
+      const sp = prefs.text; // typing speed (0 = whole line at once)
       textEl.textContent = '';
       $('dlg-hint').classList.add('typing');
       const iv = setInterval(() => {
         if (wait > 0) { wait--; return; }
-        i += 2;
+        const i0 = i;
+        if (!sp) i = text.length; else { acc += 2 * sp; i = Math.floor(acc); }
+        if (i === i0) return;
         textEl.textContent = text.slice(0, i);
-        const ch = text[i - 1] || '', ch2 = text[i - 2] || '';
-        if ('.!?…'.includes(ch) || '.!?…'.includes(ch2)) wait = 7; else if (',;:—'.includes(ch) || ',;:—'.includes(ch2)) wait = 3;
+        const fresh = text.slice(i0, i); // pause only on punctuation revealed this tick
+        if (/[.!?…]/.test(fresh)) wait = Math.round(7 / Math.max(1, sp)); else if (/[,;:—]/.test(fresh)) wait = Math.round(3 / Math.max(1, sp));
         if (i >= text.length) { clearInterval(iv); done = true; $('dlg-hint').classList.remove('typing'); }
       }, 30);
       sfx.ui();
@@ -227,7 +240,6 @@ export class UI {
     $('btn-menu').onclick = () => this.toggleMenu();
     $('m-resume').onclick = () => this.toggleMenu(false);
     $('m-save').onclick = () => { this.game.save(); this.toast('Tersimpan ✓'); };
-    $('btn-sight').onclick = () => this.game.sight.toggle();
     $('weather-badge').onclick = () => this.game.weather.cycleNext();
     $('btn-wish').onclick = () => this.openWish();
     $('m-wish').onclick = () => { this.toggleMenu(false); this.openWish(); };
@@ -273,6 +285,14 @@ export class UI {
       sfx.ui();
       this._gfxLabel();
     };
+    // device preferences (sound, camera, shake, text speed): one segmented row per key
+    for (const seg of document.querySelectorAll('.mc-seg[data-pref]')) {
+      seg.onclick = (e) => {
+        const b = e.target.closest('[data-v]'); if (!b) return;
+        setPref(seg.dataset.pref, JSON.parse(b.dataset.v));
+        this._prefLabels(); sfx.ui();
+      };
+    }
     $('m-profile').onclick = () => this._menuTab(this._tab === 'profile' ? (this._lastTab || 'party') : 'profile');
     for (const t of document.querySelectorAll('.mc-tabs [data-tab]')) t.onclick = () => this._menuTab(t.dataset.tab);
   }
@@ -439,13 +459,13 @@ export class UI {
       const sDef = ARTIFACT_SETS[k];
       return `<b style="color:${sDef?.color || '#fff'}">${sDef?.name} (${count} pcs):</b> ${count >= 2 ? `[2P] ${sDef.twoPiece} ` : ''}${count >= 4 ? `| [4P] ${sDef.fourPiece}` : ''}`;
     }).filter(Boolean);
-    bonusBox.innerHTML = `<b>Stat Bonus Artifak:</b> HP +${Math.round(bonus.flatHp)} | ATK +${Math.round(bonus.flatAtk)} (${(bonus.atkPct * 100).toFixed(1)}%) | Crit Rate +${(bonus.critRate * 100).toFixed(1)}% | Crit DMG +${(bonus.critDmg * 100).toFixed(1)}%<br/>${setList.length ? setList.join('<br/>') : '<i>Belum ada set bonus aktif (pasang minimal 2 artifak dari set yang sama).</i>'}`;
+    bonusBox.innerHTML = `<b>Stat Bonus Artefak:</b> HP +${Math.round(bonus.flatHp)} | ATK +${Math.round(bonus.flatAtk)} (${(bonus.atkPct * 100).toFixed(1)}%) | Crit Rate +${(bonus.critRate * 100).toFixed(1)}% | Crit DMG +${(bonus.critDmg * 100).toFixed(1)}%<br/>${setList.length ? setList.join('<br/>') : '<i>Belum ada set bonus aktif (pasang minimal 2 artefak dari set yang sama).</i>'}`;
 
     const invList = $('art-inv-list');
     invList.innerHTML = '';
     const inv = S.inventoryArtifacts || [];
     if (!inv.length) {
-      invList.innerHTML = '<div style="color:#888;grid-column:1/-1;text-align:center;padding:16px;">Tidak ada artifak di inventaris. Dapatkan dari Doa Bintang (Wish) atau Menara Ujian (Spire)!</div>';
+      invList.innerHTML = '<div class="art-empty">Belum ada artefak. Dapatkan dari Doa Bintang atau Menara Ujian.</div>';
     } else {
       inv.forEach((art, idx) => {
         const itemCard = document.createElement('div');
@@ -464,7 +484,7 @@ export class UI {
           inv.splice(idx, 1);
           heroMem.refreshHp();
           this._renderArtifactsUI();
-          this.toast(`Artifak dipasang pada ${heroMem.def.name}!`);
+          this.toast(`Artefak dipasang pada ${heroMem.def.name}!`);
         };
 
         const upBtn = document.createElement('button');
@@ -474,7 +494,7 @@ export class UI {
           if (upgradeArtifact(art, S)) {
             sfx.pickup();
             this._renderArtifactsUI();
-            this.toast(`Artifak ditingkatkan ke Lv.${art.level}!`, 'gold');
+            this.toast(`Artefak ditingkatkan ke Lv.${art.level}!`, 'gold');
           } else {
             this.toast('Bahan tidak cukup (Butuh 1🐟 / 2🫐)');
           }
@@ -540,7 +560,7 @@ export class UI {
             <span style="background:rgba(80,140,255,0.2); border:1px solid #54a0ff; color:#70b0ff; padding:2px 8px; border-radius:10px;">🛡️ ${b.resist}</span>
           </div>
           <div class="bounty-item-rewards" style="font-size:12px; color:#ffd700;">
-            Hadiah: <b>✦ ${b.rewardStarlight} Starlight</b> + <b>1 Artifak 5★ ${ARTIFACT_SETS[b.rewardArtifactSet].name}</b>
+            Hadiah: <b>✦ ${b.rewardStarlight} Starlight</b> + <b>1 Artefak 5★ ${ARTIFACT_SETS[b.rewardArtifactSet].name}</b>
           </div>
         </div>
         <div class="bounty-item-action">
@@ -560,6 +580,31 @@ export class UI {
     }
   }
 
+  /** light up the chosen option of every preference row (nearest value wins, so old saves still match) */
+  _prefLabels() {
+    for (const seg of document.querySelectorAll('.mc-seg[data-pref]')) {
+      const cur = prefs[seg.dataset.pref];
+      let best = null, bd = Infinity;
+      for (const b of seg.children) { const v = JSON.parse(b.dataset.v); const d = Math.abs(Number(v) - Number(cur)); if (d < bd) { bd = d; best = b; } }
+      for (const b of seg.children) b.classList.toggle('on', b === best);
+    }
+  }
+  /** whole party down: a short dark card instead of the hero silently falling over, then the respawn */
+  downed(on) {
+    let el = $('ko-screen');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'ko-screen';
+      el.innerHTML = '<div class="ko-t">Party tumbang</div><div class="ko-s">Kembali ke titik istirahat terakhir…</div><div class="ko-bar"><i></i></div>';
+      document.body.appendChild(el);
+    }
+    document.body.classList.toggle('ko', on);
+    el.classList.remove('on'); if (on) { void el.offsetWidth; el.classList.add('on'); }
+  }
+  savedPing() {
+    const el = this._saveInd, G = this.game; if (!el || !G.playing || G.paused || G._overlayOpen()) return;
+    el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+    clearTimeout(this._saveT); this._saveT = setTimeout(() => el.classList.remove('on'), 1600);
+  }
   _gfxLabel() {
     const G = this.game, cur = G.gfxAuto ? 'auto' : G.gfx;
     for (const b of $('m-gfx').children) b.classList.toggle('on', b.dataset.gfx === cur);
@@ -570,7 +615,8 @@ export class UI {
     if (this.dialogOpen) return;
     m.classList.toggle('hidden', !show);
     if (show) {
-      this._gfxLabel();
+      this._saveInd?.classList.remove('on');
+      this._gfxLabel(); this._prefLabels();
       const H = this.game.player.hero;
       $('mc-img').src = H.portrait; $('mc-hero').textContent = `${H.name} · Lv.${this.game.player.level}`;
       this._buildTeamMenu(); this._buildCookMenu();
@@ -662,7 +708,7 @@ export class UI {
     $('inv-scrap').classList.toggle('hidden', S.step !== 'parts');
 
     // quest
-    const Q = QUESTS[S.step];
+    const Q = QUESTS[S.step] || QUESTS.parts; // an unknown step (old / edited save) must not break the HUD every frame
     $('quest-chapter').textContent = Q.ch || 'PROLOG · WHISPERING WOODS';
     if ($('quest-title').textContent !== Q.title) { if (this._questSeen) this._pulse($('quest-tracker'), 'pulse'); this._questSeen = true; }
     $('quest-title').textContent = Q.title;

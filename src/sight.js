@@ -1,5 +1,7 @@
 // Euphoria Adventure — Mata Aether & Treasure Radar System
-// Mata Aether:
+// Mata Aether — hold the eye button (T / Alt on PC) to look around while the walk keeps its heading
+// (camera handled in main.js _updateCamera); while looking, nearby treasure, butterflies and enemies glow.
+// The older timed scan (activate/deactivate) below is kept for scripted use:
 // - Desaturates the world into a moody twilight monochrome palette
 // - Expands a glowing sonar resonance pulse from the player
 // - Highlights interactive chests, crates, gathering nodes, and Kupu Kristal species
@@ -83,6 +85,16 @@ export class ElementalSight {
     }
   }
 
+  /** eye held / released: show the treasure markers without the scan's colour grade or cooldown */
+  peek(on) {
+    this.peeking = on;
+    this.group.visible = on || this.active;
+    this.sonarMesh.visible = this.active;
+    document.body.classList.toggle('freelook', on);
+    if (!on && !this.active) for (const m of this.markerPool) m.group.visible = false;
+    if (on) this.t = this.t || 0;
+  }
+
   toggle() {
     if (this.active) {
       this.deactivate();
@@ -100,6 +112,7 @@ export class ElementalSight {
     this.t = this.duration;
     this.sonarRadius = 0;
     this.group.visible = true;
+    this.sonarMesh.visible = true;
 
     sfx.sightOn();
 
@@ -118,16 +131,14 @@ export class ElementalSight {
     if (!this.active) return;
     this.active = false;
     this.cd = 2.5;
-    this.group.visible = false;
+    this.group.visible = !!this.peeking;
 
     sfx.sightOff();
 
     // Restore vibrant anime color grading
     this.g.graphics.mood({ reset: true });
 
-    for (const m of this.markerPool) {
-      m.group.visible = false;
-    }
+    if (!this.peeking) for (const m of this.markerPool) m.group.visible = false;
     this._updateButton(false);
   }
 
@@ -152,13 +163,15 @@ export class ElementalSight {
       }
     }
 
-    if (!this.active) return;
+    if (!this.active && !this.peeking) return;
 
-    this.t -= dt;
-    if (this.t <= 0) {
-      this.deactivate();
-      return;
-    }
+    if (this.active) {
+      this.t -= dt;
+      if (this.t <= 0) {
+        this.deactivate();
+        if (!this.peeking) return;
+      }
+    } else this.t += dt; // keeps the markers spinning while peeking
 
     // Sonar scanning wave expansion
     this.sonarRadius += dt * 32.0;

@@ -150,17 +150,43 @@ body.touch #inventory { bottom: calc(6px + var(--safe-b)); }
 #dlg-choices button:hover { background: rgba(143,230,58,.3); }
 #dlg-skip { position: absolute; top: calc(14px + var(--safe-t)); right: calc(14px + var(--safe-r)); padding: 6px 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.45); color: #fff; cursor: pointer; }
 
-/* ---------- title ---------- */
-#title { position: fixed; inset: 0; z-index: 30; display: flex; align-items: safe center; justify-content: center; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; background: radial-gradient(ellipse at 50% 60%, rgba(10,30,10,.25), rgba(4,10,4,.85)); }
-.title-inner { text-align: center; padding: 20px; max-width: 760px; }
-.title-sub { letter-spacing: 6px; font-size: 12px; color: var(--lime); }
-#title h1 { margin: 8px 0; font-size: clamp(44px, calc(var(--lw) * 9), 92px); line-height: .92; font-weight: 900; color: #fff; text-shadow: 0 0 30px rgba(143,230,58,.6), 0 4px 0 #2b4d10; }
-#title h1 span { color: var(--lime); }
-.title-tag { margin-bottom: 26px; opacity: .9; }
-#title button { display: block; margin: 10px auto; min-width: 260px; padding: 14px 28px; border-radius: 30px; border: 2px solid var(--lime); background: linear-gradient(180deg, #9cf04a, #5aa51c); color: #0b120c; font-weight: 900; font-size: 16px; letter-spacing: 1px; cursor: pointer; box-shadow: 0 6px 24px rgba(143,230,58,.35); }
-#title button.ghost { background: transparent; color: #dfe; box-shadow: none; font-size: 13px; padding: 8px 20px; min-width: 0; }
-#title button:disabled { opacity: .4; }
-#loading { font-size: 12px; opacity: .7; margin-top: 8px; }
+/* ---------- title (logo over the live scene, one call to action) ---------- */
+#title { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: calc(var(--safe-t) + var(--lh) * 5) calc(var(--safe-r) + 20px) calc(var(--safe-b) + var(--lh) * 6) calc(var(--safe-l) + 20px); overflow: hidden; }
+#title .tt-shade { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(4,8,14,.62), rgba(4,8,14,.18) 46%, rgba(4,8,14,0) 62%), linear-gradient(180deg, rgba(4,8,14,.35), rgba(4,8,14,0) 30%, rgba(4,8,14,0) 70%, rgba(4,8,14,.55)); }
+#title .tt-logo { position: relative; width: min(calc(var(--lh) * 74), calc(var(--lw) * 44), 560px); aspect-ratio: 644 / 407; flex: none;
+  background: url(/assets/brand/euphoria_logo.webp) center / contain no-repeat; filter: drop-shadow(0 6px 22px rgba(0,0,0,.55)) drop-shadow(0 0 26px rgba(120,230,60,.22));
+  opacity: 0; transform: translateY(-10px) scale(.94); animation: tt-in 1.1s cubic-bezier(.2,.8,.2,1) .15s forwards, tt-float 6s ease-in-out 1.3s infinite; }
+#title .tt-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 42%, rgba(255,255,240,.55) 50%, transparent 58%) 0 0 / 260% 100% no-repeat;
+  -webkit-mask: url(/assets/brand/euphoria_logo.webp) center / contain no-repeat; mask: url(/assets/brand/euphoria_logo.webp) center / contain no-repeat;
+  animation: tt-shine 5.5s ease-in-out 1.4s infinite; background-position: 160% 0; }
+#title .tt-logo, #title .tt-actions { align-self: flex-start; margin-left: calc(var(--lw) * 7); }
+#title .tt-actions { width: min(calc(var(--lh) * 74), calc(var(--lw) * 44), 560px); }
+#title .tt-actions { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; animation: tt-fade .8s ease .7s forwards; }
+#title button { touch-action: none; position: relative; z-index: 1; cursor: pointer; font-family: inherit; -webkit-tap-highlight-color: transparent; transition: transform .08s, opacity .3s, background .3s; }
+#btn-start { min-width: min(300px, calc(var(--lw) * 40)); padding: 15px 34px; border-radius: 999px; border: 1.5px solid rgba(190,255,130,.75);
+  background: linear-gradient(180deg, rgba(150,235,80,.95), rgba(76,160,30,.95)); color: #0a1406; font-weight: 900; font-size: 16px; letter-spacing: .14em;
+  box-shadow: 0 8px 28px rgba(0,0,0,.45), 0 0 0 0 rgba(150,235,80,.5), inset 0 1px 0 rgba(255,255,255,.55); }
+#btn-start:not(:disabled) { animation: tt-pulse 2.4s ease-in-out infinite; }
+#btn-start:disabled { background: rgba(10,16,12,.55); color: rgba(255,255,255,.7); border-color: rgba(255,255,255,.22); box-shadow: none; letter-spacing: .2em; font-size: 13px; }
+#title button:active, #title button.pressed { transform: scale(.96); filter: brightness(1.12); }
+#title .tt-load { width: min(220px, calc(var(--lw) * 50)); height: 3px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; transition: opacity .4s; }
+#title .tt-load i { display: block; height: 100%; width: 4%; border-radius: 3px; background: linear-gradient(90deg, #8fe63a, #d8ff9a); transition: width .35s ease; }
+#title.ready .tt-load { opacity: 0; }
+#loading { font-size: 11px; letter-spacing: .08em; color: rgba(255,255,255,.6); min-height: 14px; }
+#btn-new { background: none; border: 0; color: rgba(255,255,255,.62); font-size: 12px; letter-spacing: .06em; padding: 6px 14px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255,255,255,.25); }
+#btn-new.confirm { color: #ffb4a4; text-decoration-color: rgba(255,140,120,.5); }
+#title .tt-foot { position: absolute; left: calc(var(--safe-l) + 16px); right: calc(var(--safe-r) + 16px); bottom: calc(var(--safe-b) + 10px); display: flex; justify-content: space-between;
+  font-size: 10px; letter-spacing: .14em; color: rgba(255,255,255,.42); pointer-events: none; opacity: 0; animation: tt-fade 1s ease 1s forwards; }
+@keyframes tt-in { to { opacity: 1; transform: none; } }
+@keyframes tt-float { 50% { translate: 0 -5px; } }
+@keyframes tt-shine { 0% { background-position: 160% 0; } 45%, 100% { background-position: -60% 0; } }
+@keyframes tt-fade { to { opacity: 1; } }
+@keyframes tt-pulse { 50% { box-shadow: 0 8px 28px rgba(0,0,0,.45), 0 0 0 8px rgba(150,235,80,0), 0 0 26px rgba(150,235,80,.45), inset 0 1px 0 rgba(255,255,255,.55); } }
+:where(html.mh460) #title .tt-logo, :where(html.mh460) #title .tt-actions { width: min(calc(var(--lh) * 70), calc(var(--lw) * 40), 560px); }
+:where(html.mh460) #btn-start { padding: 12px 30px; }
+@media (prefers-reduced-motion: reduce) { #title * { animation-duration: .01s !important; animation-iteration-count: 1 !important; } }
 /* touch-action none on the buttons: a slightly moving finger must not turn the tap into a scroll (that cancels it) */
 #title button { touch-action: none; position: relative; z-index: 1; transition: transform .08s; }
 #title button:active, #title button.pressed { transform: scale(.96); filter: brightness(1.15); }
@@ -169,8 +195,11 @@ body.touch *, body.touch *::before, body.touch *::after { backdrop-filter: none 
 body.touch .custom-modal { background: rgba(8, 6, 16, 0.95); }
 body.touch .photo-controls { background: rgba(14, 10, 24, 0.95); }
 /* @media (max-height: 500px) : html class set by the screen script (the page may be turned) */
-:where(html.mh500) .title-tag { margin-bottom: 10px; }:where(html.mh500) .controls-help { margin-top: 12px; }:where(html.mh500) #title h1 { font-size: clamp(36px, calc(var(--lw) * 7), 60px); }
-.controls-help { margin-top: 28px; font-size: 12px; line-height: 1.7; opacity: .75; }
+.controls-help { font-size: 11.5px; line-height: 1.6; opacity: .8; }
+body:not(.touch) .touch-help { display: none; }
+/* eye held: the button glows and a soft frame tells the player the view is free */
+body.freelook #t-sight, body.freelook #btn-sight { border-color: #8fd0ff; color: #fff; box-shadow: 0 0 0 3px rgba(84,160,255,.35), 0 0 18px rgba(84,160,255,.55); }
+body.freelook #hud::after { content: ''; position: fixed; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px rgba(84,160,255,.22); }
 
 /* ---------- menu ---------- */
 
@@ -595,6 +624,11 @@ body.touch #prompt .p-hand { display: inline-flex; }
 .mc-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; padding: 10px 0; }
 .mc-row + .mc-row { border-top: 1px solid rgba(255, 255, 255, .07); }
 .mc-label { font-weight: 800; font-size: 13px; color: rgba(255, 255, 255, .8); }
+.mc-sub { margin: 14px 0 0; font-size: 10.5px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--lime); opacity: .75; }
+.mc-sub + .mc-row { border-top: none; }
+.mc-sub:first-child { margin-top: 0; }
+:where(html.mh460) .mc-row { padding: 7px 0; }
+:where(html.mh460) .mc-seg button { min-height: 34px; padding: 0 11px; font-size: 12px; }
 .mc-seg { display: inline-flex; flex-wrap: wrap; padding: 3px; border-radius: 13px; background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .1); }
 .mc-seg button { min-height: 38px; padding: 0 14px; border: none; border-radius: 10px; background: none; color: rgba(255, 255, 255, .6); font-weight: 800; font-size: 13px; }
 .mc-seg button.on { background: var(--lime); color: #0b120c; }
@@ -877,3 +911,62 @@ body.touch .photo-controls label, body.touch .photo-controls .pc-label { font-si
 :where(html.mh500) #boss-bar { top: calc(50px + var(--safe-t)); width: min(380px, calc(var(--lw) * 40)); }
 :where(html.mh500) #boss-name { font-size: 12px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 :where(html.mh500) #boss-bar .bar { height: 8px; }
+
+/* autosave pill: top centre, small, fades in and out */
+#save-ind { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 50%; z-index: 40; display: flex; align-items: center; gap: 5px;
+  padding: 3px 10px 3px 7px; border-radius: 999px; background: rgba(8, 14, 10, .55); border: 1px solid rgba(143, 230, 58, .35);
+  color: rgba(255, 255, 255, .85); font-size: 10.5px; font-weight: 800; letter-spacing: .02em; pointer-events: none;
+  transform: translate(-50%, -6px); opacity: 0; transition: opacity .35s, transform .35s; }
+#save-ind.on { opacity: 1; transform: translate(-50%, 0); }
+#save-ind svg { width: 12px; height: 12px; color: var(--lime); }
+#save-ind.on svg { animation: saveSpin 1.1s ease-in-out; }
+@keyframes saveSpin { 0% { transform: scale(.6) rotate(-30deg); opacity: .3; } 45% { transform: scale(1.15) rotate(0); opacity: 1; } 100% { transform: scale(1); } }
+body.dlg #save-ind { opacity: 0; }
+body.touch #btn-sight { display: none; } /* touch has its own hold-eye in the control arc; this one only answered a mouse */
+
+/* ---------- shared modal header (Wish / Artefak / Menara / Buronan), same language as the Dapur card ---------- */
+.modal-card { --ac: var(--lime); }
+.wish-panel { --ac: #ffd66b; }
+.art-card { --ac: #8fe63a; background: linear-gradient(180deg, rgba(22, 34, 24, .97), rgba(10, 16, 12, .97)); border: 1px solid rgba(143, 230, 58, .3); }
+.spire-card { --ac: #7cc8ff; background: linear-gradient(180deg, rgba(16, 26, 40, .97), rgba(8, 12, 22, .97)); border: 1px solid rgba(124, 200, 255, .32); }
+.bounty-card { --ac: #ff9a5c; background: linear-gradient(180deg, rgba(38, 20, 16, .97), rgba(18, 10, 9, .97)); border: 1px solid rgba(255, 154, 92, .32); }
+.mh { display: flex; align-items: center; gap: 11px; margin: 0 44px 12px 0; }
+.mh h2 { margin: 0; font-size: 17px; letter-spacing: .4px; line-height: 1.2; }
+.mh-sub { margin-top: 2px; font-size: 11.5px; color: rgba(255, 255, 255, .62); font-weight: 600; }
+.mh-ico { flex: none; width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; font-size: 20px;
+  color: var(--ac); background: color-mix(in srgb, var(--ac) 16%, transparent); border: 1px solid color-mix(in srgb, var(--ac) 30%, transparent); }
+.mh-sec { margin: 16px 0 8px; font-size: 11px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--ac); }
+.mh-sec small { margin-left: 6px; font-size: 10.5px; letter-spacing: 0; text-transform: none; font-weight: 600; color: rgba(255, 255, 255, .5); }
+.modal-close { font-size: 16px; }
+.modal-close svg { width: 16px; height: 16px; }
+body.touch .mh { margin-bottom: 9px; }
+body.touch .mh h2 { font-size: 15.5px; }
+body.touch .mh-ico { width: 32px; height: 32px; font-size: 18px; }
+/* photo mode: SVG icons instead of emoji */
+.pc-header span, .pc-btn-close, .pc-btn-snap, .pc-btn-sub { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.pc-header span svg { width: 17px; height: 17px; color: var(--gold); }
+.pc-btn-close svg { width: 12px; height: 12px; }
+.pc-btn-snap svg { width: 18px; height: 18px; }
+.pc-btn-sub svg { width: 14px; height: 14px; }
+.pc-btn-sub small { opacity: .7; font-size: .92em; }
+/* wish header sits left like the others; artefact slots match the green card */
+.wish-panel .mh { text-align: left; }
+.art-card .art-slot-card:not(.equipped), .art-card .art-bonus-box { background: rgba(255, 255, 255, .04); border-color: rgba(143, 230, 58, .18); }
+.art-empty { grid-column: 1 / -1; text-align: center; padding: 14px; font-size: 12.5px; color: rgba(255, 255, 255, .5); border: 1px dashed rgba(255, 255, 255, .14); border-radius: 12px; }
+/* whole party down */
+#ko-screen { position: fixed; inset: 0; z-index: 30; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: radial-gradient(ellipse at center, rgba(20, 4, 10, .35), rgba(10, 2, 6, .82)); opacity: 0; transition: opacity .6s; }
+#ko-screen.on { opacity: 1; }
+#ko-screen .ko-t { font-size: 26px; font-weight: 900; letter-spacing: .08em; color: #ffd8de; text-shadow: 0 2px 14px rgba(255, 40, 80, .55); transform: translateY(6px); transition: transform .8s; }
+#ko-screen.on .ko-t { transform: none; }
+#ko-screen .ko-s { font-size: 12px; color: rgba(255, 255, 255, .7); font-weight: 600; }
+#ko-screen .ko-bar { width: 160px; height: 3px; margin-top: 8px; border-radius: 3px; background: rgba(255, 255, 255, .15); overflow: hidden; }
+#ko-screen .ko-bar i { display: block; height: 100%; width: 0; background: #ff6b88; }
+#ko-screen.on .ko-bar i { animation: koBar 3s linear forwards; }
+@keyframes koBar { to { width: 100%; } }
+body.ko #touch, body.ko #skills, body.ko #inventory { opacity: 0; pointer-events: none; transition: opacity .4s; }
+/* touch: the combo counter sits left of the control arc instead of on top of the skill buttons */
+body.touch #combo { right: calc(240px + var(--safe-r)); top: calc(96px + var(--safe-t)); }
+body.touch #combo .cn { font-size: 34px; }
+body.touch #combo .cn small { font-size: 13px; }
+body.touch #combo .cbar { width: 90px; }

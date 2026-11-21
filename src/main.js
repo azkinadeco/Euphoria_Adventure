@@ -41,9 +41,27 @@ import { Rift } from './rift.js';
 import { VLOC } from './volcano.js';
 import { RLOC } from './reef.js';
 import { QUEST_ORDER } from './story.js';
-import { initAudio, sfx, setMusicMood } from './sfx.js';
+import { initAudio, sfx, setMusicMood, setMusicArea, suspendAudio, resumeAudio } from './sfx.js';
+import { prefs } from './prefs.js';
 import { toon, part, damp } from './toon.js';
 
+/** like renderer.compileAsync, but a material disposed while its shader is still compiling (an
+ *  effect that ended, a realm that unloaded) no longer throws inside three's poll timer and leaves the
+ *  promise hanging forever; it also gives up after `maxMs` so a loading fade can never stick */
+function compileSafe(R, scene, camera, maxMs) {
+  const mats = R.compile(scene, camera);
+  const t0 = performance.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      for (const m of mats) {
+        const prog = R.properties.get(m).currentProgram;
+        if (!prog || !prog.isReady || prog.isReady()) mats.delete(m);
+      }
+      if (!mats.size || performance.now() - t0 > maxMs) resolve(); else setTimeout(check, 10);
+    };
+    setTimeout(check, 0);
+  });
+}
 const $ = (id) => document.getElementById(id);
 
 class Game {
@@ -61,6 +79,8 @@ class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(55, VW() / VH(), 0.1, 1500);
     this.cam = { yaw: 2.6, pitch: 0.28, dist: 5.6, distTarget: 5.6, target: new THREE.Vector3(), shake: 0 };
+    // camera distance chosen by pinch / mouse wheel, kept between sessions
+    try { const d = parseFloat(localStorage.getItem('ea_camDist')); if (d >= 2.4 && d <= 11) this.cam.userDist = d; } catch (e) { /* storage blocked */ }
 
     this.input = new Input(canvas);
     this.vfx = new VFX(this.scene);
@@ -134,6 +154,7 @@ class Game {
     // place Luby napping on Sunbeam Rock for the title screen
     this.player.placeAt(new THREE.Vector3(LOC.workshop.x - 4, 0, LOC.workshop.z - 3), 0.6);
     this.clock = new THREE.Clock();
+    this._lifecycle();
     this._loop = this._loop.bind(this);
     requestAnimationFrame(this._loop);
   }
@@ -794,6 +815,7 @@ class Game {
     if (this.rift.active) this.rift.fail();
     if (this.spire.active) this.spire.exit(true);
     const P = this.player, S = this.state;
+    this.ui.downed?.(false);
     P.dead = false; P.healAll(0.6, true); P.hunger = Math.max(P.hunger, 40); P.iframes = 2;
     P.m.rig.root.visible = false; P.active = 0; P.m.rig.root.visible = true; this.ui.onSwitch();
     // leave every realm that is not the spawn first: exit() clears world.realm, so an exit after the
@@ -833,7 +855,7 @@ class Game {
       heroArtifacts: Object.fromEntries(P.roster.map((m) => [m.id, m.artifacts])),
       heroWeapons: Object.fromEntries(P.roster.map((m) => [m.id, m.weapon])),
       active: P.m.id, team: P.members.map((m) => m.id) };
-    try { localStorage.setItem(this.SAVE_KEY, JSON.stringify(data)); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(this.SAVE_KEY, JSON.stringify(data)); this.ui?.savedPing?.(); } catch (e) { /* storage unavailable */ }
   }
   load() {
     let d = null;
@@ -903,6 +925,7 @@ class Game {
     $('hud').classList.remove('hidden');
     this.ui.buildParty();
     if (this.input.touch) $('touch').classList.remove('hidden');
+    this.ui._minimap?.(); // first picture right away, not after the first HUD tick
     { const p = this.player.pos; const z = zoneOf(p.x, p.y, p.z); if (z) this._enterZone(z, true); }
     this.playing = true;
     this.input.enabled = true;
@@ -925,6 +948,9 @@ class Game {
       this.ui.toast(this.player.hero.name + ': “' + this.player.hero.voice.greet + '”');
     }
     this.inputLocked = false;
+    // the new camera controls, told once per device
+    let told = false; try { told = !!localStorage.getItem('ea_tipCam2'); localStorage.setItem('ea_tipCam2', '1'); } catch (e) { /* storage blocked */ }
+    if (!told) setTimeout(() => this.playing && this.ui.toast(this.input.touch ? 'Cubit layar untuk zoom · tahan tombol mata lalu geser untuk lihat sekeliling' : 'Roda mouse untuk zoom · tahan T / Alt untuk lihat sekeliling', ''), loaded ? 2500 : 9000);
   }
 
   // ======================================================================
@@ -993,19 +1019,38 @@ class Game {
   }
 
   hitstop(t) { this.hitstopT = Math.max(this.hitstopT, t); }
-  shake(a) { this.cam.shake = Math.max(this.cam.shake, a); }
+  shake(a) { a *= prefs.shake; if (a > 0) this.cam.shake = Math.max(this.cam.shake, a); }
 
   _updateCamera(dt) {
     const C = this.cam, P = this.player;
     const look = this.input.takeLook();
     if (this.playing && !this.inputLocked) {
-      C.yaw -= look.x * 0.0028;
-      C.pitch = Math.min(1.25, Math.max(-0.35, C.pitch + look.y * 0.0022));
-      if (this.input.wheel) { C.userDist = Math.min(10, Math.max(2.8, (C.userDist ?? 5.6) + this.input.wheel * 0.6)); C.distTarget = C.userDist; this.input.wheel = 0; }
-    }
+      if (this.input.freeLook && !C.free) { C.free = true; C.moveYaw = C.yaw; C.lookPitch = C.pitch; this.sight?.peek(true); } // lock the heading before this frame's drag
+      C.yaw -= look.x * 0.0028 * prefs.sens;
+      C.pitch = Math.min(1.25, Math.max(-0.35, C.pitch + look.y * 0.0022 * prefs.sens * (prefs.invY ? -1 : 1)));
+      // zoom: mouse wheel or two-finger pinch on the screen (spread = closer)
+      const z = this.input.wheel * 0.6 - this.input.pinch * 0.018;
+      if (z) {
+        C.userDist = Math.min(11, Math.max(2.4, (C.userDist ?? 5.6) + z)); C.distTarget = C.userDist;
+        clearTimeout(this._zoomSave); this._zoomSave = setTimeout(() => { try { localStorage.setItem('ea_camDist', C.userDist.toFixed(2)); } catch (e) { /* storage blocked */ } }, 600);
+      }
+      // free look (eye held): the walk keeps the heading it had; on release the view swings back behind
+      if (this.input.freeLook) {
+        C.returning = false;
+      } else if (C.free) { C.free = false; C.returning = true; C.returnT = 0; this.sight?.peek(false); }
+      if (C.returning) {
+        // swing back behind the walk; ends when there or after 0.7 s (a drag meanwhile just adds on top)
+        let d = (C.moveYaw - C.yaw) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
+        const k = 1 - Math.exp(-10 * dt);
+        C.yaw += d * k; C.pitch += (C.lookPitch - C.pitch) * k;
+        C.returnT += dt;
+        if (Math.abs(d) < 0.02 || C.returnT > 0.7) C.returning = false;
+      }
+    } else if (C.free) { C.free = C.returning = false; this.sight?.peek(false); }
+    this.input.wheel = 0; this.input.pinch = 0;
     if (!this.playing) { C.yaw += dt * 0.12; C.pitch = 0.22; C.distTarget = 4.2; }
     const L = this.combat?.lock;
-    if (L && this.playing && !this.inputLocked) {
+    if (L && this.playing && !this.inputLocked && !C.free && !C.returning) {
       // swing the camera behind the hero so the locked target stays in view
       const want = Math.atan2(P.pos.x - L.pos.x, P.pos.z - L.pos.z);
       let d = (want - C.yaw) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2;
@@ -1015,6 +1060,8 @@ class Game {
     if (Math.abs(this.camera.fov - fov) > 0.05) { this.camera.fov += (fov - this.camera.fov) * (1 - Math.exp(-10 * dt)); this.camera.updateProjectionMatrix(); }
     C.dist = damp(C.dist, C.distTarget, 4, dt);
     const tgt = P.pos.clone(); tgt.y += 1.25;
+    // title screen: aim a little left of the hero so she stands on the right, clear of the logo
+    if (!this.playing) { tgt.x -= Math.cos(C.yaw) * 1.6; tgt.z += Math.sin(C.yaw) * 1.6; tgt.y += 0.35; }
     if (L && this.playing) tgt.lerp(L.pos.clone().setY(L.pos.y + Math.min(L.tall * 0.5, 3)), L.isBoss ? 0.3 : 0.22);
     C.target.x = damp(C.target.x, tgt.x, 12, dt);
     C.target.z = damp(C.target.z, tgt.z, 12, dt);
@@ -1023,9 +1070,13 @@ class Game {
     const pos = new THREE.Vector3(C.target.x + Math.sin(C.yaw) * cp * C.dist, C.target.y + Math.sin(C.pitch) * C.dist, C.target.z + Math.cos(C.yaw) * cp * C.dist);
     // keep the camera out of tree canopies: pull it in toward Luby when foliage is in the way
     let free = 1;
+    const g0 = this.world.groundAt(C.target.x, C.target.z); // only ground that rises above the hero's counts (looking up stays as before)
     for (let i = 3; i <= 10; i++) {
       const f = i / 10;
-      if (this.world.canopyHit(C.target.x + (pos.x - C.target.x) * f, C.target.y + (pos.y - C.target.y) * f, C.target.z + (pos.z - C.target.z) * f)) { free = Math.max(0.3, f - 0.12); break; }
+      const sx = C.target.x + (pos.x - C.target.x) * f, sy = C.target.y + (pos.y - C.target.y) * f, sz = C.target.z + (pos.z - C.target.z) * f;
+      // tree canopy, or a hillside between hero and camera (matters once zoomed far out)
+      const gs = this.world.groundAt(sx, sz);
+      if (this.world.canopyHit(sx, sy, sz) || (this.world.camBlockers && this.world.blockerHit(sx, sy, sz)) || (gs + 0.35 > sy && gs > g0 + 0.5)) { free = Math.max(0.3, f - 0.12); break; }
     }
     C.occ = damp(C.occ ?? 1, free, free < (C.occ ?? 1) ? 18 : 3, dt);
     pos.sub(C.target).multiplyScalar(C.occ).add(C.target);
@@ -1088,13 +1139,44 @@ class Game {
       // compile anything the new area needs while the screen is covered, then reveal it
       const R = this.renderer, prevRT = R.getRenderTarget();
       R.setRenderTarget(this.graphics.composer?.renderTarget1 ?? null);
-      try { await R.compileAsync(this.scene, this.camera); } catch (e) { /* ignore */ } finally { R.setRenderTarget(prevRT); }
+      try { await compileSafe(R, this.scene, this.camera, 2500); } catch (e) { /* ignore */ } finally { R.setRenderTarget(prevRT); }
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       await wait(250);
       el.classList.remove('show');
       setTimeout(() => { if (!el.classList.contains('show')) el.classList.add('hidden'); }, 450);
     }
     this._zoneBusy = false;
+  }
+
+  /** pick the music theme for where the hero is (checked twice a second; the theme swaps on a bar line) */
+  _musicArea(dt) {
+    if ((this._musT = (this._musT || 0) - dt) > 0) return;
+    this._musT = 0.5;
+    const p = this.player.pos;
+    let id = 'forest';
+    if (this.rift?.active || this.spire?.active) id = 'arena';
+    else if (this.ch6?.active) id = 'ashen';
+    else if (this.ch5?.active) id = 'asgard';
+    else if (this.ch4?.active) id = 'void';
+    else {
+      const z = zoneOf(p.x, p.y, p.z);
+      if (z === 'reef' || z === 'volcano' || z === 'frost') id = z;
+      else if (this.playing && p.distanceTo(LOC.camp) < 22) id = 'camp';
+    }
+    setMusicArea(id);
+  }
+
+  /** the phone app / browser tab went to the background: save, silence, and come back to the pause menu */
+  _lifecycle() {
+    const away = () => {
+      suspendAudio();
+      if (!this.playing) return;
+      if (!this.player.dead && !this.ui.dialogOpen) this.save();
+      if (!this.paused && !this.ui.dialogOpen && !this._overlayOpen() && !this.photo?.active && !document.querySelector('.trial-card')) this.ui.toggleMenu(true);
+    };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) away(); else resumeAudio(); });
+    addEventListener('pagehide', away);
+    addEventListener('pageshow', () => resumeAudio());
   }
 
   /** a full-screen UI panel covers the world (menu, wish/artifact/spire/bounty modals, world map, kitchen) */
@@ -1145,6 +1227,7 @@ class Game {
     this.ch5.mood(dt);
     this.ch6.mood(dt);
     this.spire.mood();
+    this._musicArea(realDt);
     this.vfx.update(dt);
     this.weather.update(dt, this.player.pos);
     this.fishing.update(dt);
@@ -1153,7 +1236,7 @@ class Game {
     if (this.playing) {
       this.flightRings.update(dt, this.player);
       this.sight.update(dt, this.player.pos);
-      this.player.update(dt, this.input, this.cam.yaw);
+      this.player.update(dt, this.input, (this.cam.free || this.cam.returning) ? this.cam.moveYaw : this.cam.yaw);
       this.purrbot.update(dt, this.player, this.world);
       if (!this.inputLocked) {
         for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -1226,10 +1309,19 @@ if (game) {
   // Start stays disabled until the Blender models are in and their shaders are compiled: those
   // first seconds freeze the page on phones, and a tap during a freeze feels like a dead button
   const loadEl = $('loading');
-  const tickLoad = setInterval(() => { const n = pendingModels(); loadEl.textContent = n ? `Memuat model… (${n} tersisa)` : 'Menyiapkan shader…'; }, 250);
+  // slim progress bar: models count for 85 %, shader warm-up for the rest
+  const bar = $('tt-load-bar');
+  let most = 1;
+  const tickLoad = setInterval(() => {
+    const n = pendingModels(); most = Math.max(most, n);
+    bar.style.width = (n ? 6 + 79 * (1 - n / most) : 92) + '%';
+    loadEl.textContent = n ? 'Memuat dunia…' : 'Menyiapkan grafis…';
+  }, 200);
   const ready = () => {
     clearInterval(tickLoad);
+    bar.style.width = '100%';
     loadEl.textContent = '';
+    $('title').classList.add('ready');
     startBtn.disabled = false;
     startBtn.textContent = game.hasSave() ? 'LANJUTKAN' : 'MULAI PETUALANGAN';
     if (game.hasSave()) $('btn-new').classList.remove('hidden');
@@ -1242,7 +1334,7 @@ if (game) {
     // mapping) — compiling for the screen would build a different, unused set of programs
     const R = game.renderer, prevRT = R.getRenderTarget();
     R.setRenderTarget(game.graphics.composer?.renderTarget1 ?? null);
-    try { await R.compileAsync(game.scene, game.camera); } finally { R.setRenderTarget(prevRT); }
+    try { await compileSafe(R, game.scene, game.camera, 25000); } finally { R.setRenderTarget(prevRT); }
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); // first frames (post-processing)
   })();
   Promise.race([warm, new Promise((r) => setTimeout(r, 30000))]).catch((e) => console.warn('[boot] warm-up', e)).finally(ready);
@@ -1251,6 +1343,13 @@ if (game) {
   const go = (fresh) => (e) => {
     e?.preventDefault?.();
     if (starting || startBtn.disabled) return; // touch events still reach a disabled button
+    // starting over wipes the save: ask with a second tap
+    const nb = $('btn-new');
+    if (fresh && !nb.classList.contains('confirm')) {
+      nb.classList.add('confirm'); nb.textContent = 'Ketuk lagi — progres lama akan dihapus';
+      clearTimeout(nb._t); nb._t = setTimeout(() => { nb.classList.remove('confirm'); nb.textContent = 'Mulai dari awal'; }, 3500);
+      return;
+    }
     starting = true;
     // show the press right away, let the browser paint it, then do the heavy start work
     const b = e?.currentTarget || startBtn;

@@ -325,7 +325,7 @@ export class Spire {
 
     sfx.quest();
     G.ui.toast(`LANTAI ${this.currentFloor} SELESAI! ${'⭐'.repeat(stars)} (${secLeft}s tersisa)`, 'gold big');
-    G.ui.toast(`Hadiah: +${starlightEarned} ✦ Starlight & Artifak [${art.setName} - ${art.slotName}]!`, 'gold big');
+    G.ui.toast(`Hadiah: +${starlightEarned} ✦ Starlight & Artefak [${art.setName} - ${art.slotName}]!`, 'gold big');
 
     setMusicMood('normal');
     this.leaveT = 2.5;
