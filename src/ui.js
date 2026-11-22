@@ -30,6 +30,21 @@ export class UI {
       const b = e.target.closest('button'); if (!b || b.disabled || b.closest('#touch, #skills')) return;
       sfx.ui();
     }, true);
+    // Esc (PC): close whatever is on top. Game keys are read inside the frozen world update, so
+    // with a menu / window open Esc used to do nothing at all.
+    addEventListener('keydown', (e) => {
+      if (e.code !== 'Escape' || e.repeat || !this.game.playing || this.dialogOpen || document.querySelector('.trial-card')) return;
+      const G = this.game;
+      const modal = [...document.querySelectorAll('.custom-modal')].find((m) => !m.classList.contains('hidden'));
+      let done = true;
+      if (modal) modal.querySelector('.modal-close')?.click();
+      else if (G.cooking?.active) G.cooking.close();
+      else if (G.fishing?.active) G.fishing.endFishing();
+      else if (G.photo?.active) G.photo.close();
+      else if (!$('menu').classList.contains('hidden')) this.toggleMenu(false);
+      else done = false;
+      if (done) { e.preventDefault(); e.stopImmediatePropagation(); }
+    }, true);
     // small "saved" pill: autosave used to be silent, so players never knew whether progress was kept
     this._saveInd = document.createElement('div'); this._saveInd.id = 'save-ind';
     this._saveInd.innerHTML = `${icon('save')}<span>Tersimpan</span>`;
@@ -38,13 +53,24 @@ export class UI {
   }
 
   // ---------------- small feedback ----------------
+  /** queued: at most two on screen, the same line is never shown twice in a row, longer lines stay longer */
   toast(text, cls = '') {
-    const el = document.createElement('div');
-    el.className = 'toast ' + cls;
-    el.textContent = text;
-    $('toasts').appendChild(el);
-    setTimeout(() => el.remove(), 2900);
-    while ($('toasts').children.length > 4) $('toasts').firstChild.remove();
+    const Q = (this._tq ??= []);
+    if (Q.some((t) => t.text === text) || [...$('toasts').children].some((e) => e.textContent === text)) return;
+    Q.push({ text, cls });
+    if (Q.length > 6) { const i = Q.findIndex((t) => !/gold|big/.test(t.cls)); Q.splice(i < 0 ? 0 : i, 1); } // drop the oldest plain tip first
+    this._toastNext();
+  }
+  _toastNext() {
+    const box = $('toasts'), Q = this._tq;
+    while (Q.length && box.children.length < 2) {
+      const { text, cls } = Q.shift();
+      const el = document.createElement('div');
+      const life = Math.min(4.6, 2.2 + text.length * 0.035);
+      el.className = 'toast ' + cls; el.textContent = text; el.style.animationDuration = life + 's';
+      box.appendChild(el);
+      setTimeout(() => { el.remove(); this._toastNext(); }, life * 1000 + 100);
+    }
   }
   /**
    * Trial-hero introduction card (new game). Resolves true when the player chooses to try her now.
@@ -68,7 +94,7 @@ export class UI {
             <button data-a="try" style="${btn}background:${def.color};color:#fff">Coba sekarang</button>
             <button data-a="later" style="${btn}background:#2a2440;color:#d8d0f0">Nanti</button>
           </div>
-          <div style="font-size:11px;opacity:.6;margin-top:10px">Dia ada di daftar party (kanan). Ganti hero kapan saja lewat tombol angka atau ketuk namanya.</div>
+          <div style="font-size:11px;opacity:.6;margin-top:10px">${this.game.input.touch ? 'Dia ada di daftar party (kanan). Ganti hero kapan saja dengan mengetuk potretnya.' : 'Dia ada di daftar party (kanan). Ganti hero kapan saja dengan tombol 1-4. · Enter = coba · Esc = nanti'}</div>
         </div></div>`;
       const done = (v) => { window.removeEventListener('keydown', key, true); el.remove(); resolve(v); };
       const key = (e) => { if (e.key === 'Enter') { e.stopPropagation(); done(true); } else if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
@@ -374,7 +400,7 @@ export class UI {
       card.className = `wish-card r-${r.rarity}`;
       const icon = r.item.icon || (r.kind === 'artifact' ? (SLOTS[r.item.slot]?.icon || '🛡️') : '✦');
       const name = r.item.name || `${r.item.setName} (${r.item.slotName})`;
-      card.innerHTML = `<div class="icon">${icon}</div><div class="name">${name}</div><div class="stars">${'★'.repeat(r.rarity)}</div>`;
+      card.innerHTML = `<div class="icon">${iconFor(icon)}</div><div class="name">${name}</div><div class="stars">${'★'.repeat(r.rarity)}</div>`;
       grid.appendChild(card);
     }
   }
@@ -387,14 +413,14 @@ export class UI {
     const head = document.createElement('div');
     head.className = 'art-weapon-head';
     const cur = WEAPON_BY_ID[heroMem.weapon];
-    head.innerHTML = `<b>Senjata ${heroMem.def.name}:</b> ${cur ? `${cur.icon} ${cur.name} — ${cur.desc}` : 'belum ada'}`;
+    head.innerHTML = `<b>Senjata ${heroMem.def.name}:</b> ${cur ? `<i class="ico-in">${iconFor(cur.icon)}</i> ${cur.name} — ${cur.desc}` : 'belum ada'}`;
     wrap.appendChild(head);
     if (!owned.length) { const n = document.createElement('div'); n.className = 'art-weapon-empty'; n.textContent = 'Belum punya senjata. Dapatkan dari Doa Bintang.'; wrap.appendChild(n); return; }
     for (const w of owned) {
       const b = document.createElement('button');
       const holder = G.player.roster.find((m) => m.weapon === w.id);
       b.className = 'art-weapon-btn' + (holder === heroMem ? ' on' : '');
-      b.textContent = `${w.icon} ${w.name} ${'★'.repeat(w.rarity)}` + (holder && holder !== heroMem ? ` (dipakai ${holder.def.name})` : '');
+      b.innerHTML = `<i class="ico-in">${iconFor(w.icon)}</i> ${w.name} ${'★'.repeat(w.rarity)}` + (holder && holder !== heroMem ? ` (dipakai ${holder.def.name})` : '');
       b.title = w.desc;
       b.onclick = () => {
         if (holder) holder.weapon = null;
@@ -434,7 +460,7 @@ export class UI {
       card.className = `art-slot-card ${art ? 'equipped' : ''}`;
       const slotDef = SLOTS[s];
       if (art) {
-        card.innerHTML = `<div style="font-size:20px">${slotDef.icon}</div><b>${art.setName}</b><div style="color:#ffd700;font-size:11px">${'★'.repeat(art.rarity)} +${art.level}</div><div style="color:#9fe8ff">${art.mainStatName}: ${art.statLabel}</div>`;
+        card.innerHTML = `<div class="art-sico">${iconFor(slotDef.icon)}</div><b>${art.setName}</b><div style="color:#ffd700;font-size:11px">${'★'.repeat(art.rarity)} +${art.level}</div><div style="color:#9fe8ff">${art.mainStatName}: ${art.statLabel}</div>`;
         const unequipBtn = document.createElement('button');
         unequipBtn.textContent = 'Lepas';
         unequipBtn.style.cssText = 'margin-top:6px;padding:2px 8px;font-size:11px;border-radius:10px;background:#ff4d6d;border:none;color:#fff;cursor:pointer;';
@@ -447,7 +473,7 @@ export class UI {
         };
         card.appendChild(unequipBtn);
       } else {
-        card.innerHTML = `<div style="font-size:20px;opacity:0.4">${slotDef.icon}</div><div style="opacity:0.6">${slotDef.name}</div><div style="color:#888;font-size:11px">Kosong</div>`;
+        card.innerHTML = `<div class="art-sico" style="opacity:.45">${iconFor(slotDef.icon)}</div><div style="opacity:0.6">${slotDef.name}</div><div style="color:#888;font-size:11px">Kosong</div>`;
       }
       slotsWrap.appendChild(card);
     }
@@ -550,7 +576,7 @@ export class UI {
       const isTarget = S.activeBountyId === b.id;
       const open = this.game.bounties.isUnlocked(b);
       card.innerHTML = `
-        <div class="bounty-item-icon" style="background:${b.color}22; border: 2px solid ${b.color};">${b.icon}</div>
+        <div class="bounty-item-icon" style="background:${b.color}22; border: 2px solid ${b.color}; color:${b.color}">${iconFor(b.icon)}</div>
         <div class="bounty-item-info">
           <div class="bounty-item-title"><span style="color:${b.color}; font-weight:800; font-size:16px;">${b.name}</span> · <small style="color:#d0c0e8;">${b.title}</small></div>
           <div class="bounty-item-loc" style="font-size:12px; color:#ffd700; margin: 3px 0;">📍 ${b.locName}</div>
@@ -696,12 +722,12 @@ export class UI {
     $('inv-grilled').classList.toggle('hidden', !(S.inv.grilled > 0) && !S.volcCamp);
     $('inv-cool').classList.toggle('hidden', !(S.inv.cool > 0) && !S.volcCamp);
     const st = [];
-    if (P.hot) st.push('<span class="st hot">🔥 Kepanasan</span>');
-    if (P.coolT > 0) st.push(`<span class="st cool">🧊 Sejuk ${Math.floor(P.coolT / 60)}:${String(Math.floor(P.coolT % 60)).padStart(2, '0')}</span>`);
-    if (P.swimming) st.push('<span class="st cool">🌊 Berenang</span>');
-    if (P.freezing) st.push('<span class="st cold">❄ Kedinginan</span>');
-    if (P.warmT > 0) st.push(`<span class="st warm">🍲 Hangat ${Math.floor(P.warmT / 60)}:${String(Math.floor(P.warmT % 60)).padStart(2, '0')}</span>`);
-    if (P.gliding) st.push('<span class="st cool">🪁 Glider</span>');
+    if (P.hot) st.push(`<span class="st hot">${icon('flame')}Kepanasan</span>`);
+    if (P.coolT > 0) st.push(`<span class="st cool">${icon('drink')}Sejuk ${Math.floor(P.coolT / 60)}:${String(Math.floor(P.coolT % 60)).padStart(2, '0')}</span>`);
+    if (P.swimming) st.push(`<span class="st cool">${icon('wave')}Berenang</span>`);
+    if (P.freezing) st.push(`<span class="st cold">${icon('snowflake')}Kedinginan</span>`);
+    if (P.warmT > 0) st.push(`<span class="st warm">${icon('soup')}Hangat ${Math.floor(P.warmT / 60)}:${String(Math.floor(P.warmT % 60)).padStart(2, '0')}</span>`);
+    if (P.gliding) st.push(`<span class="st cool">${icon('ribbon')}Glider</span>`);
     const html = st.join('');
     if (html !== this._st) { this._st = html; $('status-line').innerHTML = html; }
     $('cnt-scrap').textContent = S.parts.filter(Boolean).length + '/3';

@@ -143,6 +143,13 @@ export function updateCull(camPos, dt) {
       continue;
     }
     it.gone = 0;
+    // the played heroes: the camera is always right on them, never stream them out (their bounds also
+    // pick up the glider / swim pose, which made the measured centre drift and hid Scylla at sea)
+    if (o.userData.noCull) {
+      o.userData._far = false;
+      if (it.frozen) { it.frozen = false; delete o.updateMatrixWorld; }
+      continue;
+    }
     if (!it.measured) { // size + centre offset, measured once the object sits in the world
       o.userData._far = false;
       _box.setFromObject(o);

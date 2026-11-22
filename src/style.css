@@ -970,3 +970,41 @@ body.touch #combo { right: calc(240px + var(--safe-r)); top: calc(96px + var(--s
 body.touch #combo .cn { font-size: 34px; }
 body.touch #combo .cn small { font-size: 13px; }
 body.touch #combo .cbar { width: 90px; }
+/* SVG item icons inside the gacha / artefact / bounty windows (were emoji) */
+.wish-card .icon { display: grid; place-items: center; height: 38px; color: #fff; }
+.wish-card .icon svg { width: 30px; height: 30px; }
+.wish-card.r-5 .icon { color: #ffd66b; } .wish-card.r-4 .icon { color: #d6a8ff; } .wish-card.r-3 .icon { color: #9fe8ff; }
+.art-sico { display: grid; place-items: center; height: 26px; color: var(--gold); }
+.art-sico svg { width: 22px; height: 22px; }
+.ico-in { display: inline-grid; vertical-align: -3px; } .ico-in svg { width: 15px; height: 15px; }
+.bounty-item-icon svg { width: 24px; height: 24px; }
+/* arena pill (Rift waves / Spire floor clock) */
+#rift-hud { align-items: center; font-size: 13px; }
+#rift-hud #rift-time { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
+#rift-hud.spire { border-color: #7cc8ff; background: rgba(8, 20, 40, .6); }
+#rift-hud .sp-stars { margin-left: 6px; color: var(--gold); letter-spacing: 1px; font-size: 12px; }
+#rift-hud .sp-stars s { text-decoration: none; opacity: .25; }
+#rift-hud #rift-time.low { color: #ff8a9c; animation: blink 1s ease-in-out infinite; }
+body.touch #rift-hud { top: calc(58px + var(--safe-t)); font-size: 12px; padding: 4px 12px; gap: 10px; }
+#status-line .st { display: inline-flex; align-items: center; gap: 3px; }
+#status-line .st svg { width: 11px; height: 11px; }
+.frc-icon svg { width: 46px; height: 46px; }
+.frc-stars { color: var(--gold); letter-spacing: 2px; }
+/* phone HUD: status chips (heat, cold, swim, glider...) sat on the quest title; they go right of the HP bars,
+   under the party portraits */
+:where(html.mw960, html.mh500) #char-info { position: relative; }
+:where(html.mw960, html.mh500) #status-line { position: absolute; left: calc(100% + 12px); top: 42px; margin: 0; white-space: nowrap; font-size: 10px; min-height: 0; }
+/* full roster: the apply button stays in reach at the bottom of the scrolling pane */
+#team-apply { position: sticky; bottom: 0; z-index: 2; width: 100%; margin-top: 10px; justify-content: center;
+  background: var(--lime) !important; color: #0b120c !important; border: none; box-shadow: 0 -8px 16px 6px rgba(12, 20, 14, .95); }
+.frc-icon { display: flex; justify-content: center; }
+/* title: where the save stands, under LANJUTKAN */
+#tt-save { margin-top: 8px; text-align: center; line-height: 1.35; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
+#tt-save b { display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--lime); }
+#tt-save span { font-size: 12px; color: rgba(255, 255, 255, .8); font-weight: 600; }
+.map-ctrl-btn { display: grid; place-items: center; } .map-ctrl-btn svg { width: 20px; height: 20px; }
+/* PC at 1080p and up: corner HUD scaled with the screen height (--hz from the head script). Only blocks
+   placed by CSS; damage numbers, lock reticle and the stamina ring are positioned in screen px by JS. */
+:where(html.hz) :is(#char-panel, #quest-tracker, #minimap-wrap, #party, #inventory, #skills, #prompt, #boss-bar, #toasts, #combo, #rift-hud, #hud-top-row, #btn-menu, #save-ind) { zoom: var(--hz); }
+/* PC: combo counter sits left of the party list instead of on it */
+body:not(.touch) #combo { right: calc(250px + var(--safe-r)); top: 30%; }

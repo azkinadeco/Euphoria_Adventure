@@ -11,7 +11,7 @@ import { Enemy } from './enemies.js';
 import { VFX } from './vfx.js';
 import { UI } from './ui.js';
 import { Input } from './input.js';
-import { SCRIPTS, PART_NAMES, VOICE } from './story.js';
+import { SCRIPTS, PART_NAMES, VOICE, QUESTS } from './story.js';
 import { HEROES } from './heroes.js';
 import { Chapter1 } from './chapter1.js';
 import { Chapter2, heatAt, lavaAt } from './chapter2.js';
@@ -84,6 +84,7 @@ class Game {
 
     this.input = new Input(canvas);
     this.vfx = new VFX(this.scene);
+    this.vfx.camera = this.camera;
     this.world = new World(this.scene);
     this.ui = new UI(this);
     this.player = new Player(this);
@@ -1066,6 +1067,8 @@ class Game {
     C.target.x = damp(C.target.x, tgt.x, 12, dt);
     C.target.z = damp(C.target.z, tgt.z, 12, dt);
     C.target.y = damp(C.target.y, tgt.y, 8, dt);
+    // swimming: look down onto the swimmer a little, a camera skimming the waves loses her behind them
+    if (P.swimming && this.playing && !C.free && C.pitch < 0.32) C.pitch += (0.32 - C.pitch) * (1 - Math.exp(-3 * dt));
     const cp = Math.cos(C.pitch);
     const pos = new THREE.Vector3(C.target.x + Math.sin(C.yaw) * cp * C.dist, C.target.y + Math.sin(C.pitch) * C.dist, C.target.z + Math.cos(C.yaw) * cp * C.dist);
     // keep the camera out of tree canopies: pull it in toward Luby when foliage is in the way
@@ -1227,6 +1230,7 @@ class Game {
     this.ch5.mood(dt);
     this.ch6.mood(dt);
     this.spire.mood();
+    this.rift.mood();
     this._musicArea(realDt);
     this.vfx.update(dt);
     this.weather.update(dt, this.player.pos);
@@ -1280,7 +1284,7 @@ class Game {
       }
       this._findInteract();
       const qt = this.questTarget();
-      this.beacon.visible = !!qt;
+      this.beacon.visible = !!qt && !this.activeBoss(); // in a boss fight the target is right there; the beam only cut through the boss bar
       if (qt) this.beacon.position.set(qt.x, this.world.groundAt(qt.x, qt.z), qt.z);
       this.ui.update(dt);
       this._autosaveT = (this._autosaveT || 0) + dt;
@@ -1324,6 +1328,14 @@ if (game) {
     $('title').classList.add('ready');
     startBtn.disabled = false;
     startBtn.textContent = game.hasSave() ? 'LANJUTKAN' : 'MULAI PETUALANGAN';
+    // what "continue" leads to: chapter · quest · level, read straight from the save
+    try {
+      const d = JSON.parse(localStorage.getItem(game.SAVE_KEY)), Q = d && QUESTS[d.step];
+      if (Q) {
+        const ch = (Q.ch || 'PROLOG · WHISPERING WOODS').toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+        const el = $('tt-save'); el.innerHTML = `<b>${ch}</b><span>${Q.title} · Lv.${d.level || 1}</span>`; el.classList.remove('hidden');
+      }
+    } catch (e) { /* no / old save */ }
     if (game.hasSave()) $('btn-new').classList.remove('hidden');
   };
   const warm = (async () => {
@@ -1346,7 +1358,7 @@ if (game) {
     // starting over wipes the save: ask with a second tap
     const nb = $('btn-new');
     if (fresh && !nb.classList.contains('confirm')) {
-      nb.classList.add('confirm'); nb.textContent = 'Ketuk lagi — progres lama akan dihapus';
+      nb.classList.add('confirm'); nb.textContent = (game.input.touch ? 'Ketuk' : 'Klik') + ' lagi — progres lama akan dihapus';
       clearTimeout(nb._t); nb._t = setTimeout(() => { nb.classList.remove('confirm'); nb.textContent = 'Mulai dari awal'; }, 3500);
       return;
     }

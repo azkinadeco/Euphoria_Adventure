@@ -39,6 +39,9 @@
         for (var i = 0; i < Q.length; i++) H.classList.toggle(Q[i][0], (Q[i][1] ? h : w) <= Q[i][2]);
         H.style.setProperty('--lw', w / 100 + 'px');
         H.style.setProperty('--lh', h / 100 + 'px');
+        // big PC screens: the HUD was drawn in fixed px and looked tiny at 1080p+; scale it with the height
+        var hz = !touch && h > 820 ? Math.min(1.5, h / 760) : 1;
+        H.style.setProperty('--hz', hz.toFixed(3)); H.classList.toggle('hz', hz > 1);
         if (window.scrollX || window.scrollY) scrollTo(0, 0);
         dispatchEvent(new Event('appresize'));
       }
@@ -209,6 +212,7 @@
     <div class="tt-logo" role="img" aria-label="Euphoria Adventure"><i class="tt-shine"></i></div>
     <div class="tt-actions">
       <button id="btn-start" disabled>MEMUAT…</button>
+      <div id="tt-save" class="hidden"></div>
       <div class="tt-load"><i id="tt-load-bar"></i></div>
       <div id="loading"></div>
       <button id="btn-new" class="ghost hidden">Mulai dari awal</button>
@@ -242,7 +246,7 @@
       <div class="mc-body">
         <div class="mc-pane" data-pane="party"><div class="mc-note">Pilih maksimal 4 hero untuk dibawa.</div><div id="team"></div><button id="team-apply" class="mc-btn primary">Terapkan Party</button></div>
         <div class="mc-pane" data-pane="tp"><div id="tp"></div></div>
-        <div class="mc-pane" data-pane="cook"><div class="mc-note">Bekal dimasak di api unggun, lalu dimakan kapan saja (ketuk ikonnya di bar bawah) · <span id="cook-hint"></span></div><div id="cook"></div></div>
+        <div class="mc-pane" data-pane="cook"><div class="mc-note">Bekal dimasak di api unggun, lalu dimakan kapan saja (<span class="touch-help">ketuk ikonnya di bar bawah</span><span class="pc-help">tombol Z X C V B</span>) · <span id="cook-hint"></span></div><div id="cook"></div></div>
         <div class="mc-pane" data-pane="set">
           <div class="mc-sub">Grafis</div>
           <div class="mc-row"><div class="mc-label">Kualitas grafis</div>

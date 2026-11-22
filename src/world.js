@@ -422,8 +422,8 @@ export class World {
       ...splitBy(pines, 2).map((list, k) => ({ list, geo: pineTree(301 + k * 5, { height: 8 + k * 1.4 }), trunkMat: pineBark, leafMat: needleMat, color: pineColor, roots: 0.74 })),
     ]);
     loadGeometry('tree_roots').then((g) => g && addForestRoots(this, g));
-    for (const t of broad) { const c = this.addCollider(t.x, t.z, 0.45 * t.s); c.canopy = 3.0 * t.s; c.y0 = t.y + 3.2 * t.s; c.y1 = t.y + 8.4 * t.s; }
-    for (const t of pines) { const c = this.addCollider(t.x, t.z, 0.45 * t.s); c.canopy = 2.2 * t.s; c.y0 = t.y + 1.6 * t.s; c.y1 = t.y + 8.4 * t.s; }
+    for (const t of broad) { const c = this.addCollider(t.x, t.z, 0.45 * t.s); c.canopy = 3.0 * t.s; c.base = t.y; c.y0 = t.y + 3.2 * t.s; c.y1 = t.y + 8.4 * t.s; }
+    for (const t of pines) { const c = this.addCollider(t.x, t.z, 0.45 * t.s); c.canopy = 2.2 * t.s; c.base = t.y; c.y0 = t.y + 1.6 * t.s; c.y1 = t.y + 8.4 * t.s; }
     this.trees = [...broad, ...pines];
     for (const t of this.trees) this.addClearing(t.x, t.z, 1.05 * t.s);
 
@@ -626,7 +626,7 @@ export class World {
     }
   }
 
-  /** is this point inside a tree canopy? (used to keep the camera out of foliage) */
+  /** is this point inside a tree canopy or trunk? (used to keep the camera out of trees) */
   /** big solid props the camera must not sit inside (den crystals...): upright cylinders */
   blockerHit(x, y, z) {
     for (const b of this.camBlockers) if (y > b.y0 && y < b.y1 && (x - b.x) ** 2 + (z - b.z) ** 2 < b.r2) return true;
@@ -639,6 +639,8 @@ export class World {
       if (!list) continue;
       for (const c of list) {
         if (!c.canopy) continue;
+        // the trunk below the leaves is solid too: a camera behind it saw half the screen of bark
+        if (y >= c.base - 0.5 && y < c.y0 && (x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + 0.4) ** 2) return true;
         if (y < c.y0 - 0.6 || y > c.y1) continue;
         if ((x - c.x) ** 2 + (z - c.z) ** 2 < (c.canopy + 0.3) ** 2) return true;
       }

@@ -1,6 +1,7 @@
 // Euphoria Adventure — Full-Screen Interactive World Map & Fast Travel System
 // cartographic world map with pan, zoom, waypoint pins, and one-click teleportation.
 import { sfx } from './sfx.js';
+import { icon } from './icons.js';
 import { VW, VH, pt, rotated } from './screen.js';
 import { MINIMAP, LOC } from './world.js';
 import { RLOC } from './reef.js';
@@ -34,7 +35,7 @@ export class WorldMap {
       wrap.innerHTML = `
         <div class="map-header">
           <div class="map-title">Peta Euphoria<small id="map-where"></small></div>
-          <div class="map-hint">Geser untuk melihat · ketuk pin untuk teleport</div>
+          <div class="map-hint">${matchMedia('(pointer: coarse)').matches ? 'Geser untuk melihat · ketuk pin untuk teleport' : 'Seret untuk melihat · roda mouse zoom · klik pin untuk teleport'}</div>
           <button id="map-close" class="map-close-btn" aria-label="Tutup peta">✕</button>
         </div>
         <div id="map-canvas-container" class="map-canvas-container">
@@ -52,7 +53,7 @@ export class WorldMap {
         <div class="map-controls">
           <button id="map-btn-zin" class="map-ctrl-btn" title="Perbesar">+</button>
           <button id="map-btn-zout" class="map-ctrl-btn" title="Perkecil">−</button>
-          <button id="map-btn-recenter" class="map-ctrl-btn" title="Fokus ke Hero">🎯</button>
+          <button id="map-btn-recenter" class="map-ctrl-btn" title="Fokus ke Hero" aria-label="Fokus ke Hero">${icon('target')}</button>
         </div>
       `;
       document.body.appendChild(wrap);
@@ -209,9 +210,13 @@ export class WorldMap {
     document.getElementById('map-teleport-card')?.classList.add('hidden');
 
     this.resize();
+    // open at a zoom where the whole archipelago (~1250 x 850 m) fills the screen; big PC screens
+    // used to show it as a small cluster in the middle
+    const k = MINIMAP.N / MINIMAP.size;
+    this.scale = Math.min(3.2, Math.max(0.65, Math.min(this.canvas.width * 0.92 / (1250 * k), this.canvas.height * 0.9 / (850 * k))));
     const realm = this.realmName();
     document.getElementById('map-where').textContent = realm ? 'Kamu di ' + realm + ' · pilih pin untuk kembali' : '';
-    if (realm) { this.pan.x = 0; this.pan.y = 0; this.scale = 1; this.zoom(1); this._center(LOC.workshop.x, LOC.workshop.z); } else this.recenterOnPlayer();
+    if (realm) { this.pan.x = 0; this.pan.y = 0; this.zoom(1); this._center(LOC.workshop.x, LOC.workshop.z); } else this._center(-20, -200); // middle of the four islands; the target button still jumps to the hero
     sfx.ui();
     // light 2D loop while open: the quest diamond pulses
     const loop = () => { if (!this.active) return; this.render(); this._raf = requestAnimationFrame(loop); };

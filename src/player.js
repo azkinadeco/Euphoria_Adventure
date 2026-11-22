@@ -40,6 +40,7 @@ class Member {
     this.id = id;
     this.def = HEROES[id];
     this.rig = this.def.make();
+    this.rig.root.userData.noCull = true; // a played hero is never distance-culled (see cull.js)
     applyRim(this.rig.root, 0xffffff, 0.45);
     boostGlow(this.rig.root);
     this.level = level;
@@ -196,6 +197,9 @@ export class Player {
     if (i === this.active || !this.members[i]) return false;
     if (!force && (this.members[i].dead || this.switchCD > 0 || this.dead || G.inputLocked || (this.action && this.action !== 'attack' && this.action !== 'eat'))) {
       if (this.members[i].dead) G.ui.toast(this.members[i].def.name + ' tumbang — istirahat untuk memulihkan');
+      // pressed during the 1 s swap cooldown or mid-skill: remember it and swap as soon as allowed
+      // (it used to be dropped silently, which felt like a dead key)
+      else if (!this.dead) { this._wantSwitch = i; this._wantSwitchT = 1.2; }
       return false;
     }
     if (this.members[i].dead) return false;
@@ -287,6 +291,10 @@ export class Player {
     for (const m of this.members) {
       m.cd.skill = Math.max(0, m.cd.skill - dt); m.cd.burst = Math.max(0, m.cd.burst - dt);
       if (m.shieldT > 0) { m.shieldT -= dt; if (m.shieldT <= 0) m.shield = 0; }
+    }
+    if (this._wantSwitch !== undefined) {
+      if ((this._wantSwitchT -= dt) <= 0 || this._wantSwitch === this.active) this._wantSwitch = undefined;
+      else if (this.switchCD <= 0 && !G.inputLocked && (!this.action || this.action === 'attack' || this.action === 'eat')) { const i = this._wantSwitch; this._wantSwitch = undefined; this.switchTo(i); }
     }
     this.iframes -= dt; this.hurtT -= dt; this.combatT += dt; this.comboWindow -= dt; this.waterMsgT -= dt; this.switchCD -= dt;
     if (this.flipT > 0) this.flipT = Math.max(0, this.flipT - dt / 0.45);
@@ -431,7 +439,7 @@ export class Player {
     this.swimming = !!this.hero.swim && groundHere < -1.2 && this.pos.y < 0.3;
     if (this.swimming) {
       if (this.action && this.action !== 'burst') this.action = null;
-      this.pos.y += (-0.55 - this.pos.y) * (1 - Math.exp(-8 * dt)); this.vy = 0; this.grounded = true; this.doubleUsed = false;
+      this.pos.y += (-0.42 - this.pos.y) * (1 - Math.exp(-8 * dt)); // high enough that the waves do not swallow her this.vy = 0; this.grounded = true; this.doubleUsed = false;
       if (this.speedNow > 1 && Math.random() < 0.5) G.vfx.particles(new THREE.Vector3(this.pos.x, 0.05, this.pos.z), 2, 0xd8f4ff, { speed: 1.5, up: 1.5, life: 0.4 });
     } else if (groundHere > 0.2 && this.grounded) this.lastLand = this.pos.clone();
     const gh = Math.max(groundHere, -0.9);

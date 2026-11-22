@@ -85,14 +85,24 @@ export class VFX {
   }
 
   pillar(pos, color = 0xb8ff4a, h = 6, life = 0.6) {
+    // several level-ups at once (or a teleport + a quest) used to stack additive pillars into a white screen
+    const now = performance.now();
+    if (this._pil && now - this._pil.t < 400 && this._pil.p.distanceToSquared(pos) < 4) return;
+    this._pil = { t: now, p: pos.clone() };
     const fx = this.geo.pillar;
-    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fx ? 0.9 : 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, vertexColors: !!fx });
+    const m = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: fx ? 0.55 : 0.45, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, vertexColors: !!fx });
     const c = new THREE.Mesh(fx || new THREE.CylinderGeometry(0.6, 1.2, h, 16, 1, true), m);
     c.position.copy(pos);
     if (fx) c.scale.y = h; else c.position.y += h / 2;
     const o0 = m.opacity;
     this.scene.add(c);
-    this.items.push({ obj: c, t: 0, life, update: (it, k) => { m.opacity = o0 * (1 - k); c.scale.set(1 + k, fx ? h * (0.7 + 0.3 * Math.min(1, k * 5)) : 1, 1 + k); if (fx) c.rotation.y = k * 2.5; } });
+    this.items.push({ obj: c, t: 0, life, update: (it, k) => {
+      c.scale.set(1 + k, fx ? h * (0.7 + 0.3 * Math.min(1, k * 5)) : 1, 1 + k); if (fx) c.rotation.y = k * 2.5;
+      // the camera inside / right next to the beam: thin it out instead of whiting out the view
+      const cam = this.camera, r = 2.2 * (1 + k);
+      const near = cam ? Math.hypot(cam.position.x - c.position.x, cam.position.z - c.position.z) : 99;
+      m.opacity = o0 * (1 - k) * (0.12 + 0.88 * Math.min(1, Math.max(0, (near - r) / (r * 2.5))));
+    } });
   }
 
   /**

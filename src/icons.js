@@ -64,6 +64,14 @@ const P = {
   lips: '<path d="M2 12c3-4 6.5-5.2 10-3 3.5-2.2 7-1 10 3-3 4-6.3 6-10 6S5 16 2 12z"/><path d="M2 12h20"/>',
   dagger: '<path d="M12 2l2 3v10h-4V5z"/><path d="M7 15h10M12 15v4"/><circle cx="12" cy="20.5" r="1.3"/>',
   swords: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="M9.5 17.5L21 6V3h-3L6.5 14.5M11 19l-6-6M8 16l-4 4M5 21l-2-2"/>',
+  wolf: '<path d="M5 3l3 5h8l3-5 1 8-2 3-6 7-6-7-2-3z"/><path d="M9.5 12.5h.01M14.5 12.5h.01M11 16.5h2"/>',
+  volcano: '<path d="M2 21l6.5-11h7L22 21z"/><path d="M8.5 10l2 3 1.5-2 1.5 2 2-3"/><path d="M10 6c0-2 2-2 2-4M14 6c0-1.5 1.5-1.5 1.5-3"/>',
+  bow: '<path d="M6 3c7 2.5 10.5 8.5 9 18"/><path d="M6 3L15 21"/><path d="M4 12h13M14.5 9.5L17 12l-2.5 2.5"/>',
+  trident: '<path d="M12 22V6M7 3v4a5 5 0 0010 0V3M12 2v4"/><path d="M10 22h4"/>',
+  book: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19V5M8 7h7M8 10.5h5"/>',
+  tooth: '<path d="M7 3c-2.5 0-3.5 2.5-3 5 .5 3 1.4 5 1.8 8 .4 2.7 1.1 5 2.4 5 1.4 0 1.5-5 3.8-5s2.4 5 3.8 5c1.3 0 2-2.3 2.4-5 .4-3 1.3-5 1.8-8 .5-2.5-.5-5-3-5-2 0-3 1-5 1S9 3 7 3z"/>',
+  orb: '<circle cx="12" cy="10" r="7"/><path d="M9 8a3 3 0 013-2"/><path d="M7 21h10M8.5 18l-1.5 3M15.5 18l1.5 3"/>',
+  diamond: '<path d="M12 2l8 10-8 10-8-10z"/><path d="M4 12h16M12 2v20"/>',
   starburst: '<path d="M12 5.5l1.9 4 4.4.5-3.3 3 .9 4.3L12 15.1l-3.9 2.2.9-4.3-3.3-3 4.4-.5z"/><path d="M12 1.5v2M12 20.5v2M1.5 12h2M20.5 12h2M4.6 4.6L6 6M18 18l1.4 1.4M4.6 19.4L6 18M18 6l1.4-1.4"/>',
 };
 
@@ -78,6 +86,8 @@ const EMOJI = {
   '🐾': 'paw', '🌪️': 'tornado', '🛡️': 'shield', '🌊': 'wave', '⏳': 'hourglass', '✨': 'sparkle',
   '🦑': 'tentacle', '🌀': 'vortex', '🐍': 'snake', '☀️': 'sun', '✝️': 'cross', '💰': 'coin',
   '❄️': 'snowflake', '👑': 'crown', '💃': 'ribbon', '💎': 'gem', '⚡': 'bolt', '🛰️': 'satellite',
+  '🐺': 'wolf', '🌋': 'volcano', '🏹': 'bow', '🔱': 'trident', '📖': 'book', '🦷': 'tooth', '🔮': 'orb', '💠': 'diamond', '⭐': 'star',
+  '🍢': 'skewer', '🧊': 'drink', '🍲': 'soup', '🫐': 'berry', '🐟': 'fish', '🌶️': 'pepper', '🍖': 'meat', '✦': 'sparkle',
   '🎁': 'gift', '👄': 'lips', '🗡️': 'dagger', '⚔️': 'swords', '🌟': 'starburst', '🦁': 'lion', '🔥': 'flame',
 };
 export const iconFor = (emoji, cls) => icon(EMOJI[emoji] || 'sparkle', cls);

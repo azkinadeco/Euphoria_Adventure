@@ -9,6 +9,7 @@ import { Enemy } from './enemies.js';
 import { toon, part, animeMetal } from './toon.js';
 import { boostGlow } from './graphics.js';
 import { dropRandomArtifact } from './artifacts.js';
+import { icon } from './icons.js';
 import { sfx, setMusicMood } from './sfx.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -236,6 +237,22 @@ export class Spire {
     G.ui.toast(flDef.disorder, 'gold');
 
     this._spawnNextWave();
+    document.getElementById('rift-hud').classList.remove('hidden');
+    document.getElementById('rift-hud').classList.add('spire');
+    this._hud();
+  }
+
+  /** floor / wave / clock on the shared arena pill; the clock shows which star rating is still possible */
+  _hud() {
+    const fl = SPIRE_FLOORS[this.currentFloor - 1], t = Math.max(0, this.timeLeft);
+    const stars = t >= 120 ? 3 : t >= 60 ? 2 : 1; // same thresholds as _completeFloor
+    const txt = `Lantai ${this.currentFloor} · Gelombang ${Math.min(this.waveIdx, fl.waves.length)}/${fl.waves.length}`;
+    const clock = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    const w = document.getElementById('rift-wave'), c = document.getElementById('rift-time');
+    if (w.textContent !== txt) w.textContent = txt;
+    const html = `<i class="ico-in">${icon('hourglass')}</i>${clock}<b class="sp-stars">${'★'.repeat(stars)}<s>${'★'.repeat(3 - stars)}</s></b>`;
+    if (c._h !== html) { c._h = html; c.innerHTML = html; }
+    c.classList.toggle('low', t < 30);
   }
 
   _spawnNextWave() {
@@ -269,7 +286,8 @@ export class Spire {
   mood() {
     if (!this.active) return;
     const W = this.g.world;
-    W.sun.intensity *= 0.6; W.hemi.intensity *= 0.6;
+    // fixed arena light: the old x0.6 of the outside clock left the hero a silhouette on night floors
+    W.sun.intensity = 1.45; W.hemi.intensity = 0.95;
   }
 
   update(dt) {
@@ -278,6 +296,7 @@ export class Spire {
     // floor cleared: short pause on the reward, then leave
     if (this.leaveT > 0) { this.leaveT -= dt; if (this.leaveT <= 0) this.exit(); return; }
     this.timeLeft -= dt;
+    this._hud();
 
     if (this.timeLeft <= 0) {
       this.exit();
@@ -337,6 +356,8 @@ export class Spire {
     this.active = false;
     G.world.realm = null;
     this.group.visible = false;
+    document.getElementById('rift-hud').classList.add('hidden');
+    document.getElementById('rift-hud').classList.remove('spire');
     G.graphics.mood({ region: true, bloom: 0.42 });
 
     G.world.terrain.visible = true;

@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { upgrade } from './assets.js';
 import { Enemy } from './enemies.js';
 import { toon, part, canvasTex } from './toon.js';
+import { icon } from './icons.js';
 import { sfx, setMusicMood } from './sfx.js';
 import { boostGlow } from './graphics.js';
 
@@ -78,6 +79,13 @@ export class Rift {
     this.built = true;
   }
 
+  /** the arena floats in its own starlight: keep the heroes readable when it is night outside */
+  mood() {
+    if (!this.active) return;
+    const W = this.g.world;
+    W.sun.intensity = Math.max(W.sun.intensity, 1.7); W.hemi.intensity = Math.max(W.hemi.intensity, 1.15);
+  }
+
   enter() {
     const G = this.g, P = G.player, W = G.world;
     if (this.active) return;
@@ -130,7 +138,7 @@ export class Rift {
     this.t += dt;
     if (this.state !== 'result') this.time += dt;
     document.getElementById('rift-wave').textContent = `Gelombang ${Math.min(this.wave + 1, WAVES.length)}/${WAVES.length}`;
-    document.getElementById('rift-time').textContent = `⏱ ${Math.floor(this.time / 60)}:${String(Math.floor(this.time % 60)).padStart(2, '0')}`;
+    { const c = document.getElementById('rift-time'), h = `<i class="ico-in">${icon('hourglass')}</i>${Math.floor(this.time / 60)}:${String(Math.floor(this.time % 60)).padStart(2, '0')}`; if (c._h !== h) { c._h = h; c.innerHTML = h; } }
     // fell off the platform
     if (P.pos.y < ARENA.y - 14 && !P.dead) {
       P.placeAt(new THREE.Vector3(ARENA.x, 0, ARENA.z)); P.iframes = 1;

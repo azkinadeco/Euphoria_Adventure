@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { upgrade } from './assets.js';
 import { sfx } from './sfx.js';
+import { icon } from './icons.js';
 
 export const FISH_SPECIES = [
   { id: 'perch', name: 'Starfall Perch', stars: 2, icon: '🐟', color: '#54a0ff', desc: 'Ikan air tawar berkilau dari Danau Bintang. Dagingnya lembut dan harum.', starlight: 5 },
@@ -114,7 +115,7 @@ export class FishingManager {
       wrap.id = 'fishing-overlay';
       wrap.className = 'fishing-overlay hidden';
       wrap.innerHTML = `
-        <div id="fish-wait" class="fish-wait hidden"><span class="fw-bob"></span>Menunggu ikan menggigit…<small>ketuk layar saat tanda ! muncul</small></div>
+        <div id="fish-wait" class="fish-wait hidden"><span class="fw-bob"></span>Menunggu ikan menggigit…<small>${matchMedia('(pointer: coarse)').matches ? 'ketuk layar' : 'klik / tekan tombol apa saja'} saat tanda ! muncul</small></div>
         <div id="fish-alert" class="fish-alert hidden">!</div>
         <div id="fish-hud" class="fish-hud hidden">
           <div class="fish-header">
@@ -128,7 +129,7 @@ export class FishingManager {
           <div class="fish-progress-wrap">
             <div id="fish-progress-fill" class="fish-progress-fill"></div>
           </div>
-          <div class="fish-controls-tip">Tahan tombol agar penanda tetap di zona hijau</div>
+          <div class="fish-controls-tip">${matchMedia('(pointer: coarse)').matches ? 'Tahan tombol' : 'Tahan tombol / spasi'} agar penanda tetap di zona hijau</div>
           <button id="fish-reel-btn" class="fish-reel-btn">TARIK TALI</button>
         </div>
         <div id="fish-result-card" class="fish-result-card hidden">
@@ -269,10 +270,10 @@ export class FishingManager {
     $('fish-hud').classList.add('hidden');
     $('fish-result-card').classList.remove('hidden');
 
-    $('frc-icon').textContent = fish.icon;
+    $('frc-icon').innerHTML = icon(fish.stars >= 5 ? 'sparkle' : 'fish'); $('frc-icon').style.color = fish.color;
     $('frc-name').textContent = fish.name;
     $('frc-name').style.color = fish.color;
-    $('frc-stars').textContent = '⭐'.repeat(fish.stars);
+    $('frc-stars').textContent = '★'.repeat(fish.stars);
     $('frc-desc').textContent = fish.desc;
     $('frc-reward').textContent = `+${fish.stars} ikan · +${fish.stars * 40} EXP · +${fish.starlight} Starlight`;
 
